@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0F172A"
+    android:gravity="center"
+    android:padding="36dp">
+
+    <TextView
+        android:text="🔔"
+        android:textSize="56sp"
+        android:gravity="center"
+        android:layout_marginBottom="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:text="Visitor at Gate"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="6dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:text="This visitor is coming to meet you"
+        android:textColor="#94A3B8"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:layout_marginBottom="40dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <View
+        android:layout_width="60dp"
+        android:layout_height="2dp"
+        android:background="#334155"
+        android:layout_gravity="center"
+        android:layout_marginBottom="40dp"/>
+
+        <ImageView
+        android:id="@+id/ivVisitorPhoto"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_marginBottom="16dp"
+        android:scaleType="centerCrop"
+        android:visibility="gone"/>
+
+    <TextView
+        android:id="@+id/tvVisitorName"
+        android:textColor="#F1F5F9"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="8dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/tvVisitorPhone"
+        android:textColor="#94A3B8"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:layout_marginBottom="8dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:id="@+id/tvVisitPurpose"
+        android:textColor="#64748B"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:layout_marginBottom="52dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="14dp"
+        android:weightSum="2">
+
+        <Button
+            android:id="@+id/btnDecline"
+            android:text="Decline"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:backgroundTint="#EF4444"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:stateListAnimator="@null"/>
+
+        <Button
+            android:id="@+id/btnAccept"
+            android:text="Accept"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:backgroundTint="#22C55E"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:stateListAnimator="@null"/>
+            
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnViewVisitor"
+        android:text="View Details"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginBottom="14dp"
+        android:backgroundTint="#1E293B"
+        android:textColor="#E2E8F0"
+        android:textStyle="bold"
+        android:textSize="15sp"
+        android:stateListAnimator="@null"/>
+
+</LinearLayout>
