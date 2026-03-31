@@ -16,7 +16,7 @@ import BRAND from "./app/config";
 
 import VisitorPopup from "./app/components/VisitorPopup";
 import { setPopupHandler } from "./services/VisitorPopupService";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
 import HomeScreen from './app/HomeScreen/HomeScreen';
@@ -106,6 +106,8 @@ const ServiceRequestsStack = () => {
   );
 };
 
+
+
 // --- Modern Custom Tab Bar with Sliding Animation ---
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   const { nightMode } = usePermissions();
@@ -124,6 +126,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
   // Animated value for sliding
   const translateX = useRef(new Animated.Value(0)).current;
+
 
   useEffect(() => {
     // Calculate position including gaps
@@ -263,6 +266,37 @@ console.log("Payment:", typeof Payment);
 const NavigationTabs = () => {
   const { nightMode } = usePermissions();
 
+
+    useEffect(() => {
+  const checkPendingNavigation = async () => {
+    try {
+      const shouldNavigate = await AsyncStorage.getItem("SHOULD_NAVIGATE_VISITOR");
+      const visitorStr = await AsyncStorage.getItem("PENDING_VISITOR_NAVIGATE");
+
+      if (!shouldNavigate || !visitorStr) return;
+
+      const visitor = JSON.parse(visitorStr);
+      if (!visitor?.id) return;
+
+      console.log("🚀 Navigating AFTER APP READY:", visitor.id);
+
+      // 🔥 CLEAR BEFORE NAVIGATION
+      await AsyncStorage.removeItem("SHOULD_NAVIGATE_VISITOR");
+      await AsyncStorage.removeItem("PENDING_VISITOR_NAVIGATE");
+
+      setTimeout(() => {
+        navigationRef.navigate("VisitorApproval", { visitor });
+      }, 600);
+
+    } catch (e) {
+      console.log("❌ Navigation error:", e);
+    }
+  };
+
+  checkPendingNavigation();
+}, []);
+
+
   return (
     <SafeAreaView
       style={[
@@ -319,7 +353,6 @@ const NavigationPage = () => {
     });
   }, []);
   return (
-    <PermissionsProvider>
       <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
         <Stack.Navigator screenOptions={{
           cardStyle: { backgroundColor: "#ffffff" },
@@ -395,7 +428,6 @@ const NavigationPage = () => {
         />
         
       </NavigationContainer>
-    </PermissionsProvider>
     
   );
 };
