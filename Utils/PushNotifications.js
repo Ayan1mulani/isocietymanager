@@ -19,7 +19,7 @@ const initNotifee = async () => {
     id: "visitor",
     name: "Visitor Alerts",
     importance: AndroidImportance.HIGH,
-    sound: "default",
+    sound: "visitor_alert",
   });
 };
 

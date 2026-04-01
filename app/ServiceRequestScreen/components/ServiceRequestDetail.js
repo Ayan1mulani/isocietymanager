@@ -20,6 +20,7 @@ import { usePermissions } from "../../../Utils/ConetextApi";
 import AppHeader from "../../components/AppHeader";
 import StatusModal from "../../components/StatusModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { otherServices } from "../../../services/otherServices";
 
 const BRAND_BLUE = "#1996D3";
 const KAV_OFFSET = Platform.OS === "ios" ? 90 : 30;
@@ -87,7 +88,7 @@ const formatJustDate = (dateString) => {
 // Formats HH:MM:SS to HH:MM AM/PM, or passes through already formatted strings
 const formatJustTime = (timeString) => {
   if (!timeString) return null;
-  
+
   try {
     // 1. Clean up weird backend characters (\u202f is a narrow no-break space)
     let cleanedString = timeString.replace(/\u202F/g, ' ');
@@ -107,13 +108,13 @@ const formatJustTime = (timeString) => {
 
       const ampm = (h >= 12 && h < 24) ? 'PM' : 'AM';
       const h12 = h % 12 || 12;
-      
+
       return `${String(h12).padStart(2, '0')}:${m} ${ampm}`;
     }
-    
+
     return cleanedString;
-  } catch { 
-    return timeString; 
+  } catch {
+    return timeString;
   }
 };
 
@@ -131,6 +132,7 @@ const ServiceRequestDetailScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const onGoBack = route.params?.onGoBack;
+  const [areas, setAreas] = useState([]);
 
   const { nightMode } = usePermissions();
   const complaint = route.params?.complaint || {};
@@ -259,6 +261,29 @@ const ServiceRequestDetailScreen = () => {
     });
   };
 
+  useEffect(() => {
+    loadAreas();
+  }, []);
+
+  const loadAreas = async () => {
+    try {
+      const res = await otherServices.getCommonAreas();
+      const list = res?.data || res || [];
+      setAreas(list);
+    } catch (e) {
+      console.log("Areas error:", e);
+    }
+  };
+  const areaId =
+    complaint?.constant_society_id ??   // 🔥 THIS IS THE REAL FIELD
+    complaint?.area_id ??
+    complaint?.location_id ??
+    parsedData?.area_id ??
+    parsedData?.location_id;
+
+  const selectedArea = areas.find(
+    a => String(a.id) === String(areaId)
+  );
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={["bottom"]}>
       <AppHeader title={complaint.complaint_type_name || "Service Request"} />
@@ -272,10 +297,30 @@ const ServiceRequestDetailScreen = () => {
 
           <View style={[styles.card, { backgroundColor: theme.card }]}>
             <View style={styles.cardHeader}>
-              <Text style={[styles.requestNo, { color: BRAND_BLUE }]}>#{complaint.com_no || complaint.id}</Text>
+              {/* LEFT SIDE */}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.requestNo, { color: BRAND_BLUE }]}>
+                  #{complaint.com_no || complaint.id}
+                </Text>
+
+                {selectedArea && (
+                  <Text style={{ color: theme.text, fontSize: 12, marginTop: 2 }}>
+                    📍 {selectedArea.name}
+                  </Text>
+                )}
+              </View>
+
+              {/* RIGHT SIDE */}
               <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
-                <Ionicons name={statusConfig.icon} size={13} color={statusConfig.color} style={{ marginRight: 4 }} />
-                <Text style={[styles.statusText, { color: statusConfig.color }]}>{statusConfig.label}</Text>
+                <Ionicons
+                  name={statusConfig.icon}
+                  size={13}
+                  color={statusConfig.color}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.statusText, { color: statusConfig.color }]}>
+                  {statusConfig.label}
+                </Text>
               </View>
             </View>
             <Text style={[styles.subCategory, { color: theme.sub }]}>{complaint.sub_category}</Text>
@@ -285,6 +330,7 @@ const ServiceRequestDetailScreen = () => {
             <InfoRow label="Block" value={complaint.block} theme={theme} />
             <InfoRow label="Unit" value={complaint.display_unit_no} theme={theme} />
             <InfoRow label="Severity" value={complaint.severity} theme={theme} />
+
             <InfoRow
               label="Assigned Staff"
               value={complaint.staff_name || "Not Assigned"}

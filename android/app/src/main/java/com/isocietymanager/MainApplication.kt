@@ -1,4 +1,4 @@
-package com.isocietymanager
+package com.sumasamu.iSocietyManager
 
 import android.app.Application
 import com.facebook.react.PackageList

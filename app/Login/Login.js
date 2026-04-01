@@ -162,7 +162,7 @@ const NewLoginScreen = () => {
         await loadPermissions();
         setTimeout(async () => {
           await RegisterAppOneSignal();
-        });
+        },500);
         setTimeout(() => {
           navigation.dispatch(
             CommonActions.reset({

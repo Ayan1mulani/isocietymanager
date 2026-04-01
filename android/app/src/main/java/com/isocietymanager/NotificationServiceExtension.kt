@@ -1,4 +1,4 @@
-package com.isocietymanager
+package com.sumasamu.iSocietyManager
 import android.net.Uri
 import android.app.ActivityManager
 import android.app.Notification

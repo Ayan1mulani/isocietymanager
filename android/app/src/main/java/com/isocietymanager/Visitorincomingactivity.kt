@@ -1,4 +1,4 @@
-package com.isocietymanager
+package com.sumasamu.iSocietyManager
 
 import android.app.Activity
 import android.content.Context

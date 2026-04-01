@@ -26,7 +26,7 @@
         -->
         <meta-data
             android:name="com.onesignal.NotificationServiceExtension"
-            android:value="com.isocietymanager.MyNotificationServiceExtension" />
+            android:value="com.sumasamu.iSocietyManager.MyNotificationServiceExtension" />
 
         <!-- Main Activity -->
         <activity

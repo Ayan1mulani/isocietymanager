@@ -27,64 +27,64 @@ export default function App() {
 
   // 🔥 Store visitor until navigation is ready + user logged in
   const pendingVisitorRef = useRef(null);
+      const lastHandledVisitorId = useRef(null);
+
 
   /* -------------------------------------------------------
      🚀 SAFE NAVIGATION
   ------------------------------------------------------- */
-  const tryNavigate = () => {
-    if (!pendingVisitorRef.current) return;
-    if (!navigationRef.isReady()) return;
+ const tryNavigate = () => {
+  if (!pendingVisitorRef.current) return;
+  if (!navigationRef.isReady()) return;
 
-    const route = navigationRef.getCurrentRoute()?.name;
+  const visitor = pendingVisitorRef.current;
 
-    if (!isUserLoggedIn(route)) {
-      console.log("⏳ Waiting for login...");
-      return;
-    }
+  // 🚫 STOP duplicate
+  if (lastHandledVisitorId.current === visitor.id) {
+    console.log("🚫 Duplicate visitor ignored:", visitor.id);
+    return;
+  }
 
-    const visitor = pendingVisitorRef.current;
-    pendingVisitorRef.current = null;
+  const route = navigationRef.getCurrentRoute()?.name;
 
-    console.log("🚀 FINAL NAVIGATION:", visitor.id);
+  if (!isUserLoggedIn(route)) return;
 
-    setTimeout(() => {
-      navigationRef.navigate("VisitorNotificationMessage", { visitor });
-    }, 300);
-  };
+  lastHandledVisitorId.current = visitor.id; // ✅ mark handled
+  pendingVisitorRef.current = null;
+
+
+};
 
   /* -------------------------------------------------------
      🔗 NAVIGATION EVENTS (REAL FIX)
   ------------------------------------------------------- */
- useEffect(() => {
-  let interval = null;
+  useEffect(() => {
+    let interval = null;
 
-  const startChecking = () => {
-    interval = setInterval(() => {
-      if (!pendingVisitorRef.current) return;
-      if (!navigationRef.isReady()) return;
+    const startChecking = () => {
+      interval = setInterval(() => {
+        if (!pendingVisitorRef.current) return;
+        if (!navigationRef.isReady()) return;
 
-      const route = navigationRef.getCurrentRoute()?.name;
+        const route = navigationRef.getCurrentRoute()?.name;
 
-      if (!isUserLoggedIn(route)) {
-        console.log("⏳ Waiting for login...");
-        return;
-      }
+        if (!isUserLoggedIn(route)) {
+          console.log("⏳ Waiting for login...");
+          return;
+        }
 
-      const visitor = pendingVisitorRef.current;
-      pendingVisitorRef.current = null;
+        const visitor = pendingVisitorRef.current;
+        pendingVisitorRef.current = null;
 
-      console.log("🚀 FINAL NAVIGATION (polling):", visitor.id);
+        console.log("🚀 FINAL NAVIGATION (polling):", visitor.id);
+        clearInterval(interval);
+      }, 300); // check every 300ms
+    };
 
-      navigationRef.navigate("VisitorNotificationMessage", { visitor });
+    startChecking();
 
-      clearInterval(interval);
-    }, 300); // check every 300ms
-  };
-
-  startChecking();
-
-  return () => clearInterval(interval);
-}, []);
+    return () => clearInterval(interval);
+  }, []);
 
   /* -------------------------------------------------------
      📦 LOAD CONFIG
@@ -267,6 +267,12 @@ export default function App() {
               ? JSON.parse(visitorStr)
               : visitorStr;
 
+          // 🚫 prevent duplicate
+          if (lastHandledVisitorId.current === visitor.id) {
+            console.log("🚫 Skipping duplicate from AppState");
+            return;
+          }
+
           pendingVisitorRef.current = visitor;
           tryNavigate();
         }
@@ -278,26 +284,6 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  /* -------------------------------------------------------
-     🔑 TOKEN CHANGE
-  ------------------------------------------------------- */
-  useEffect(() => {
-    const sub = OneSignal.User.pushSubscription.addEventListener(
-      "change",
-      async () => {
-        try {
-          const user = await AsyncStorage.getItem("userInfo");
-          if (!user) return;
-          await RegisterAppOneSignal();
-        } catch (e) {
-          console.log("❌ Token error:", e);
-        }
-      }
-    );
-
-    return () =>
-      OneSignal.User.pushSubscription.removeEventListener("change", sub);
-  }, []);
 
   /* -------------------------------------------------------
      UI

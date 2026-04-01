@@ -1,4 +1,4 @@
-package com.isocietymanager
+package com.sumasamu.iSocietyManager
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

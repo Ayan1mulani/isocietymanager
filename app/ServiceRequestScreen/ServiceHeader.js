@@ -25,13 +25,11 @@ const PER_PAGE = 15;
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
-  light: { background: '#FFFFFF', surface: '#F8F9FA', text: '#111827', textSecondary: '#6C757D' },
-  dark: { background: '#121212', surface: '#1E1E1E', text: '#FFFFFF', textSecondary: '#9E9E9E' },
+  light: { background: '#FFFFFF', text: '#111827', textSecondary: '#6C757D' },
+  dark: { background: '#121212', text: '#FFFFFF', textSecondary: '#9E9E9E' },
 };
 
-
-
-const TERMINAL_STATUSES = ['closed', 'resolved', 'completed', 'cancelled', 'rejected', 'withdrawn',];
+const TERMINAL_STATUSES = ['closed', 'resolved', 'completed', 'cancelled', 'rejected', 'withdrawn'];
 const normalizeStatus = (status) => (status || '').trim().toLowerCase();
 
 const LazyTabPage = React.memo(({ tabIndex, activeIndex, backgroundColor, children }) => {
@@ -40,7 +38,7 @@ const LazyTabPage = React.memo(({ tabIndex, activeIndex, backgroundColor, childr
 
   if (!hasBeenActive.current) {
     return (
-      <View style={{ width: SCREEN_WIDTH, flex: 1, backgroundColor, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ width: SCREEN_WIDTH, flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor }}>
         <ActivityIndicator size="large" color={BRAND.COLORS.primary} />
       </View>
     );
@@ -55,8 +53,8 @@ const ServiceRequestTabs = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const isFetchingRef = useRef(false);
 
+  const isFetchingRef = useRef(false);
   const scrollViewRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
@@ -69,6 +67,7 @@ const ServiceRequestTabs = () => {
   const canCreateComplaint = permissionsLoaded && hasPermission(permissions, 'COM', 'C');
   const canReopen = permissionsLoaded && hasPermission(permissions, 'COM', 'REOPEN');
 
+  // ✅ Filter data
   const requests = useMemo(() => ({
     open: allComplaints.filter(i => !TERMINAL_STATUSES.includes(normalizeStatus(i.status))),
     closed: allComplaints.filter(i => TERMINAL_STATUSES.includes(normalizeStatus(i.status))),
@@ -81,111 +80,124 @@ const ServiceRequestTabs = () => {
     All: requests.all,
   }), [requests]);
 
+  // ✅ API Call
   const fetchServiceRequests = useCallback(async (page = 1, reset = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
 
     try {
       reset ? setIsLoading(true) : setIsLoadingMore(true);
+
       const res = await complaintService.getMyComplaints({ page, perPage: PER_PAGE });
-      let pageData = Array.isArray(res?.data) ? res.data : [];
+      const pageData = Array.isArray(res?.data) ? res.data : [];
 
-      if (pageData.length === 0 && res?.metadata?.count > 0 && page === 1) {
-        const retry = await complaintService.getMyComplaints({ page: 1, perPage: PER_PAGE });
-        pageData = Array.isArray(retry?.data) ? retry.data : [];
-      }
+      const cleaned = pageData.map((item) => ({
+        ...item,
+        status: normalizeStatus(item.status),
+      }));
 
-      const cleaned = pageData.map((item) => {
-        let parsedData = {};
-        try { parsedData = item?.data ? JSON.parse(item.data) : {}; } catch (_) { }
-        return {
-          ...item,
-          status: normalizeStatus(item.status),
-          rawStatus: item?.status || '',
-          sub_category: item?.sub_category || 'No Sub Category',
-          parsedData,
-        };
-      });
-
-      const totalCount = res?.metadata?.count ?? res?.metadata?.total ?? null;
-      const fetchedSoFar = reset ? cleaned.length : (allComplaints.length + cleaned.length);
-      const moreAvailable = cleaned.length === PER_PAGE && (totalCount === null || fetchedSoFar < totalCount);
-
-      setHasMore(moreAvailable);
       setCurrentPage(page);
+      setHasMore(pageData.length === PER_PAGE);
 
       if (reset) {
         setAllComplaints(cleaned);
       } else {
         setAllComplaints(prev => {
-          const existingIds = new Set(prev.map(i => i.id ?? i.com_no));
-          const newItems = cleaned.filter(i => !existingIds.has(i.id ?? i.com_no));
+          const ids = new Set(prev.map(i => i.id ?? i.com_no));
+          const newItems = cleaned.filter(i => !ids.has(i.id ?? i.com_no));
           return [...prev, ...newItems];
         });
       }
+
     } catch (err) {
-      console.error('fetchServiceRequests:', err);
-      if (reset) setAllComplaints([]);
+      console.error(err);
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
       isFetchingRef.current = false;
     }
-  }, [allComplaints.length]);
+  }, []);
 
+  // ✅ Load More
   const handleLoadMore = useCallback(() => {
-    if (!hasMore || isLoadingMore || isLoading) return;
-    fetchServiceRequests(currentPage + 1, false);
-  }, [hasMore, isLoadingMore, isLoading, currentPage, fetchServiceRequests]);
+    if (hasMore && !isLoadingMore && !isLoading) {
+      fetchServiceRequests(currentPage + 1, false);
+    }
+  }, [hasMore, isLoadingMore, isLoading, currentPage]);
 
+  // ✅ Refresh
   const handleRefresh = useCallback(() => {
     setHasMore(true);
     fetchServiceRequests(1, true);
-  }, [fetchServiceRequests]);
-
-  const handleTabPress = useCallback((index) => {
-    setActiveTabIndex(index);
-    scrollViewRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
   }, []);
 
-  const handleMomentumScrollEnd = useCallback((e) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    setActiveTabIndex(index);
-  }, []);
-
+  // ✅ FIX: Auto load Closed tab
   useEffect(() => {
-    if (canViewComplaints) fetchServiceRequests(1, true);
+    const currentTab = TABS[activeTabIndex];
+
+    if (
+      currentTab === 'Closed' &&
+      requests.closed.length < PER_PAGE &&
+      hasMore &&
+      !isLoading &&
+      !isLoadingMore
+    ) {
+      fetchServiceRequests(currentPage + 1, false);
+    }
+  }, [
+    activeTabIndex,
+    requests.closed.length,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    currentPage,
+  ]);
+
+  // Initial Load
+  useEffect(() => {
+    if (canViewComplaints) {
+      fetchServiceRequests(1, true);
+    }
   }, [canViewComplaints]);
 
+const handleTabPress = useCallback((index) => {
+  setActiveTabIndex(index);
+
+  requestAnimationFrame(() => {
+    scrollViewRef.current?.scrollTo({
+      x: index * SCREEN_WIDTH,
+      animated: true,
+    });
+  });
+}, []);
+
+  const handleMomentumScrollEnd = (e) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    setActiveTabIndex(index);
+  };
+
+  // UI states
   if (!permissionsLoaded) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: theme.textSecondary, marginTop: 12 }}>Loading...</Text>
       </View>
     );
   }
 
   if (!canViewComplaints) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
-        <Ionicons name="lock-closed-outline" size={64} color={theme.textSecondary} />
-        <Text style={[styles.restrictedTitle, { color: theme.text }]}>Access Restricted</Text>
-        <Text style={[styles.restrictedSub, { color: theme.textSecondary }]}>
-          You do not have permission to view service requests.{'\n'}
-          Please contact your administrator.
-        </Text>
+      <View style={styles.centered}>
+        <Text>No Permission</Text>
       </View>
     );
   }
 
   if (isLoading && allComplaints.length === 0) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme.background }]}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: theme.textSecondary, marginTop: 12, fontSize: 14 }}>
-          Loading requests...
-        </Text>
+        <Text>Loading requests...</Text>
       </View>
     );
   }
@@ -193,10 +205,20 @@ const ServiceRequestTabs = () => {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SlidingTabs tabs={TABS} activeIndex={activeTabIndex} onTabPress={handleTabPress} scrollX={scrollX} />
+
       <Animated.ScrollView
-        ref={scrollViewRef} horizontal pagingEnabled bounces={false} overScrollMode="never"
-        showsHorizontalScrollIndicator={false} scrollEventThrottle={16} onMomentumScrollEnd={handleMomentumScrollEnd}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        bounces={false}
+        overScrollMode="never"
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false }
+        )}
       >
         {TABS.map((tab, index) => (
           <LazyTabPage key={tab} tabIndex={index} activeIndex={activeTabIndex} backgroundColor={theme.background}>
@@ -218,10 +240,10 @@ const ServiceRequestTabs = () => {
 
       {canCreateComplaint && (
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: COLORS.primary, shadowColor: nightMode ? '#000' : COLORS.primary }]}
-          onPress={() => navigation.navigate('CategorySelection')} activeOpacity={0.8}
+          style={[styles.fab, { backgroundColor: COLORS.primary }]}
+          onPress={() => navigation.navigate('CategorySelection')}
         >
-          <Ionicons name="add" size={28} color="#FFFFFF" />
+          <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       )}
     </View>
@@ -232,8 +254,20 @@ export default ServiceRequestTabs;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  fab: { position: 'absolute', bottom: 110, right: 30, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-  restrictedTitle: { fontSize: 18, fontWeight: '600', marginTop: 16 },
-  restrictedSub: { fontSize: 13, textAlign: 'center', marginTop: 8, lineHeight: 20 },
+  fab: {
+    position: 'absolute',
+    bottom: 110,
+    right: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
