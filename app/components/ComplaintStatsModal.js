@@ -59,10 +59,19 @@ const ComplaintStats = ({ theme, nightMode, onSegmentPress, selectedSegment }) =
     });
   }, [selectedSegment, dynamicData]);
 
-  const total = dynamicData.reduce((sum, item) => sum + (item.count || 0), 0);
+const total = dynamicData.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
   const OUTER_R = 55;
   const INNER_R = 34;
   const GAP_DEG = 1.5;
+
+  const enrichedData = dynamicData.map(item => {
+  const percentage = total > 0 ? (item.count / total) * 100 : 0;
+
+  return {
+    ...item,
+    percentage: Math.round(percentage),
+  };
+});
 
   const polarToCartesian = (r, angleDeg) => {
     const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -102,8 +111,7 @@ const ComplaintStats = ({ theme, nightMode, onSegmentPress, selectedSegment }) =
   };
 
   let currentAngle = -90;
-  const segments = dynamicData.map((item) => {
-    const percentage = total > 0 ? (item.count / total) * 100 : 0;
+const segments = enrichedData.map((item) => {    const percentage = total > 0 ? (item.count / total) * 100 : 0;
     const angle = total > 0 ? (percentage / 100) * 360 : 0;
     const segment = {
       ...item,
@@ -163,7 +171,7 @@ const ComplaintStats = ({ theme, nightMode, onSegmentPress, selectedSegment }) =
         </View>
 
         <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
-          {dynamicData.map(renderLegendItem)}
+{enrichedData.map(renderLegendItem)}
         </View>
       </View>
     </View>

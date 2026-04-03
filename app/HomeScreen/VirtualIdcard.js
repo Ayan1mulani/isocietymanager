@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   interpolate,
-  Extrapolate,
+  Extrapolation, // ✅ replaces deprecated Extrapolate
 } from "react-native-reanimated";
 import {
   GestureDetector,
@@ -27,13 +27,15 @@ import AppHeader from "../components/AppHeader";
 const { width } = Dimensions.get("window");
 
 const CARD_WIDTH = width - 40;
-const CARD_HEIGHT = CARD_WIDTH * 1.6;
 const PERSPECTIVE = 900;
 const MAX_ROTATE = 18; // degrees
 
 const ResidentIdCardScreen = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ✅ Track actual rendered card height instead of a fixed estimate
+  const cardHeight = useSharedValue(CARD_WIDTH * 1.6);
 
   // 3D Tilt shared values
   const rotateX = useSharedValue(0);
@@ -47,7 +49,7 @@ const ResidentIdCardScreen = () => {
   const loadUser = async () => {
     try {
       const details = await ismServices.getUserDetails();
-      console.log(details,"details")
+      console.log(details, "details");
       setUser(details);
     } catch (err) {
       console.log("ID CARD ERROR:", err);
@@ -55,6 +57,15 @@ const ResidentIdCardScreen = () => {
       setLoading(false);
     }
   };
+
+  // ✅ Measure the real card height after layout
+  const onCardLayout = useCallback(
+    (e) => {
+      const h = e.nativeEvent.layout.height;
+      if (h > 0) cardHeight.value = h;
+    },
+    [cardHeight]
+  );
 
   const getAvatarUri = () => {
     if (user?.image_src) return { uri: user.image_src };
@@ -78,13 +89,13 @@ const ResidentIdCardScreen = () => {
         e.x,
         [0, CARD_WIDTH],
         [-MAX_ROTATE, MAX_ROTATE],
-        Extrapolate.CLAMP
+        Extrapolation.CLAMP // ✅ fixed
       );
       rotateX.value = interpolate(
         e.y,
-        [0, CARD_HEIGHT],
+        [0, cardHeight.value], // ✅ uses real measured height
         [MAX_ROTATE, -MAX_ROTATE],
-        Extrapolate.CLAMP
+        Extrapolation.CLAMP // ✅ fixed
       );
     })
     .onFinalize(() => {
@@ -123,33 +134,29 @@ const ResidentIdCardScreen = () => {
     return { transform: [{ translateX }, { translateY }], opacity };
   });
 
-
-
-
-const residentType = user?.tenant === 0 ? "OWNER" : "TENANT";
+  const residentType = user?.tenant === 0 ? "OWNER" : "TENANT";
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppHeader title={"Digital ID"} />
 
       <View style={{ flex: 1, backgroundColor: "#F0F4F8" }}>
-
         <ScrollView
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
+          // ✅ Allow the pan gesture to take priority over scroll when tilting
+          scrollEventThrottle={16}
         >
-          {/* 3D Card Wrapper */}
           {loading ? (
             <View style={styles.loaderCard}>
               <ActivityIndicator size="large" color="#1996D3" />
             </View>
-
           ) : (
             <GestureDetector gesture={panGesture}>
               <Animated.View style={[styles.cardWrapper, cardAnimatedStyle]}>
 
-                {/* The Card */}
-                <View style={styles.card}>
+                {/* ✅ onLayout measures actual card height */}
+                <View style={styles.card} onLayout={onCardLayout}>
 
                   {/* TOP HEADER BAR */}
                   <View style={styles.cardHeader}>
@@ -249,7 +256,6 @@ const residentType = user?.tenant === 0 ? "OWNER" : "TENANT";
               </Animated.View>
             </GestureDetector>
           )}
-
         </ScrollView>
       </View>
     </GestureHandlerRootView>
@@ -278,9 +284,14 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     alignItems: "center",
-    paddingBottom: 50,
+    paddingBottom: 60, // ✅ extra bottom breathing room so card never clips
   },
-  loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loaderCard: {
+    width: CARD_WIDTH,
+    height: CARD_WIDTH * 1.6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 
   // --- 3D Card Wrapper ---
   cardWrapper: {
@@ -495,7 +506,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
 
-
+  // --- Gloss ---
+  gloss: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
 
   // --- Hint text ---
   hint: {

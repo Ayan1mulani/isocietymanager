@@ -10,6 +10,7 @@ import {
   Linking,
   ActivityIndicator,
   Alert,
+  ScrollView
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { usePermissions } from '../../Utils/ConetextApi';
@@ -47,7 +48,7 @@ const ServicesSection = () => {
     { id: '5', title: 'Family', icon: 'people-outline', route: 'FamilyMember' },
     { id: '6', title: 'Contact Us', icon: 'mail-outline', route: 'ContactUsScreen' },
     { id: '7', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
-    {  id : '8',title: "My Complex", icon: "accessibility-outline", route: "Notices" },
+    { id: '8', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
     { id: '9', title: 'Bills', icon: 'receipt-outline', route: 'bills' },
     { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { id: '11', title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
@@ -100,13 +101,13 @@ const ServicesSection = () => {
     Linking.openURL(`tel:${number}`);
   };
 
- const handleSendAlert = async () => {
+  const handleSendAlert = async () => {
     if (!selectedReason) return;
     try {
       setSending(true);
       // Pass the 'note' state as the second argument
       const res = await otherServices.sendPanicAlert(selectedReason.toUpperCase(), note);
-      
+
       if (res?.status === 'success') {
         setPanicVisible(false);
         setSuccessVisible(true);
@@ -202,7 +203,7 @@ const ServicesSection = () => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Panic Alert</Text>
 
-              
+
               <TouchableOpacity onPress={() => { setPanicVisible(false); setSelectedReason(null); setNote(''); }}>
                 <Ionicons name="close" size={22} color="#fff" />
               </TouchableOpacity>
@@ -262,20 +263,26 @@ const ServicesSection = () => {
 
             <Text style={styles.contactText}>Emergency Contact Numbers</Text>
 
-            {loadingContacts ? (
-              <ActivityIndicator size="small" color="#EF4444" />
-            ) : (
-              contacts.map((number, index) => (
-                <TouchableOpacity
-                  key={`${number}-${index}`}
-                  style={styles.contactBtn}
-                  onPress={() => callNumber(number)}
-                >
-                  <Ionicons name="call" size={18} color="#fff" />
-                  <Text style={styles.contactBtnText}>{number}</Text>
-                </TouchableOpacity>
-              ))
-            )}
+            <ScrollView
+              style={styles.contactList}
+              contentContainerStyle={{ paddingBottom: 10 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {loadingContacts ? (
+                <ActivityIndicator size="small" color="#EF4444" />
+              ) : (
+                contacts.map((number, index) => (
+                  <TouchableOpacity
+                    key={`${number}-${index}`}
+                    style={styles.contactBtn}
+                    onPress={() => callNumber(number)}
+                  >
+                    <Ionicons name="call" size={18} color="#fff" />
+                    <Text style={styles.contactBtnText}>{number}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
 
           </View>
         </View>
@@ -301,16 +308,16 @@ export default ServicesSection;
 
 const styles = StyleSheet.create({
   container: { marginHorizontal: 10, marginTop: 10 },
-  inputContainer: { 
-    paddingHorizontal: 16, 
-    marginTop: 12 
+  inputContainer: {
+    paddingHorizontal: 16,
+    marginTop: 12
   },
-  messageInput: { 
-    backgroundColor: '#F9FAFB', 
-    borderWidth: 1, 
-    borderColor: '#E5E7EB', 
-    borderRadius: 8, 
-    padding: 12, 
+  messageInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
     color: '#374151',
     minHeight: 45
   },
@@ -338,4 +345,8 @@ const styles = StyleSheet.create({
   successContainer: { width: screenWidth - 60, backgroundColor: '#ffffff', borderRadius: 20, padding: 30, alignItems: 'center' },
   successTitle: { fontSize: 20, fontWeight: '700', color: '#16A34A', marginTop: 12 },
   successSubtitle: { fontSize: 14, textAlign: 'center', color: '#4B5563', marginTop: 6 },
+  contactList: {
+  maxHeight: 180, // 🔥 prevents overflow
+  marginTop: 8,
+},
 });

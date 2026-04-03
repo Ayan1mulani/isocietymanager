@@ -54,11 +54,11 @@ const REQUEST_STATUS = {
   },
 
   REOPEN: {
-  light: { bg: '#E9D5FF', color: '#9333EA' },
-  dark: { bg: '#2D1B3D', color: '#A855F7' },
-  label: 'Reopened',
-  icon: 'reload-circle',
-},
+    light: { bg: '#E9D5FF', color: '#9333EA' },
+    dark: { bg: '#2D1B3D', color: '#A855F7' },
+    label: 'Reopened',
+    icon: 'reload-circle',
+  },
   // ✅ Resolved / Closed — green
   RESOLVED: {
     light: { bg: '#D4EDDA', color: COLORS.success },
@@ -136,7 +136,6 @@ const getStatusConfig = (status, nightMode) => {
     label: key === 'UNKNOWN' && status ? status : config.label,
   };
 };
-
 const getCategoryIcon = (categoryName, theme) => {
   const c = categoryName?.toLowerCase() || "";
 
@@ -148,7 +147,7 @@ const getCategoryIcon = (categoryName, theme) => {
 
   return {
     ...CATEGORY_ICONS.DEFAULT,
-    color: theme.textSecondary
+    color: theme?.textSecondary || "#6B7280" // ✅ safe fallback
   };
 };
 
@@ -196,9 +195,13 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
   const statusConfig = getStatusConfig(complaint?.status, nightMode);
   const categoryIcon = getCategoryIcon(
     complaint?.complaint_type_name,
-    complaint?.sub_category,
     theme
-  ); const requestNumber = `#${complaint?.com_no ?? complaint?.id ?? '—'}`;
+  );
+  const requestNumber = `#${complaint?.com_no ?? complaint?.id ?? '—'}`;
+
+
+  const assignedStaff =
+   complaint.staff_name;
 
   return (
     <TouchableOpacity
@@ -253,28 +256,27 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
       {isActiveStatus && (
         <View style={styles.serviceRow}>
 
-          <View style={styles.visitRow}>
-            <Ionicons name="calendar-outline" size={14} color={COLORS.primary} />
-            <Text style={[styles.probableDateText, { color: theme.textSecondary }]}>
-              {probableDate
-                ? `Expected Visit: ${formatDate(probableDate)}`
-                : "Visit not scheduled"}
-            </Text>
-          </View>
+  {/* LEFT SIDE → Date */}
+  <View style={styles.visitRow}>
+    <Ionicons name="calendar-outline" size={14} color={COLORS.primary} />
+    <Text style={[styles.probableDateText, { color: theme.textSecondary }]}>
+      {probableDate
+        ? `Expected Visit: ${formatDate(probableDate)}`
+        : "Visit not scheduled"}
+    </Text>
+  </View>
 
-          {shouldShowOtp && (
-            <View style={styles.otpRow}>
-              <Ionicons name="key-outline" size={14} color={COLORS.primary} />
-              <Text style={[styles.otpLabel, { color: theme.textSecondary }]}>
-                OTP:
-              </Text>
-              <Text style={[styles.otpValue, { color: "#13812c" }]}>
-                {otp}
-              </Text>
-            </View>
-          )}
+  {/* RIGHT SIDE → Staff */}
+  {complaint?.staff_name && (
+    <View style={styles.staffRight}>
+      <Ionicons name="person-outline" size={13} color={COLORS.primary} />
+      <Text style={styles.staffText}>
+        {complaint.staff_name}
+      </Text>
+    </View>
+  )}
 
-        </View>
+</View>
       )}
 
       {/* Divider */}
@@ -432,6 +434,17 @@ const styles = StyleSheet.create({
     minHeight: 36,
     marginHorizontal: 12,
   },
+staffRight: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 4,
+},
+
+staffText: {
+  fontSize: 11,
+  fontWeight: "600",
+  color: "#1996D3",
+},
   otpContainer: {
     flexDirection: 'row',
     alignItems: 'center',

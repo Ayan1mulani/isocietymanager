@@ -1,131 +1,117 @@
 package com.sumasamu.iSocietyManager
 
+import android.util.Log
 import com.facebook.react.bridge.*
 
 /**
- * React Native native module.
+ * VisitorModule — SharedPreferences bridge between native and React Native.
  *
- * All three methods use the SAME SharedPreferences file ("VisitorPrefs")
- * for consistency. Each key is cleared immediately after being read
- * (one-shot delivery) so stale data never fires twice.
+ * Keys (all in "VisitorPrefs" file):
+ * ─────────────────────────────────
+ * PENDING_VISITOR_ACTION   → JSON string { visitor: {...}, action: "ACCEPT"|"DECLINE" }
+ * PENDING_VISITOR          → JSON string (visitor object — for view screen)
  *
- * Keys
- * ────
- * has_pending_visitor       → Boolean  (getPendingVisitor gate)
- * pending_visitor_*         → String   (visitor fields for getPendingVisitor)
- * PENDING_VISITOR_ACTION    → String   (JSON: { visitor, action })
- * PENDING_VISITOR           → String   (JSON: visitor object for view)
+ * All reads are ONE-SHOT: key is deleted immediately after reading.
+ * This prevents stale data from firing twice.
  */
 class VisitorModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
-    override fun getName() = "VisitorModule"
-
-    // ── Single prefs file used by every method ──────────────────────────────
-    private val prefs
-        get() = reactApplicationContext.getSharedPreferences("VisitorPrefs", 0)
-
-    /* -----------------------------------------------------------------------
-       getPendingVisitor
-       Written by VisitorIncomingActivity when user taps from killed state.
-    ----------------------------------------------------------------------- */
-    @ReactMethod
-    fun getPendingVisitor(promise: Promise) {
-        try {
-            if (!prefs.getBoolean("has_pending_visitor", false)) {
-                promise.resolve(null)
-                return
-            }
-
-            val map = Arguments.createMap().apply {
-                putString("id",          prefs.getString("pending_visitor_id",        ""))
-                putString("name",        prefs.getString("pending_visitor_name",       ""))
-                putString("phoneNumber", prefs.getString("pending_visitor_phone",      ""))
-                putString("photo",       prefs.getString("pending_visitor_photo",      ""))
-                putString("purpose",     prefs.getString("pending_visitor_purpose",    ""))
-                putString("startTime",   prefs.getString("pending_visitor_start_time", ""))
-            }
-
-            // One-shot — clear immediately after reading
-            prefs.edit()
-                .putBoolean("has_pending_visitor", false)
-                .remove("pending_visitor_id")
-                .remove("pending_visitor_name")
-                .remove("pending_visitor_phone")
-                .remove("pending_visitor_photo")
-                .remove("pending_visitor_purpose")
-                .remove("pending_visitor_start_time")
-                .apply()
-
-            promise.resolve(map)
-        } catch (e: Exception) {
-            promise.reject("VISITOR_MODULE_ERROR", e.message)
-        }
+    companion object {
+        private const val TAG = "VisitorModule"
+        private const val PREFS_NAME = "VisitorPrefs"
+        private const val KEY_ACTION = "PENDING_VISITOR_ACTION"
+        private const val KEY_VISITOR = "PENDING_VISITOR"
     }
 
-    /* -----------------------------------------------------------------------
+    override fun getName() = "VisitorModule"
+
+    private val prefs
+        get() = reactApplicationContext.getSharedPreferences(PREFS_NAME, 0)
+
+    /* ─────────────────────────────────────────────────────────────────────
        getPendingAction
        Written by VisitorIncomingActivity when user taps Accept / Decline
-       from lock screen.  JSON shape: { visitor: {...}, action: "ACCEPT"|"DENY" }
-    ----------------------------------------------------------------------- */
+       from lock-screen / background.
+       JSON shape: { visitor: {...}, action: "ACCEPT"|"DECLINE" }
+    ───────────────────────────────────────────────────────────────────── */
     @ReactMethod
     fun getPendingAction(promise: Promise) {
         try {
-            val value = prefs.getString("PENDING_VISITOR_ACTION", null)
+            val value = prefs.getString(KEY_ACTION, null)
+            Log.d(TAG, "getPendingAction → value=${if (value != null) "FOUND" else "null"}")
 
             if (value != null) {
-                prefs.edit().remove("PENDING_VISITOR_ACTION").apply() // one-shot
+                prefs.edit().remove(KEY_ACTION).apply()
+                Log.d(TAG, "getPendingAction → cleared from prefs, resolving: $value")
                 promise.resolve(value)
             } else {
+                Log.d(TAG, "getPendingAction → no pending action")
                 promise.resolve(null)
             }
         } catch (e: Exception) {
+            Log.e(TAG, "getPendingAction → ERROR: ${e.message}")
             promise.reject("ERROR", e.message)
         }
     }
 
-    /* -----------------------------------------------------------------------
+    /* ─────────────────────────────────────────────────────────────────────
        getPendingVisitorView
-       Written by VisitorIncomingActivity when user taps the notification
-       body (no action) — app should open VisitorApproval screen.
+       Written by VisitorIncomingActivity when user taps "View" button
+       or the notification body — opens VisitorApproval screen.
        JSON shape: visitor object.
-    ----------------------------------------------------------------------- */
+    ───────────────────────────────────────────────────────────────────── */
     @ReactMethod
     fun getPendingVisitorView(promise: Promise) {
         try {
-            val value = prefs.getString("PENDING_VISITOR", null)
+            val value = prefs.getString(KEY_VISITOR, null)
+            Log.d(TAG, "getPendingVisitorView → value=${if (value != null) "FOUND" else "null"}")
 
             if (value != null) {
-                prefs.edit().remove("PENDING_VISITOR").apply() // one-shot
+                prefs.edit().remove(KEY_VISITOR).apply()
+                Log.d(TAG, "getPendingVisitorView → cleared from prefs, resolving: $value")
                 promise.resolve(value)
             } else {
+                Log.d(TAG, "getPendingVisitorView → no pending visitor view")
                 promise.resolve(null)
             }
         } catch (e: Exception) {
+            Log.e(TAG, "getPendingVisitorView → ERROR: ${e.message}")
             promise.reject("ERROR", e.message)
         }
     }
 
-    /* -----------------------------------------------------------------------
-       clearPendingVisitor  (utility — called defensively if needed)
-    ----------------------------------------------------------------------- */
+    /* ─────────────────────────────────────────────────────────────────────
+       clearAll — defensive utility, call on logout or after handling
+    ───────────────────────────────────────────────────────────────────── */
     @ReactMethod
-    fun clearPendingVisitor(promise: Promise) {
+    fun clearAll(promise: Promise) {
         try {
             prefs.edit()
-                .putBoolean("has_pending_visitor", false)
-                .remove("pending_visitor_id")
-                .remove("pending_visitor_name")
-                .remove("pending_visitor_phone")
-                .remove("pending_visitor_photo")
-                .remove("pending_visitor_purpose")
-                .remove("pending_visitor_start_time")
-                .remove("PENDING_VISITOR_ACTION")
-                .remove("PENDING_VISITOR")
+                .remove(KEY_ACTION)
+                .remove(KEY_VISITOR)
                 .apply()
+            Log.d(TAG, "clearAll → all keys cleared")
             promise.resolve(true)
         } catch (e: Exception) {
-            promise.reject("VISITOR_MODULE_ERROR", e.message)
+            Log.e(TAG, "clearAll → ERROR: ${e.message}")
+            promise.reject("ERROR", e.message)
+        }
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       debugDump — call from RN to log current prefs state (dev only)
+    ───────────────────────────────────────────────────────────────────── */
+    @ReactMethod
+    fun debugDump(promise: Promise) {
+        try {
+            val action  = prefs.getString(KEY_ACTION, null)
+            val visitor = prefs.getString(KEY_VISITOR, null)
+            val dump    = "ACTION=${action ?: "null"} | VISITOR=${visitor ?: "null"}"
+            Log.d(TAG, "debugDump → $dump")
+            promise.resolve(dump)
+        } catch (e: Exception) {
+            promise.reject("ERROR", e.message)
         }
     }
 }
