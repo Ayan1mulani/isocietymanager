@@ -18,15 +18,22 @@
         android:usesCleartextTraffic="${usesCleartextTraffic}"
         android:supportsRtl="true">
 
-        <!--
-            ✅ REQUIRED — registers our extension so OneSignal calls it
-            for every incoming push (background + killed state).
-            The extension itself checks isAppInForeground() and returns
-            early if the app is open, so Notifee handles foreground instead.
-        -->
+        <!-- ✅ REQUIRED META -->
         <meta-data
             android:name="com.onesignal.NotificationServiceExtension"
             android:value="com.sumasamu.iSocietyManager.MyNotificationServiceExtension" />
+
+        <!-- ✅ REQUIRED SERVICE -->
+        <service
+            android:name=".MyNotificationServiceExtension"
+            android:permission="com.onesignal.NotificationExtender"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="com.onesignal.NotificationExtender" />
+            </intent-filter>
+
+        </service>
 
         <!-- Main Activity -->
         <activity
@@ -44,10 +51,7 @@
 
         </activity>
 
-        <!--
-            ✅ REQUIRED — full-screen lock-screen activity for background/killed state.
-            Launched by MyNotificationServiceExtension via fullScreenIntent.
-        -->
+        <!-- Full screen activity -->
         <activity
             android:name=".VisitorIncomingActivity"
             android:exported="false"

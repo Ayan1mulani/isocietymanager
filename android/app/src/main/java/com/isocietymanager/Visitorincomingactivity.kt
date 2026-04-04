@@ -4,7 +4,7 @@ import android.app.Activity
 import android.app.NotificationManager
 import android.content.Context
 import android.graphics.BitmapFactory
-import android.media.*
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.*
 import android.util.Log
@@ -14,76 +14,45 @@ import android.widget.*
 import org.json.JSONObject
 import java.net.URL
 import kotlin.concurrent.thread
+import android.content.Intent
 
-/**
- * VisitorIncomingActivity
- * ───────────────────────
- * Shown as a full-screen activity over the lock screen when:
- *   • App is in BACKGROUND (not foreground)
- *   • App is KILLED (cold start)
- *
- * NOT shown when app is in foreground — JS / Notifee handles that case.
- *
- * On Accept / Decline:
- *   → writes PENDING_VISITOR_ACTION to SharedPrefs (one-shot)
- *   → opens MainActivity
- *   → AppState "active" event in RN reads and clears the key
- *
- * On View:
- *   → writes PENDING_VISITOR to SharedPrefs (one-shot)
- *   → opens MainActivity
- *   → AppState "active" event in RN reads and clears the key
- */
 class VisitorIncomingActivity : Activity() {
 
     companion object {
-        private const val TAG             = "VisitorIncomingActivity"
-        private const val PREFS_NAME      = "VisitorPrefs"
-        private const val KEY_ACTION      = "PENDING_VISITOR_ACTION"
-        private const val KEY_VISITOR     = "PENDING_VISITOR"
+        private const val TAG = "VisitorIncomingActivity"
+        private const val PREFS_NAME = "VisitorPrefs"
+        private const val KEY_VISITOR = "PENDING_VISITOR"
         private const val AUTO_DISMISS_MS = 60_000L
-        private const val NOTIF_ID        = 1001
+        private const val NOTIF_ID = 1001
     }
 
     private var mediaPlayer: MediaPlayer? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
 
-    // ─── Visitor data ─────────────────────────────────────────────────────
-    private var visitorId    = ""
-    private var visitorName  = "Visitor"
+    private var visitorId = ""
+    private var visitorName = "Visitor"
     private var visitorPhone = ""
     private var visitorPhoto = ""
-    private var purpose      = ""
-    private var startTime    = ""
+    private var purpose = ""
 
-    /* ═══════════════════════════════════════════════════════════════════
-       onCreate
-    ═══════════════════════════════════════════════════════════════════ */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d(TAG, "onCreate → starting VisitorIncomingActivity")
+
+        Log.d(TAG, "onCreate → Activity started")
 
         setupWindowFlags()
 
-        // Cancel the backing notification (if any)
         (getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)
             ?.cancel(NOTIF_ID)
-        Log.d(TAG, "onCreate → cancelled notification $NOTIF_ID")
 
         setContentView(R.layout.activity_visitor_incoming)
 
-        // ── Read intent extras ────────────────────────────────────────
-        visitorId    = intent.getStringExtra("visitor_id")        ?: ""
-        visitorName  = intent.getStringExtra("visitor_name")      ?: "Visitor"
-        visitorPhone = intent.getStringExtra("visitor_phone")     ?: ""
-        visitorPhoto = intent.getStringExtra("visitor_photo")     ?: ""
-        purpose      = intent.getStringExtra("visit_purpose")     ?: ""
-        startTime    = intent.getStringExtra("visit_start_time")  ?: ""
+        extractIntent(intent)
 
-        Log.d(TAG, "onCreate → visitor: id=$visitorId name=$visitorName phone=$visitorPhone purpose=$purpose")
+        Log.d(TAG, "Visitor Data → id=$visitorId name=$visitorName phone=$visitorPhone")
 
         if (visitorId.isEmpty()) {
-            Log.e(TAG, "onCreate → visitorId is empty, finishing activity")
+            Log.e(TAG, "visitorId empty → finishing")
             finish()
             return
         }
@@ -92,237 +61,295 @@ class VisitorIncomingActivity : Activity() {
         loadPhoto()
         playSoundOrVibrate()
 
-        // Auto-dismiss after 60 seconds
         timeoutHandler.postDelayed({
-            Log.d(TAG, "AUTO DISMISS → 60s timeout reached")
+            Log.d(TAG, "Auto dismiss triggered")
             dismissSilently()
         }, AUTO_DISMISS_MS)
 
         bindButtons()
     }
 
-    /* ═══════════════════════════════════════════════════════════════════
-       Window flags — show over lock screen
-    ═══════════════════════════════════════════════════════════════════ */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+
+        Log.d(TAG, "onNewIntent triggered")
+
+        val newVisitorId = intent.getStringExtra("visitor_id") ?: ""
+        if (newVisitorId.isEmpty() || newVisitorId == visitorId) return
+
+        extractIntent(intent)
+
+        Log.d(TAG, "Updated Visitor → id=$visitorId")
+
+        bindUI()
+        loadPhoto()
+        resetButtons()
+    }
+
+    private fun extractIntent(intent: Intent) {
+        visitorId    = intent.getStringExtra("visitor_id") ?: ""
+        visitorName  = intent.getStringExtra("visitor_name") ?: "Visitor"
+        visitorPhone = intent.getStringExtra("visitor_phone") ?: ""
+        visitorPhoto = intent.getStringExtra("visitor_photo") ?: ""
+        purpose      = intent.getStringExtra("visit_purpose") ?: ""
+    }
+
     private fun setupWindowFlags() {
+        Log.d(TAG, "Setting window flags")
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
         }
 
-        @Suppress("DEPRECATION")
         window.addFlags(
-            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED    or
-            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON      or
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON      or
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
         )
-        Log.d(TAG, "setupWindowFlags → window flags set")
     }
 
-    /* ═══════════════════════════════════════════════════════════════════
-       UI binding
-    ═══════════════════════════════════════════════════════════════════ */
+    /* 🔥 API CALL WITH FULL LOGS */
+ 
+
+    private fun callVisitorApi(action: String) {
+    Log.d(TAG, "callVisitorApi → action=$action visitorId=$visitorId")
+
+    thread {
+        try {
+            val prefs = getSharedPreferences("VisitorAuth", Context.MODE_PRIVATE)
+
+            val apiToken  = prefs.getString("apiToken", "") ?: ""
+            val userId    = prefs.getString("userId", "") ?: ""
+            val societyId = prefs.getString("societyId", "") ?: ""
+            val roleId    = prefs.getString("roleId", "") ?: ""
+            val unitId    = prefs.getString("unitId", "") ?: ""
+            val flatNo    = prefs.getString("flatNo", "") ?: ""
+
+            Log.d(TAG, "Auth → apiToken=$apiToken userId=$userId societyId=$societyId")
+
+            if (apiToken.isEmpty() || userId.isEmpty() || societyId.isEmpty()) {
+                Log.e(TAG, "Auth missing")
+                runOnUiThread { showError("Session expired ❌") }
+                return@thread
+            }
+
+            // ✅ CORRECT user-id JSON
+            val userIdObj = JSONObject().apply {
+                put("user_id", userId)
+                put("group_id", roleId)
+                put("flat_no", flatNo)
+                put("unit_id", unitId)
+                put("society_id", societyId)
+            }
+
+            val userIdStr = userIdObj.toString().replace("\"", "%22")
+
+            val url = "https://vms-api.isocietymanager.com/v1/society/$societyId/allowVisit" +
+                    "?api-token=$apiToken&user-id=$userIdStr"
+
+            val allow = if (action == "ACCEPT") 1 else 0
+
+            val json = JSONObject().apply {
+                put("allow", allow)
+                put("visitId", visitorId)
+            }
+
+            Log.d(TAG, "👉 FINAL URL → $url")
+            Log.d(TAG, "👉 HEADER user-id → ${userIdObj.toString()}")
+            Log.d(TAG, "👉 BODY → $json")
+
+            val conn = URL(url).openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("api-token", apiToken)
+            conn.setRequestProperty("user-id", userIdObj.toString())
+            conn.doOutput = true
+
+            conn.outputStream.use {
+                it.write(json.toString().toByteArray())
+            }
+
+            val responseCode = conn.responseCode
+
+            val responseText = try {
+                conn.inputStream.bufferedReader().use { it.readText() }
+            } catch (e: Exception) {
+                conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "No response body"
+            }
+
+            Log.d(TAG, "✅ RESPONSE CODE → $responseCode")
+            Log.d(TAG, "✅ RESPONSE BODY → $responseText")
+
+            runOnUiThread {
+                if (responseCode in 200..299) {
+                    Log.d(TAG, "SUCCESS → Visitor $action")
+
+                    Toast.makeText(
+                        this,
+                        if (action == "ACCEPT") "✅ Visitor Allowed"
+                        else "❌ Visitor Denied",
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        finish()
+                    }, 1000)
+
+                } else {
+                    Log.e(TAG, "FAILED → $responseText")
+                    showError("Failed ❌ ($responseCode)")
+                }
+            }
+
+        } catch (e: Exception) {
+            Log.e(TAG, "API ERROR → ${e.message}")
+            runOnUiThread { showError("Network error ❌") }
+        }
+    }
+}
+
+    private fun showError(msg: String) {
+        Log.e(TAG, "showError → $msg")
+
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+        resetButtons()
+    }
+
+    private fun resetButtons() {
+        Log.d(TAG, "Resetting buttons")
+
+        findViewById<Button>(R.id.btnAccept)?.apply {
+            isEnabled = true
+            text = "Accept"
+        }
+        findViewById<Button>(R.id.btnDecline)?.apply {
+            isEnabled = true
+            text = "Decline"
+        }
+        findViewById<ProgressBar>(R.id.loader)?.visibility = View.GONE
+    }
+
     private fun bindUI() {
-        findViewById<TextView>(R.id.tvVisitorName)?.text  = visitorName
-        findViewById<TextView>(R.id.tvVisitorPhone)?.text = visitorPhone.ifEmpty { "—" }
+        Log.d(TAG, "Binding UI")
+
+        findViewById<TextView>(R.id.tvVisitorName)?.text = visitorName
+        findViewById<TextView>(R.id.tvVisitorPhone)?.text =
+            visitorPhone.ifEmpty { "—" }
         findViewById<TextView>(R.id.tvVisitPurpose)?.text =
             if (purpose.isNotEmpty()) "Purpose: $purpose" else "Purpose: Not specified"
-        Log.d(TAG, "bindUI → UI populated")
     }
 
     private fun loadPhoto() {
-        if (visitorPhoto.isEmpty()) return
-        val ivPhoto = findViewById<ImageView>(R.id.ivVisitorPhoto) ?: return
+        if (visitorPhoto.isEmpty()) {
+            Log.d(TAG, "No photo")
+            return
+        }
+
+        Log.d(TAG, "Loading photo")
+
+        val iv = findViewById<ImageView>(R.id.ivVisitorPhoto) ?: return
 
         thread {
             try {
-                Log.d(TAG, "loadPhoto → fetching $visitorPhoto")
-                val conn = URL(visitorPhoto).openConnection().apply {
-                    connectTimeout = 5000
-                    readTimeout    = 5000
-                }
-                val bmp = BitmapFactory.decodeStream(conn.getInputStream())
+                val bmp = BitmapFactory.decodeStream(URL(visitorPhoto).openStream())
                 runOnUiThread {
                     if (!isDestroyed) {
-                        ivPhoto.setImageBitmap(bmp)
-                        ivPhoto.visibility = View.VISIBLE
-                        Log.d(TAG, "loadPhoto → image loaded OK")
+                        iv.setImageBitmap(bmp)
+                        iv.visibility = View.VISIBLE
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "loadPhoto → failed: ${e.message}")
+                Log.e(TAG, "Image load failed")
             }
         }
     }
 
-    /* ═══════════════════════════════════════════════════════════════════
-       Buttons
-    ═══════════════════════════════════════════════════════════════════ */
     private fun bindButtons() {
+        Log.d(TAG, "Binding buttons")
+
         findViewById<Button>(R.id.btnAccept)?.setOnClickListener {
-            Log.d(TAG, "btnAccept → tapped")
+            Log.d(TAG, "ACCEPT clicked")
             handleAction("ACCEPT")
         }
 
         findViewById<Button>(R.id.btnDecline)?.setOnClickListener {
-            Log.d(TAG, "btnDecline → tapped")
+            Log.d(TAG, "DECLINE clicked")
             handleAction("DECLINE")
         }
 
         findViewById<Button>(R.id.btnViewVisitor)?.setOnClickListener {
-            Log.d(TAG, "btnViewVisitor → tapped")
+            Log.d(TAG, "VIEW clicked")
             savePendingVisitorView()
-            openMainApp()
+            finish()
         }
     }
 
-    /* ═══════════════════════════════════════════════════════════════════
-       Action handler
-    ═══════════════════════════════════════════════════════════════════ */
     private fun handleAction(action: String) {
-        val visitorJson = buildVisitorJson()
-        val payload = JSONObject().apply {
-            put("action", action)
-            put("visitor", visitorJson)
-        }
+        Log.d(TAG, "handleAction → $action")
 
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_ACTION, payload.toString()).apply()
+        stopSound()
+        timeoutHandler.removeCallbacksAndMessages(null)
 
-        Log.d(TAG, "handleAction → saved $KEY_ACTION = $payload")
-        openMainApp()
+        findViewById<Button>(R.id.btnAccept)?.isEnabled = false
+        findViewById<Button>(R.id.btnDecline)?.isEnabled = false
+        findViewById<ProgressBar>(R.id.loader)?.visibility = View.VISIBLE
+
+        callVisitorApi(action)
     }
 
     private fun savePendingVisitorView() {
-        val visitorJson = buildVisitorJson()
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_VISITOR, visitorJson.toString()).apply()
-        Log.d(TAG, "savePendingVisitorView → saved $KEY_VISITOR = $visitorJson")
-    }
+        Log.d(TAG, "Saving visitor for RN navigation")
 
-    private fun buildVisitorJson() = JSONObject().apply {
-        put("id",          visitorId)
-        put("name",        visitorName)
-        put("phoneNumber", visitorPhone)
-        put("photo",       visitorPhoto)
-        put("purpose",     purpose)
-        put("startTime",   startTime)
-    }
-
-    /* ═══════════════════════════════════════════════════════════════════
-       Open main app
-    ═══════════════════════════════════════════════════════════════════ */
-    private fun openMainApp() {
-        stopSound()
-        Log.d(TAG, "openMainApp → launching MainActivity")
-
-        val intent = android.content.Intent(this, MainActivity::class.java).apply {
-            flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK        or
-                    android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP       or
-                    android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val json = JSONObject().apply {
+            put("id", visitorId)
+            put("name", visitorName)
         }
 
-        startActivity(intent)
-        finish()
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_VISITOR, json.toString())
+            .apply()
     }
 
-    /* ═══════════════════════════════════════════════════════════════════
-       Sound / vibration
-    ═══════════════════════════════════════════════════════════════════ */
     private fun playSoundOrVibrate() {
         try {
-            val prefs         = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val isSoundEnabled = prefs.getString("NATIVE_SOUND_ENABLED", "true") == "true"
-            Log.d(TAG, "playSoundOrVibrate → soundEnabled=$isSoundEnabled")
+            Log.d(TAG, "Playing sound")
 
-            if (!isSoundEnabled) {
-                startVibration()
-                return
-            }
-
-            val rawResId = resources.getIdentifier("visitor_alert", "raw", packageName)
-            val soundUri: Uri = if (rawResId != 0) {
-                Uri.parse("android.resource://$packageName/$rawResId")
-            } else {
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            }
-            Log.d(TAG, "playSoundOrVibrate → soundUri=$soundUri rawResId=$rawResId")
+            val uri = Uri.parse("android.resource://$packageName/raw/visitor_alert")
 
             mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                setDataSource(applicationContext, soundUri)
+                setDataSource(applicationContext, uri)
                 isLooping = true
                 prepare()
                 start()
             }
-            Log.d(TAG, "playSoundOrVibrate → MediaPlayer started")
-
         } catch (e: Exception) {
-            Log.e(TAG, "playSoundOrVibrate → error: ${e.message}, falling back to vibration")
-            startVibration()
-        }
-    }
-
-    private fun startVibration() {
-        try {
-            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-                vm.defaultVibrator
-            } else {
-                @Suppress("DEPRECATION")
-                getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            }
-
-            val pattern = longArrayOf(0, 500, 200, 500)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(pattern, 0)
-            }
-            Log.d(TAG, "startVibration → vibration started")
-        } catch (e: Exception) {
-            Log.e(TAG, "startVibration → error: ${e.message}")
+            Log.e(TAG, "Sound error: ${e.message}")
         }
     }
 
     private fun stopSound() {
-        try {
-            mediaPlayer?.let {
-                if (it.isPlaying) it.stop()
-                it.release()
-            }
-            mediaPlayer = null
-            Log.d(TAG, "stopSound → stopped and released")
-        } catch (e: Exception) {
-            Log.e(TAG, "stopSound → error: ${e.message}")
-        }
+        Log.d(TAG, "Stopping sound")
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 
-    /* ═══════════════════════════════════════════════════════════════════
-       Lifecycle
-    ═══════════════════════════════════════════════════════════════════ */
     private fun dismissSilently() {
+        Log.d(TAG, "Dismiss silently")
         stopSound()
         finish()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d(TAG, "onDestroy")
         stopSound()
         timeoutHandler.removeCallbacksAndMessages(null)
-        Log.d(TAG, "onDestroy → activity destroyed")
     }
 
     override fun onBackPressed() {
-        Log.d(TAG, "onBackPressed → blocked")
-        // Block back button so user must use buttons
+        Log.d(TAG, "Back pressed blocked")
     }
 }

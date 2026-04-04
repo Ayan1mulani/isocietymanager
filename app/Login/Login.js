@@ -24,6 +24,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ismServices } from '../../services/ismServices';
 import BRAND from '../config';
 import { RegisterAppOneSignal } from "../../services/oneSignalService";
+import { NativeModules } from "react-native";
+
+const { VisitorModule } = NativeModules;
 
 const { width } = Dimensions.get('window');
 
@@ -70,27 +73,40 @@ const NewLoginScreen = () => {
   const [errorTitle, setErrorTitle] = useState('Login Failed');
   const [isLoading, setIsLoading] = useState(false);
 
-  const getUserDetails = async () => {
-    try {
-      const userInfo = await AsyncStorage.getItem('userInfo');
+const getUserDetails = async () => {
+  try {
+    const userInfo = await AsyncStorage.getItem('userInfo');
+    if (!userInfo) return;
 
+    const parsed = JSON.parse(userInfo);
+    if (!parsed?.api_token || !parsed?.id) return;
 
-      if (!userInfo) return;
-      const parsed = JSON.parse(userInfo);
-      if (!parsed?.api_token || !parsed?.id) return;
-      await ismServices.getUserDetails();
-      await loadPermissions();
-      const updatedUserInfo = await AsyncStorage.getItem('userInfo');
-      if (!updatedUserInfo) return;
-      const updatedParsed = JSON.parse(updatedUserInfo);
+    // ✅ Restore native auth on every session restore
+ await VisitorModule.saveAuthDetails({
+  apiToken:  parsed.api_token                              || "",
+  userId:    String(parsed.id                              || ""),
+  societyId: String(parsed.societyId  || parsed.society_id || ""),  // ← fallback
+  roleId:    String(parsed.role_id    || parsed.group_id   || ""),  // ← fallback
+  unitId:    String(parsed.unit_id                         || ""),
+  flatNo:    String(parsed.flat_no                         || ""),
+});
 
-      if (!updatedParsed?.token && !updatedParsed?.id) return;
-      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'MainApp' }] }));
-    } catch (error) {
-      console.log('Session restore failed:', error);
-      await AsyncStorage.removeItem('userInfo').catch(() => { });
-    }
-  };
+    await ismServices.getUserDetails();
+    await loadPermissions();
+
+    const updatedUserInfo = await AsyncStorage.getItem('userInfo');
+    if (!updatedUserInfo) return;
+
+    const updatedParsed = JSON.parse(updatedUserInfo);
+    if (!updatedParsed?.token && !updatedParsed?.id) return;
+
+    navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'MainApp' }] }));
+
+  } catch (error) {
+    console.log('Session restore failed:', error);
+    await AsyncStorage.removeItem('userInfo').catch(() => {});
+  }
+};
 
   useEffect(() => {
 
@@ -158,11 +174,31 @@ const NewLoginScreen = () => {
 
         // ✅ Save cleaned user
         await AsyncStorage.setItem("userInfo", JSON.stringify(user));
+        if (VisitorModule?.saveAuthDetails) {
+          console.log("🔥 Saving auth to native:", {
+            apiToken: user.api_token,
+            userId: user.id,
+            societyId: user.societyId,
+          });
+
+await VisitorModule.saveAuthDetails({
+  apiToken:  user.api_token                            || "",
+  userId:    String(user.id                            || ""),
+  societyId: String(user.societyId  || user.society_id || ""),  // ← fallback
+  roleId:    String(user.role_id    || user.group_id   || ""),  // ← fallback
+  unitId:    String(user.unit_id                       || ""),
+  flatNo:    String(user.flat_no                       || ""),
+});
+          console.log("✅ Auth saved to native");
+        } else {
+          console.log("❌ VisitorModule not available");
+        }
         await AsyncStorage.removeItem("permissions");
         await loadPermissions();
         setTimeout(async () => {
+          console.log("📡 Registering OneSignal...");
           await RegisterAppOneSignal();
-        },500);
+        }, 800);
         setTimeout(() => {
           navigation.dispatch(
             CommonActions.reset({
@@ -429,13 +465,6 @@ const styles = StyleSheet.create({
   signUpText: { fontSize: 14, color: '#9e9e9e' },
   signUpLink: { fontSize: 14, color: '#074B7C', fontWeight: 'bold' },
 
-  // ── Terms ──
-
-  checkboxHit: {
-    marginRight: 8,
-    padding: 2,
-    marginLeft: 15
-  },
 
   termsRow: {
     flexDirection: 'row',

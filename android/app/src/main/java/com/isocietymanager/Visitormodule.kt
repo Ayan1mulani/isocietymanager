@@ -1,26 +1,29 @@
 package com.sumasamu.iSocietyManager
 
+import android.content.Context          // ← THIS WAS MISSING (compile error)
 import android.util.Log
 import com.facebook.react.bridge.*
 
 /**
- * VisitorModule — SharedPreferences bridge between native and React Native.
+ * VisitorModule — SharedPrefs bridge between native and React Native.
+ *
+ * Since Accept/Decline is now handled directly in VisitorIncomingActivity (Kotlin),
+ * getPendingAction is REMOVED. Only getPendingVisitorView is needed (for the
+ * "View Details" button flow).
  *
  * Keys (all in "VisitorPrefs" file):
- * ─────────────────────────────────
- * PENDING_VISITOR_ACTION   → JSON string { visitor: {...}, action: "ACCEPT"|"DECLINE" }
- * PENDING_VISITOR          → JSON string (visitor object — for view screen)
+ *   PENDING_VISITOR  → JSON { id, name } — written when user taps "View Details"
  *
- * All reads are ONE-SHOT: key is deleted immediately after reading.
- * This prevents stale data from firing twice.
+ * Keys (in "VisitorAuth" file):
+ *   apiToken, userId, societyId, roleId, unitId, flatNo
+ *   — written by saveAuthDetails on login, read by VisitorIncomingActivity
  */
 class VisitorModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
     companion object {
-        private const val TAG = "VisitorModule"
+        private const val TAG        = "VisitorModule"
         private const val PREFS_NAME = "VisitorPrefs"
-        private const val KEY_ACTION = "PENDING_VISITOR_ACTION"
         private const val KEY_VISITOR = "PENDING_VISITOR"
     }
 
@@ -30,49 +33,47 @@ class VisitorModule(reactContext: ReactApplicationContext) :
         get() = reactApplicationContext.getSharedPreferences(PREFS_NAME, 0)
 
     /* ─────────────────────────────────────────────────────────────────────
-       getPendingAction
-       Written by VisitorIncomingActivity when user taps Accept / Decline
-       from lock-screen / background.
-       JSON shape: { visitor: {...}, action: "ACCEPT"|"DECLINE" }
+       saveAuthDetails
+       Call this from RN on every login so VisitorIncomingActivity
+       can make API calls while the app is in the background/killed.
     ───────────────────────────────────────────────────────────────────── */
     @ReactMethod
-    fun getPendingAction(promise: Promise) {
+    fun saveAuthDetails(data: ReadableMap, promise: Promise) {
         try {
-            val value = prefs.getString(KEY_ACTION, null)
-            Log.d(TAG, "getPendingAction → value=${if (value != null) "FOUND" else "null"}")
+            reactApplicationContext
+                .getSharedPreferences("VisitorAuth", Context.MODE_PRIVATE)
+                .edit()
+                .putString("apiToken",  data.getString("apiToken"))
+                .putString("userId",    data.getString("userId"))
+                .putString("societyId", data.getString("societyId"))
+                .putString("roleId",    data.getString("roleId"))
+                .putString("unitId",    data.getString("unitId"))
+                .putString("flatNo",    data.getString("flatNo"))
+                .apply()
 
-            if (value != null) {
-                prefs.edit().remove(KEY_ACTION).apply()
-                Log.d(TAG, "getPendingAction → cleared from prefs, resolving: $value")
-                promise.resolve(value)
-            } else {
-                Log.d(TAG, "getPendingAction → no pending action")
-                promise.resolve(null)
-            }
+            Log.d(TAG, "saveAuthDetails → saved to VisitorAuth")
+            promise.resolve(true)
         } catch (e: Exception) {
-            Log.e(TAG, "getPendingAction → ERROR: ${e.message}")
+            Log.e(TAG, "saveAuthDetails → ERROR: ${e.message}")
             promise.reject("ERROR", e.message)
         }
     }
 
     /* ─────────────────────────────────────────────────────────────────────
        getPendingVisitorView
-       Written by VisitorIncomingActivity when user taps "View" button
-       or the notification body — opens VisitorApproval screen.
-       JSON shape: visitor object.
+       Written by VisitorIncomingActivity when user taps "View Details".
+       One-shot: cleared immediately after reading.
     ───────────────────────────────────────────────────────────────────── */
     @ReactMethod
     fun getPendingVisitorView(promise: Promise) {
         try {
             val value = prefs.getString(KEY_VISITOR, null)
-            Log.d(TAG, "getPendingVisitorView → value=${if (value != null) "FOUND" else "null"}")
+            Log.d(TAG, "getPendingVisitorView → ${if (value != null) "FOUND" else "null"}")
 
             if (value != null) {
                 prefs.edit().remove(KEY_VISITOR).apply()
-                Log.d(TAG, "getPendingVisitorView → cleared from prefs, resolving: $value")
                 promise.resolve(value)
             } else {
-                Log.d(TAG, "getPendingVisitorView → no pending visitor view")
                 promise.resolve(null)
             }
         } catch (e: Exception) {
@@ -82,16 +83,19 @@ class VisitorModule(reactContext: ReactApplicationContext) :
     }
 
     /* ─────────────────────────────────────────────────────────────────────
-       clearAll — defensive utility, call on logout or after handling
+       clearAll — call on logout
     ───────────────────────────────────────────────────────────────────── */
     @ReactMethod
     fun clearAll(promise: Promise) {
         try {
-            prefs.edit()
-                .remove(KEY_ACTION)
-                .remove(KEY_VISITOR)
-                .apply()
-            Log.d(TAG, "clearAll → all keys cleared")
+            prefs.edit().remove(KEY_VISITOR).apply()
+
+            // Also clear auth so the native activity can't make stale calls
+            reactApplicationContext
+                .getSharedPreferences("VisitorAuth", Context.MODE_PRIVATE)
+                .edit().clear().apply()
+
+            Log.d(TAG, "clearAll → done")
             promise.resolve(true)
         } catch (e: Exception) {
             Log.e(TAG, "clearAll → ERROR: ${e.message}")
@@ -100,14 +104,13 @@ class VisitorModule(reactContext: ReactApplicationContext) :
     }
 
     /* ─────────────────────────────────────────────────────────────────────
-       debugDump — call from RN to log current prefs state (dev only)
+       debugDump — dev utility
     ───────────────────────────────────────────────────────────────────── */
     @ReactMethod
     fun debugDump(promise: Promise) {
         try {
-            val action  = prefs.getString(KEY_ACTION, null)
             val visitor = prefs.getString(KEY_VISITOR, null)
-            val dump    = "ACTION=${action ?: "null"} | VISITOR=${visitor ?: "null"}"
+            val dump    = "VISITOR=${visitor ?: "null"}"
             Log.d(TAG, "debugDump → $dump")
             promise.resolve(dump)
         } catch (e: Exception) {
