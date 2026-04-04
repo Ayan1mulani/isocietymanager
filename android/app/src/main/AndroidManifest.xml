@@ -24,16 +24,7 @@
             android:value="com.sumasamu.iSocietyManager.MyNotificationServiceExtension" />
 
         <!-- ✅ REQUIRED SERVICE -->
-        <service
-            android:name=".MyNotificationServiceExtension"
-            android:permission="com.onesignal.NotificationExtender"
-            android:exported="true">
-
-            <intent-filter>
-                <action android:name="com.onesignal.NotificationExtender" />
-            </intent-filter>
-
-        </service>
+     
 
         <!-- Main Activity -->
         <activity

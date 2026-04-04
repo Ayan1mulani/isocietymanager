@@ -1,112 +1,113 @@
 package com.sumasamu.iSocietyManager
 
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.MediaPlayer
-import android.net.Uri
-import android.os.Handler
-import android.os.Looper
+import android.os.Build
 import android.util.Log
-import android.widget.Toast
-import org.json.JSONObject
-import java.net.URL
 import kotlin.concurrent.thread
 
 class VisitorActionReceiver : BroadcastReceiver() {
 
+    companion object {
+        private const val TAG              = "VisitorActionReceiver"
+        private const val PROGRESS_CHANNEL = "visitor_action_channel"
+        private const val RESULT_CHANNEL   = "visitor_result_channel"
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.getStringExtra("action") ?: return
+        val action    = intent.getStringExtra("action")     ?: return
         val visitorId = intent.getStringExtra("visitor_id") ?: return
+        val notifId   = intent.getIntExtra("notif_id", visitorId.hashCode())
 
-        Log.d("VisitorReceiver", "Action=$action Visitor=$visitorId")
+        Log.d(TAG, "onReceive → action=$action visitorId=$visitorId notifId=$notifId")
 
-        // ✅ Stop notification sound
-        stopSound(context)
-
-        // ✅ Cancel notification
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.cancel(1001)
 
-        // ✅ Show loading toast
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(context, "Processing...", Toast.LENGTH_SHORT).show()
-        }
+        // ── 1. Dismiss the incoming visitor notification immediately ─────────────
+        nm.cancel(notifId)
+
+        // ── 2. Show an indeterminate "processing" notification ───────────────────
+        val progressId = notifId + 9000
+        showProgressNotification(context, nm, progressId, action)
+
+        // ── 3. Run the API call on a background thread ───────────────────────────
+        //    goAsync() keeps the BroadcastReceiver alive past its 10-second limit.
+        val pending = goAsync()
 
         thread {
             try {
-                val prefs = context.getSharedPreferences("VisitorAuth", Context.MODE_PRIVATE)
+                // Single call — all API logic lives in VisitorApiHelper
+                val result = VisitorApiHelper.call(context, action, visitorId)
 
-                val apiToken  = prefs.getString("apiToken", "") ?: ""
-                val userId    = prefs.getString("userId", "") ?: ""
-                val societyId = prefs.getString("societyId", "") ?: ""
-                val roleId    = prefs.getString("roleId", "") ?: ""
-                val unitId    = prefs.getString("unitId", "") ?: ""
-                val flatNo    = prefs.getString("flatNo", "") ?: ""
+                // ── 4. Dismiss progress, show result ─────────────────────────────
+                nm.cancel(progressId)
+                showResultNotification(context, nm, notifId + 9001, result.success, result.message)
 
-                val userObj = JSONObject().apply {
-                    put("user_id", userId)
-                    put("group_id", roleId)
-                    put("flat_no", flatNo)
-                    put("unit_id", unitId)
-                    put("society_id", societyId)
-                }
+                Log.d(TAG, "Done → success=${result.success} code=${result.code}")
 
-                val userStr = userObj.toString().replace("\"", "%22")
-
-                val url = "https://vms-api.isocietymanager.com/v1/society/$societyId/allowVisit" +
-                        "?api-token=$apiToken&user-id=$userStr"
-
-                val allow = if (action == "ACCEPT") 1 else 0
-
-                val body = JSONObject().apply {
-                    put("allow", allow)
-                    put("visitId", visitorId)
-                }
-
-                val conn = URL(url).openConnection() as java.net.HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.doOutput = true
-
-                conn.outputStream.write(body.toString().toByteArray())
-
-                val code = conn.responseCode
-
-                Log.d("VisitorReceiver", "Response=$code")
-
-                Handler(Looper.getMainLooper()).post {
-                    if (code in 200..299) {
-                        Toast.makeText(
-                            context,
-                            if (action == "ACCEPT") "✅ Visitor Allowed"
-                            else "❌ Visitor Denied",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else {
-                        Toast.makeText(context, "Failed ❌", Toast.LENGTH_LONG).show()
+                // ── 5. Tell the Activity to close itself if it is open ────────────
+                context.sendBroadcast(
+                    Intent("com.sumasamu.iSocietyManager.VISITOR_HANDLED").apply {
+                        putExtra("visitor_id", visitorId)
+                        putExtra("action",     action)
+                        putExtra("success",    result.success)
+                        setPackage(context.packageName)
                     }
-                }
-
-            } catch (e: Exception) {
-                Log.e("VisitorReceiver", "Error=${e.message}")
-
-                Handler(Looper.getMainLooper()).post {
-                    Toast.makeText(context, "Network Error ❌", Toast.LENGTH_LONG).show()
-                }
+                )
+            } finally {
+                pending.finish()
             }
         }
     }
 
-    private fun stopSound(context: Context) {
-        try {
-            val uri = Uri.parse("android.resource://${context.packageName}/raw/visitor_alert")
-            val player = MediaPlayer.create(context, uri)
-            player?.stop()
-            player?.release()
-        } catch (e: Exception) {
-            Log.e("VisitorReceiver", "Sound stop error")
-        }
+    // ── Notification helpers ──────────────────────────────────────────────────────
+
+    private fun showProgressNotification(
+        context: Context,
+        nm:      NotificationManager,
+        id:      Int,
+        action:  String
+    ) {
+        ensureChannel(nm, PROGRESS_CHANNEL, "Visitor Action Progress", NotificationManager.IMPORTANCE_LOW)
+
+        nm.notify(
+            id,
+            androidx.core.app.NotificationCompat.Builder(context, PROGRESS_CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(if (action == "ACCEPT") "Allowing visitor…" else "Declining visitor…")
+                .setProgress(0, 0, true)
+                .setOngoing(true)
+                .setAutoCancel(false)
+                .build()
+        )
+    }
+
+    private fun showResultNotification(
+        context: Context,
+        nm:      NotificationManager,
+        id:      Int,
+        success: Boolean,
+        message: String
+    ) {
+        ensureChannel(nm, RESULT_CHANNEL, "Visitor Action Result", NotificationManager.IMPORTANCE_DEFAULT)
+
+        nm.notify(
+            id,
+            androidx.core.app.NotificationCompat.Builder(context, RESULT_CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(if (success) "Done" else "Action Failed")
+                .setContentText(message)
+                .setAutoCancel(true)
+                .build()
+        )
+    }
+
+    private fun ensureChannel(nm: NotificationManager, id: String, name: String, importance: Int) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (nm.getNotificationChannel(id) != null) return
+        nm.createNotificationChannel(NotificationChannel(id, name, importance))
     }
 }
