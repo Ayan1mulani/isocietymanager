@@ -51,6 +51,10 @@
 
         </activity>
 
+        <receiver
+    android:name=".VisitorActionReceiver"
+    android:exported="true" />
+
         <!-- Full screen activity -->
         <activity
             android:name=".VisitorIncomingActivity"

@@ -126,6 +126,18 @@
         android:stateListAnimator="@null"/> 
 
 
+        <TextView
+    android:id="@+id/tvStatus"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text=""
+    android:textSize="18sp"
+    android:textStyle="bold"
+    android:textColor="@android:color/holo_green_dark"
+    android:visibility="gone"
+    android:layout_marginTop="16dp"/>
+
+
         <ProgressBar
     android:id="@+id/loader"
     android:layout_width="40dp"

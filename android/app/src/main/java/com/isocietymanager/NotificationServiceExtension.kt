@@ -3,11 +3,14 @@ package com.sumasamu.iSocietyManager
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.app.KeyguardManager
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
 import android.util.Log
 import com.onesignal.notifications.INotificationReceivedEvent
+import androidx.core.app.NotificationCompat
+
 import com.onesignal.notifications.INotificationServiceExtension
 
 class MyNotificationServiceExtension : INotificationServiceExtension {
@@ -22,44 +25,22 @@ class MyNotificationServiceExtension : INotificationServiceExtension {
         val notification = event.notification
         val context = event.context
 
-        Log.d(TAG, "onNotificationReceived → title='${notification.title}'")
+        Log.d(TAG, "onNotificationReceived → ${notification.title}")
 
         val title = notification.title?.trim()?.lowercase()
 
-        // ✅ IMPORTANT: match title correctly
-        if (title != "add visit") {
-            Log.d(TAG, "Not visitor notification → $title")
-            return
-        }
+        if (title != "add visit") return
 
-        // ✅ Foreground → let JS handle
-        if (AppState.isInForeground) {
-            Log.d(TAG, "App is FOREGROUND → JS handles")
-            return
-        }
-
-        val raw = notification.additionalData ?: run {
-            Log.e(TAG, "No additionalData")
-            event.preventDefault()
-            return
-        }
-
+        val raw = notification.additionalData ?: return
         val data = raw.optJSONObject("data") ?: raw
 
         val visitorId = data.optString("id", "")
-        if (visitorId.isEmpty()) {
-            Log.e(TAG, "visitorId missing")
-            event.preventDefault()
-            return
-        }
-
         val visitorName = data.optString("visitor_name", "Visitor")
 
-        val intent = Intent(context, VisitorIncomingActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+        if (visitorId.isEmpty()) return
 
+        val intent = Intent(context, VisitorIncomingActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("visitor_id", visitorId)
             putExtra("visitor_name", visitorName)
             putExtra("visitor_phone", data.optString("visitor_phone_no"))
@@ -74,21 +55,55 @@ class MyNotificationServiceExtension : INotificationServiceExtension {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        val isLocked = keyguardManager.isKeyguardLocked
+
+      
+        // 🔴 LOCKED → FULL SCREEN
+        if (isLocked) {
+            Log.d(TAG, "LOCKED → opening full screen")
+            event.preventDefault()
+            context.startActivity(intent)
+            return
+        }
+
+        // 🟡 BACKGROUND → NORMAL NOTIFICATION
+        Log.d(TAG, "BACKGROUND → showing notification")
+
+        val acceptIntent = Intent(context, VisitorActionReceiver::class.java).apply {
+            putExtra("action", "ACCEPT")
+            putExtra("visitor_id", visitorId)
+        }
+
+        val declineIntent = Intent(context, VisitorActionReceiver::class.java).apply {
+            putExtra("action", "DECLINE")
+            putExtra("visitor_id", visitorId)
+        }
+
+        val acceptPendingIntent = PendingIntent.getBroadcast(
+            context, 1, acceptIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val declinePendingIntent = PendingIntent.getBroadcast(
+            context, 2, declineIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         ensureChannel(context)
 
-        val notificationBuilder = Notification.Builder(context, CHANNEL_ID)
+       val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Visitor Arrived")
             .setContentText("$visitorName is at the gate")
-            .setPriority(Notification.PRIORITY_MAX)
-            .setCategory(Notification.CATEGORY_CALL)
-            .setFullScreenIntent(pendingIntent, true)
+           .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .addAction(0, "Accept", acceptPendingIntent)
+            .addAction(0, "Decline", declinePendingIntent)
             .setAutoCancel(true)
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIF_ID, notificationBuilder.build())
-
-        Log.d(TAG, "Notification shown → launching full screen")
+        nm.notify(NOTIF_ID, builder.build())
 
         event.preventDefault()
     }

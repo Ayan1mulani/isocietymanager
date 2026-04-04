@@ -344,34 +344,59 @@ const getAllowTime = () => {
 
       {/* SUCCESS / ERROR MODAL */}
       <Modal
-        transparent
-        visible={modal.visible}
-        animationType="fade"
-        onRequestClose={closeModal}
+  transparent
+  visible={modal.visible}
+  animationType="fade"
+  onRequestClose={closeModal}
+>
+  <View style={styles.modalOverlay}>
+    
+    <View style={styles.modalCard}>
+
+      {/* Close Button */}
+      <TouchableOpacity onPress={closeModal} style={styles.closeBtnNew}>
+        <Ionicons name="close" size={22} color="#6B7280" />
+      </TouchableOpacity>
+
+      {/* Icon */}
+      <View
+        style={[
+          styles.iconWrapper,
+          { backgroundColor: modal.success ? "#DCFCE7" : "#FEE2E2" }
+        ]}
       >
-        <TouchableOpacity activeOpacity={1} style={styles.modalOverlay} onPress={closeModal}>
-          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalBox}>
+        <Ionicons
+          name={modal.success ? "checkmark" : "close"}
+          size={32}
+          color={modal.success ? "#16A34A" : "#DC2626"}
+        />
+      </View>
 
-              <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
-                <Ionicons name="close" size={24} color="#9CA3AF" />
-              </TouchableOpacity>
+      {/* Title */}
+      <Text style={styles.modalTitle}>
+        {modal.success ? "Success" : "Something went wrong"}
+      </Text>
 
-              <Ionicons
-                name={modal.success ? "checkmark-circle-outline" : "close-circle-outline"}
-                size={48}
-                color={modal.success ? "#10B981" : "#EF4444"}
-                style={{ marginBottom: 12 }}
-              />
+      {/* Message */}
+      <Text style={styles.modalMessage}>
+        {modal.message}
+      </Text>
 
-              <Text style={[styles.modalText, { color: modal.success ? "#10B981" : "#EF4444" }]}>
-                {modal.message}
-              </Text>
+      {/* Button */}
+      <TouchableOpacity
+        style={[
+          styles.modalBtn,
+          { backgroundColor: modal.success ? "#10B981" : "#EF4444" }
+        ]}
+        onPress={closeModal}
+      >
+        <Text style={styles.modalBtnText}>OK</Text>
+      </TouchableOpacity>
 
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+    </View>
+
+  </View>
+</Modal>
 
     </SafeAreaView>
   );
@@ -431,6 +456,66 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 10,
   },
+  modalOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.5)",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+modalCard: {
+  width: "85%",
+  backgroundColor: "#fff",
+  borderRadius: 20,
+  paddingVertical: 28,
+  paddingHorizontal: 20,
+  alignItems: "center",
+  elevation: 8,
+},
+
+closeBtnNew: {
+  position: "absolute",
+  top: 12,
+  right: 12,
+  padding: 8,
+  borderRadius: 20,
+},
+
+iconWrapper: {
+  width: 70,
+  height: 70,
+  borderRadius: 35,
+  justifyContent: "center",
+  alignItems: "center",
+  marginBottom: 16,
+},
+
+modalTitle: {
+  fontSize: 18,
+  fontWeight: "700",
+  color: "#111827",
+  marginBottom: 6,
+},
+
+modalMessage: {
+  fontSize: 14,
+  color: "#6B7280",
+  textAlign: "center",
+  marginBottom: 20,
+},
+
+modalBtn: {
+  width: "100%",
+  paddingVertical: 12,
+  borderRadius: 10,
+  alignItems: "center",
+},
+
+modalBtnText: {
+  color: "#fff",
+  fontWeight: "600",
+  fontSize: 15,
+},
   hourGrid: {
     flexDirection: "row",
     gap: 8,
