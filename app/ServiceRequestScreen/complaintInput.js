@@ -294,8 +294,12 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
   const handleParentSelect = (levelIndex, node) => {
     const newPath = [...selectedPath.slice(0, levelIndex), node];
     setSelectedPath(newPath);
-    onSelect?.({ id: node.id, name: node.name, society_id: node.society_id ?? node.id });
-
+    onSelect?.({
+      id: node.id,
+      name: node.name,
+      society_id: node.society_id || null,   // ✅ DON'T fallback to id
+      constant_society_id: node.constant_society_id || null
+    });
     if (Array.isArray(node.children) && node.children.length > 0) {
       setColumns(prev => [...prev.slice(0, levelIndex + 1), node.children]);
     } else {
@@ -488,7 +492,7 @@ const lm = StyleSheet.create({
   columnHeaderItem: { width: 170, paddingLeft: 6 },
   colHeaderTxt: { fontSize: 10, fontWeight: '700', letterSpacing: 0.6 },
   // CRITICAL FIX: Ensure column takes 100% height so the FlatList inside it is bounded
-  column: { width: 170, paddingHorizontal: 4, height: '100%' }, 
+  column: { width: 170, paddingHorizontal: 4, height: '100%' },
   colItem: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingVertical: 11, paddingHorizontal: 8, marginBottom: 2,
@@ -543,7 +547,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
   const [modalConfig, setModalConfig] = useState({ visible: false, type: 'loading', title: '', subtitle: '' });
 
   useEffect(() => { loadConfig(); }, []);
-  
+
   const openLocation = async () => {
     if (locations.length === 0) {
       await loadLocations();
@@ -641,9 +645,10 @@ const ComplaintInputScreen = ({ navigation, route }) => {
       };
 
       if (selectedArea === 'common' && location) {
-        complaintData.constant_society_id = location.society_id ?? location.id;
+        complaintData.constant_society_id =
+          location.constant_society_id ||
+          location.society_id;
       }
-
       const res = await complaintService.addComplaint(complaintData);
 
       if (res?.status === 'success') {
@@ -740,9 +745,9 @@ const ComplaintInputScreen = ({ navigation, route }) => {
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                 <Text style={[s.scheduleFieldLabel, { color: t.sub }]}>
-  TIME <Text style={{ color: '#EF4444' }}>*</Text>
-</Text>
+                  <Text style={[s.scheduleFieldLabel, { color: t.sub }]}>
+                    TIME <Text style={{ color: '#EF4444' }}>*</Text>
+                  </Text>
                   <TouchableOpacity
                     style={[s.timeBtn, { borderColor: fromTime ? PRIMARY : t.border, backgroundColor: t.surface }]}
                     onPress={() => setShowTimePicker(true)}

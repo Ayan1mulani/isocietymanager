@@ -28,6 +28,35 @@ getMyVisitors: async () => {
   return response;
 },
 
+
+deleteVisit: async (visitId) => {
+  try {
+    const user = await Common.getLoggedInUser();
+
+    const url = await visitorServices.appendParamsInUrl(
+      `${API_URL4}/v1/society/${user.societyId}/residentdeletevisit`,
+      {
+        id: visitId,
+        resident_id: JSON.stringify({
+          user_id: user.id,
+          group_id: user.role_id,
+          flat_no: user.flat_no,
+          unit_id: user.unit_id,
+          society_id: user.societyId
+        })
+      }
+    );
+
+    const headers = await Util.getCommonAuth();
+
+    return ApiCommon.delReq(url, null, headers);
+
+  } catch (error) {
+    console.log("Delete Visit Error:", error);
+    throw error;
+  }
+},
+
   getParkingBookings: async () => {
     const user = await Common.getLoggedInUser();
 

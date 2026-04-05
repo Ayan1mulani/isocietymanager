@@ -25,9 +25,10 @@ import { ismServices } from '../../services/ismServices';
 import BRAND from '../config';
 import { RegisterAppOneSignal } from "../../services/oneSignalService";
 import { NativeModules } from "react-native";
+import DeviceInfo from 'react-native-device-info';
 
 const { VisitorModule } = NativeModules;
-
+const version = DeviceInfo.getVersion();
 const { width } = Dimensions.get('window');
 
 const Wave = () => (
@@ -73,40 +74,40 @@ const NewLoginScreen = () => {
   const [errorTitle, setErrorTitle] = useState('Login Failed');
   const [isLoading, setIsLoading] = useState(false);
 
-const getUserDetails = async () => {
-  try {
-    const userInfo = await AsyncStorage.getItem('userInfo');
-    if (!userInfo) return;
+  const getUserDetails = async () => {
+    try {
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      if (!userInfo) return;
 
-    const parsed = JSON.parse(userInfo);
-    if (!parsed?.api_token || !parsed?.id) return;
+      const parsed = JSON.parse(userInfo);
+      if (!parsed?.api_token || !parsed?.id) return;
 
-    // ✅ Restore native auth on every session restore
- await VisitorModule.saveAuthDetails({
-  apiToken:  parsed.api_token                              || "",
-  userId:    String(parsed.id                              || ""),
-  societyId: String(parsed.societyId  || parsed.society_id || ""),  // ← fallback
-  roleId:    String(parsed.role_id    || parsed.group_id   || ""),  // ← fallback
-  unitId:    String(parsed.unit_id                         || ""),
-  flatNo:    String(parsed.flat_no                         || ""),
-});
+      // ✅ Restore native auth on every session restore
+      await VisitorModule.saveAuthDetails({
+        apiToken: parsed.api_token || "",
+        userId: String(parsed.id || ""),
+        societyId: String(parsed.societyId || parsed.society_id || ""),  // ← fallback
+        roleId: String(parsed.role_id || parsed.group_id || ""),  // ← fallback
+        unitId: String(parsed.unit_id || ""),
+        flatNo: String(parsed.flat_no || ""),
+      });
 
-    await ismServices.getUserDetails();
-    await loadPermissions();
+      await ismServices.getUserDetails();
+      await loadPermissions();
 
-    const updatedUserInfo = await AsyncStorage.getItem('userInfo');
-    if (!updatedUserInfo) return;
+      const updatedUserInfo = await AsyncStorage.getItem('userInfo');
+      if (!updatedUserInfo) return;
 
-    const updatedParsed = JSON.parse(updatedUserInfo);
-    if (!updatedParsed?.token && !updatedParsed?.id) return;
+      const updatedParsed = JSON.parse(updatedUserInfo);
+      if (!updatedParsed?.token && !updatedParsed?.id) return;
 
-    navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'MainApp' }] }));
+      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'MainApp' }] }));
 
-  } catch (error) {
-    console.log('Session restore failed:', error);
-    await AsyncStorage.removeItem('userInfo').catch(() => {});
-  }
-};
+    } catch (error) {
+      console.log('Session restore failed:', error);
+      await AsyncStorage.removeItem('userInfo').catch(() => { });
+    }
+  };
 
   useEffect(() => {
 
@@ -181,14 +182,14 @@ const getUserDetails = async () => {
             societyId: user.societyId,
           });
 
-await VisitorModule.saveAuthDetails({
-  apiToken:  user.api_token                            || "",
-  userId:    String(user.id                            || ""),
-  societyId: String(user.societyId  || user.society_id || ""),  // ← fallback
-  roleId:    String(user.role_id    || user.group_id   || ""),  // ← fallback
-  unitId:    String(user.unit_id                       || ""),
-  flatNo:    String(user.flat_no                       || ""),
-});
+          await VisitorModule.saveAuthDetails({
+            apiToken: user.api_token || "",
+            userId: String(user.id || ""),
+            societyId: String(user.societyId || user.society_id || ""),  // ← fallback
+            roleId: String(user.role_id || user.group_id || ""),  // ← fallback
+            unitId: String(user.unit_id || ""),
+            flatNo: String(user.flat_no || ""),
+          });
           console.log("✅ Auth saved to native");
         } else {
           console.log("❌ VisitorModule not available");
@@ -408,6 +409,10 @@ await VisitorModule.saveAuthDetails({
                     Factech Automation Solutions Private Limited
                   </Text>
                 </Text>
+                <Text style={styles.versionText}>
+                  v{version}
+                </Text>
+
 
               </View>
             </View>
@@ -503,6 +508,14 @@ const styles = StyleSheet.create({
   poweredByBrand: {
     color: BRAND.PRIMARY_COLOR,
     fontWeight: '500',
+  },
+  versionText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#9e9e9e',
+    marginTop: 6,
+    opacity: 0.8,
+    letterSpacing: 0.5,
   },
 });
 
