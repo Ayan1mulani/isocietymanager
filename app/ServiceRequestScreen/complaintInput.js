@@ -256,7 +256,7 @@ const tp = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', marginBottom: 18 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   timeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1.5, padding: 12 },
-  label: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5 },
+  label: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5 , color:'black'},
   time: { fontSize: 18, fontWeight: '700', marginTop: 2 },
   doneBtn: { marginTop: 12, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   doneTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
@@ -753,7 +753,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
                     onPress={() => setShowTimePicker(true)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="time-outline" size={15} color={fromTime ? PRIMARY : t.sub} />
                     <Text style={[s.timeBtnValue, { color: fromTime ? t.text : t.sub }]} numberOfLines={1}>
                       {timeLabel}
                     </Text>

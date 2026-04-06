@@ -16,6 +16,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Svg, Path } from 'react-native-svg';
 import { CommonActions, useNavigation } from '@react-navigation/native';
+import NetInfo from "@react-native-community/netinfo";
 import { usePermissions } from '../../Utils/ConetextApi';
 import { LoginSrv } from '../../services/LoginSrv';
 import AccountSelectorModal from './SelectUserMode';
@@ -56,6 +57,11 @@ const isValidIdentity = (val) => {
   return emailRegex.test(value) || phoneRegex.test(value);
 };
 
+const checkInternet = async () => {
+  const state = await NetInfo.fetch();
+  return state.isConnected;
+};
+
 
 const NewLoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -91,8 +97,13 @@ const NewLoginScreen = () => {
         unitId: String(parsed.unit_id || ""),
         flatNo: String(parsed.flat_no || ""),
       });
+      const isConnected = await checkInternet();
 
-      await ismServices.getUserDetails();
+      if (isConnected) {
+        await ismServices.getUserDetails();
+      } else {
+        console.log("📴 Offline → skipping API, using stored session");
+      }
       await loadPermissions();
 
       const updatedUserInfo = await AsyncStorage.getItem('userInfo');
@@ -118,6 +129,17 @@ const NewLoginScreen = () => {
   }, []);
 
   const handleLogin = async (userid) => {
+
+
+    const isConnected = await checkInternet();
+
+    if (!isConnected) {
+      setErrorTitle('No Internet');
+      setErrorMessage('Please check your internet connection and try again.');
+      setShowError(true);
+      return;
+    }
+
     setIsLoading(true);
     const payload = {
       identity: email.trim(),
@@ -190,7 +212,7 @@ const NewLoginScreen = () => {
             unitId: String(user.unit_id || ""),
             flatNo: String(user.flat_no || ""),
           });
-          console.log("✅ Auth saved to native",user.api_token);
+          console.log("✅ Auth saved to native", user.api_token);
         } else {
           console.log("❌ VisitorModule not available");
         }

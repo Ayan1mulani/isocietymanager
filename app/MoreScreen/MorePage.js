@@ -193,7 +193,7 @@ const ProfileScreen = () => {
               OneSignal.User.pushSubscription.optOut();
 
               // 2. Remove mapping (🔥 important)
-             OneSignal.logout();   // ✅ correct way
+              OneSignal.logout();   // ✅ correct way
 
               // 3. Unregister backend
               await UnRegisterOneSignal();
@@ -315,66 +315,147 @@ const ProfileScreen = () => {
     }, 350);
   };
 
-  // 3. Verify Password and Switch Login
   const confirmSwitchLogin = async () => {
     if (!password.trim()) {
-      showAlert({ title: 'Validation Error', message: 'Please enter your password.', buttons: [{ text: 'OK' }] });
+      showAlert({
+        title: 'Validation Error',
+        message: 'Please enter your password.',
+        buttons: [{ text: 'OK' }]
+      });
       return;
     }
 
     try {
       setIsSwitching(true);
-      const userInfo = await AsyncStorage.getItem('userInfo');
-      const parsedUser = JSON.parse(userInfo);
-      const identity = await AsyncStorage.getItem("loginIdentity");
-      console.log("Switching to user_id:", selectedUserId, "with identity:", identity);
 
-      // Final Login Payload (exact copy of LoginScreen)
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      const parsedUser = JSON.parse(userInfo || '{}');
+      const identity = await AsyncStorage.getItem("loginIdentity");
+
+      console.log("🔄 Switching account →", selectedUserId);
+
+      // ─────────────────────────────────────────────
+      // 🟡 STEP 1: LOGIN WITH SELECTED USER
+      // ─────────────────────────────────────────────
       const response = await LoginSrv.login({
-        identity: identity.trim(),
+        identity: identity?.trim(),
         password: password,
         tenant: 0,
         user_id: selectedUserId,
       });
 
-      if (response.status === 'success') {
+      if (response.status !== 'success') {
+        showAlert({
+          title: 'Login Failed',
+          message: response.message || 'Incorrect password.',
+          buttons: [{ text: 'OK' }]
+        });
+        return;
+      }
+
+      // ─────────────────────────────────────────────
+      // 🔴 STEP 2: CLEAN OLD USER STATE
+      // ─────────────────────────────────────────────
+      console.log("🧹 Clearing old session...");
+
+      try {
+        // Stop push
         OneSignal.User.pushSubscription.optOut();
+
+        // 🔥 IMPORTANT: unlink device from old user
+        OneSignal.logout();
+
+        // Unregister backend mapping
         await UnRegisterOneSignal();
 
-        let user = response.data;
-
-        if (typeof user.id === "string" && user.id.includes("user_id")) {
-          const parsed = JSON.parse(user.id);
-          user = {
-            ...user,
-            id: parsed.user_id,
-            unit_id: parsed.unit_id,
-            role_id: parsed.group_id,
-            flat_no: parsed.flat_no,
-            societyId: parsed.society_id
-          };
+        // 🔥 Clear native (visitor + dedup + prefs)
+        if (VisitorModule?.clearAll) {
+          await VisitorModule.clearAll();
+          console.log("🧹 Native cleared");
         }
 
-        await AsyncStorage.setItem("userInfo", JSON.stringify(user));
-        await AsyncStorage.removeItem("permissions");
-        await loadPermissions();
+        // Clear app storage
+        await AsyncStorage.multiRemove([
+          "userInfo",
+          "permissions",
+          "userDetails",
+        ]);
 
-        setTimeout(async () => {
-          await RegisterAppOneSignal();
+      } catch (cleanupError) {
+        console.log("⚠️ Cleanup error:", cleanupError);
+      }
+
+      // ─────────────────────────────────────────────
+      // 🟢 STEP 3: PREPARE NEW USER
+      // ─────────────────────────────────────────────
+      let user = response.data;
+
+      // 🔥 Fix encoded user object (important)
+      if (typeof user.id === "string" && user.id.includes("user_id")) {
+        const parsed = JSON.parse(user.id);
+        user = {
+          ...user,
+          id: parsed.user_id,
+          unit_id: parsed.unit_id,
+          role_id: parsed.group_id,
+          flat_no: parsed.flat_no,
+          societyId: parsed.society_id
+        };
+      }
+
+      // Save new user
+      await AsyncStorage.setItem("userInfo", JSON.stringify(user));
+      // 🟢 STEP 3.5: SAVE TO NATIVE (MISSING 🔥)
+      if (VisitorModule?.saveAuthDetails) {
+        console.log("🔥 Saving switched user to native:", user.id);
+
+        await VisitorModule.saveAuthDetails({
+          apiToken: user.api_token || "",
+          userId: String(user.id || ""),
+          societyId: String(user.societyId || user.society_id || ""),
+          roleId: String(user.role_id || user.group_id || ""),
+          unitId: String(user.unit_id || ""),
+          flatNo: String(user.flat_no || ""),
         });
 
-        setPasswordModal(false);
-
-        setTimeout(() => {
-          navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "MainApp" }] }));
-        }, 100);
-
+        console.log("✅ Native updated after switch");
       } else {
-        showAlert({ title: 'Login Failed', message: response.message || 'Incorrect password.', buttons: [{ text: 'OK' }] });
+        console.log("❌ VisitorModule not available");
       }
+
+      // Reload permissions
+      await loadPermissions();
+
+      // ─────────────────────────────────────────────
+      // 🟢 STEP 4: REGISTER NEW USER PUSH
+      // ─────────────────────────────────────────────
+      console.log("📲 Registering OneSignal for new user...");
+      await new Promise(res => setTimeout(res, 400));
+      await RegisterAppOneSignal();
+
+      console.log("✅ Switch account complete");
+
+      // ─────────────────────────────────────────────
+      // 🟢 STEP 5: NAVIGATION RESET
+      // ─────────────────────────────────────────────
+      setPasswordModal(false);
+
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "MainApp" }],
+        })
+      );
+
     } catch (error) {
-      console.error('Switch login failed:', error);
-      showAlert({ title: 'Connection Error', message: 'Unable to connect to server.', buttons: [{ text: 'OK' }] });
+      console.error("❌ Switch login failed:", error);
+
+      showAlert({
+        title: 'Connection Error',
+        message: 'Unable to connect to server.',
+        buttons: [{ text: 'OK' }]
+      });
+
     } finally {
       setIsSwitching(false);
     }
