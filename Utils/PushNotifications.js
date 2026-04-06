@@ -218,40 +218,63 @@ const initializeOneSignal = async () => {
      This fires ONLY when the app is in foreground.
      Background/killed is handled by MyNotificationServiceExtension (native).
   ────────────────────────────────────────────────────────────────────── */
-  OneSignal.Notifications.addEventListener(
-    "foregroundWillDisplay",
-    async (event) => {
-      try {
-        const notification = event.getNotification();
-        console.log(TAG, `foregroundWillDisplay → title='${notification.title}'`);
-        console.log(TAG, "foregroundWillDisplay → additionalData:", JSON.stringify(notification.additionalData));
+ /* ──────────────────────────────────────────────────────────────────────
+     🟢 FOREGROUND — intercept and show Notifee notification
+     This fires ONLY when the app is in foreground.
+     Background/killed is handled by MyNotificationServiceExtension (native).
+  ────────────────────────────────────────────────────────────────────── */
+ OneSignal.Notifications.addEventListener(
+  "foregroundWillDisplay",
+  async (event) => {
+    try {
+      const notification = event.getNotification();
 
-        if (notification.title !== "Add Visit") {
-          console.log(TAG, "foregroundWillDisplay → not a visitor notification, displaying normally");
-          event.getNotification().display();
-          return;
-        }
+      console.log("🚨 FULL NOTIFICATION:", JSON.stringify(notification, null, 2));
 
-        // Stop OneSignal banner — we show Notifee instead
+      const title = notification.title;
+      const body  = notification.body;
+
+      // 🔥 HANDLE VISITOR
+      if (title === "Add Visit") {
         event.preventDefault();
-        console.log(TAG, "foregroundWillDisplay → prevented OneSignal banner");
 
         const visitor = extractVisitor(notification.additionalData);
 
-        if (!visitor) {
-          console.log(TAG, "foregroundWillDisplay → no valid visitor, showing fallback");
+        if (visitor) {
+          await showVisitorNotification(visitor);
+        } else {
           event.getNotification().display();
-          return;
         }
 
-        await showVisitorNotification(visitor);
-      } catch (e) {
-        console.log(TAG, "foregroundWillDisplay → ERROR:", e);
-        try { event.getNotification().display(); } catch (_) {}
+        return;
       }
-    }
-  );
 
+      // 🔥 HANDLE ALERT (NEW)
+      if (title === "Alert") {
+        event.preventDefault();
+
+        await notifee.displayNotification({
+          title: "🔔 " + title,
+          body: body,
+          android: {
+            channelId: "visitor", // you can create separate channel if needed
+            importance: AndroidImportance.HIGH,
+            pressAction: { id: "default" },
+          },
+        });
+
+        return;
+      }
+
+      // ✅ DEFAULT (other notifications)
+      event.getNotification().display();
+
+    } catch (e) {
+      console.log(TAG, "foregroundWillDisplay → ERROR:", e);
+      try { event.getNotification().display(); } catch (_) {}
+    }
+  }
+);
   /* ──────────────────────────────────────────────────────────────────────
      🔵 CLICK — user taps the OneSignal notification body (no action button)
      This fires when user taps the notification from background / notification tray.

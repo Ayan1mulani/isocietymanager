@@ -190,7 +190,7 @@ const NewLoginScreen = () => {
             unitId: String(user.unit_id || ""),
             flatNo: String(user.flat_no || ""),
           });
-          console.log("✅ Auth saved to native");
+          console.log("✅ Auth saved to native",user.api_token);
         } else {
           console.log("❌ VisitorModule not available");
         }

@@ -126,8 +126,6 @@ export default function App() {
   useEffect(() => {
     const setup = async () => {
       await initializeOneSignal();
-      await RegisterAppOneSignal();
-
       setOnVisitorPending((visitor) => {
         console.log(TAG, `onVisitorPending → ${visitor.id}`);
         pendingVisitorRef.current = visitor;

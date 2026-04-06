@@ -6,33 +6,33 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const ismServices = {
 
-exportMeterReadings: async (fromDate, toDate, unit, type) => {
-  const user = await Common.getLoggedInUser();
+  exportMeterReadings: async (fromDate, toDate, unit, type) => {
+    const user = await Common.getLoggedInUser();
 
-  if (!fromDate || !toDate) {
-    throw new Error("Please select both dates");
-  }
+    if (!fromDate || !toDate) {
+      throw new Error("Please select both dates");
+    }
 
-  const diffDays =
-    (new Date(toDate) - new Date(fromDate)) / (1000 * 3600 * 24);
+    const diffDays =
+      (new Date(toDate) - new Date(fromDate)) / (1000 * 3600 * 24);
 
-  if (diffDays > 90) {
-    throw new Error("Maximum 90 days allowed");
-  }
+    if (diffDays > 90) {
+      throw new Error("Maximum 90 days allowed");
+    }
 
-  const url =
-    `${METER_URL}/v1/society/${user.societyId}/exportreading` +
-    `?api-token=${user.api_token}` +
-    `&user-id=${user.id}` +
-    `&from_date=${fromDate}` +
-    `&to_date=${toDate}` +
-    `&unit=${unit || user.flat_no}` +
-    `&type=${type}`;
+    const url =
+      `${METER_URL}/v1/society/${user.societyId}/exportreading` +
+      `?api-token=${user.api_token}` +
+      `&user-id=${user.id}` +
+      `&from_date=${fromDate}` +
+      `&to_date=${toDate}` +
+      `&unit=${unit || user.flat_no}` +
+      `&type=${type}`;
 
-  console.log("✅ FINAL EXPORT URL:", url);
+    console.log("✅ FINAL EXPORT URL:", url);
 
-  return url; // 🔥 MUST BE STRING ONLY
-},
+    return url; // 🔥 MUST BE STRING ONLY
+  },
 
   getMeterStatus: async () => {
     try {
@@ -131,39 +131,40 @@ exportMeterReadings: async (fromDate, toDate, unit, type) => {
   },
 
   changePassword: async (payload) => {
-    try {
+  try {
+    const user = await Common.getLoggedInUser();
 
-      const url = await ismServices.appendParamsInUrl(
-        `${API_URL2}/changePassword`
-      );
+    const uObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId
+    };
 
-      const headers = await Util.getCommonAuth();
+    const url = `${API_URL2}/v1/changePassword` +
+      `?api-token=${user.api_token}` +
+      `&user-id=${JSON.stringify(uObj)}`;
 
-      console.log("CHANGE PASSWORD URL:", url);
-      console.log("CHANGE PASSWORD PAYLOAD:", payload);
+    const headers = await Util.getCommonAuth();
 
-      const response = await ApiCommon.postReq(url, payload, headers);
+    console.log("🚀 URL:", url);
+    console.log("🚀 PAYLOAD:", payload);
 
-      console.log("CHANGE PASSWORD RESPONSE:", response);
+    const response = await ApiCommon.postReq(url, payload, headers);
 
-      return response;
+    console.log("✅ RESPONSE:", response);
 
-    } catch (error) {
+    return response; // 🔥 IMPORTANT
 
-      console.log("CHANGE PASSWORD ERROR:", error);
-
-      if (error?.response) {
-        console.log("BACKEND ERROR DATA:", error.response.data);
-        console.log("BACKEND ERROR STATUS:", error.response.status);
-      }
-
-      return {
-        status: "error",
-        message: "Password change failed"
-      };
-    }
-  },
-
+  } catch (error) {
+    console.log("❌ CHANGE PASSWORD ERROR:", error);
+    return {
+      status: "error",
+      message: "Password change failed"
+    };
+  }
+},
 
 
   getMeterReadings: async (pageNo = 1) => {
@@ -247,32 +248,32 @@ exportMeterReadings: async (fromDate, toDate, unit, type) => {
   },
 
   getAccountStatement: async (billTypeId, pageNo = 1) => {
-  try {
-    const user = await Common.getLoggedInUser();
+    try {
+      const user = await Common.getLoggedInUser();
 
-    const uObj = {
-      user_id:    user.id,
-      group_id:   user.role_id,
-      flat_no:    user.flat_no,
-      unit_id:    user.unit_id,
-      society_id: user.societyId,
-    };
+      const uObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
 
-    const url =
-      `${API_URL2}/getAccountStatement` +
-      `?api-token=${user.api_token}` +
-      `&user-id=${encodeURIComponent(JSON.stringify(uObj))}` +
-      `&bill_type=${billTypeId}` +
-      `&page_no=${pageNo}`;
+      const url =
+        `${API_URL2}/getAccountStatement` +
+        `?api-token=${user.api_token}` +
+        `&user-id=${encodeURIComponent(JSON.stringify(uObj))}` +
+        `&bill_type=${billTypeId}` +
+        `&page_no=${pageNo}`;
 
-    const headers = await Util.getCommonAuth();
-    return ApiCommon.getReq(url, headers);
+      const headers = await Util.getCommonAuth();
+      return ApiCommon.getReq(url, headers);
 
-  } catch (error) {
-    console.log('getAccountStatement error:', error);
-    return null;
-  }
-},
+    } catch (error) {
+      console.log('getAccountStatement error:', error);
+      return null;
+    }
+  },
 
   getBillTypes: async () => {
     try {

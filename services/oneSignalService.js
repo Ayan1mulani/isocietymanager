@@ -9,14 +9,16 @@ import { Common } from './Common';
    REGISTER DEVICE
 ================================ */
 export const RegisterAppOneSignal = async () => {
-
   try {
 
     console.log("🚀 RegisterAppOneSignal started");
 
-    const userInfo = await AsyncStorage.getItem("userInfo");
+    // 🔥 VERY IMPORTANT (THIS FIXES YOUR ISSUE)
+    OneSignal.User.pushSubscription.optIn();
+    await new Promise(resolve => setTimeout(resolve, 500)); // 🔥 important
 
-    console.log("📦 Raw userInfo from storage:", userInfo);
+
+    const userInfo = await AsyncStorage.getItem("userInfo");
 
     if (!userInfo) {
       console.log("❌ No user session found");
@@ -25,16 +27,13 @@ export const RegisterAppOneSignal = async () => {
 
     const parsedUser = JSON.parse(userInfo);
 
-    console.log("👤 Parsed user:", parsedUser);
+    let user = await Common.getLoggedInUser();
+    let realUserId = user.id;
 
-    const userId = parsedUser?.id;
-    const apiToken = parsedUser?.api_token;
-    const societyId = parsedUser?.societyId || parsedUser?.s_id;
-
-    console.log("🔎 Extracted values");
-    console.log("userId:", userId);
-    console.log("apiToken:", apiToken);
-    console.log("societyId:", societyId);
+    if (typeof realUserId === "string" && realUserId.includes("user_id")) {
+      const parsed = JSON.parse(realUserId);
+      realUserId = parsed.user_id;
+    }
 
     const deviceId = await OneSignal.User.pushSubscription.getIdAsync();
 
@@ -45,8 +44,6 @@ export const RegisterAppOneSignal = async () => {
       return false;
     }
 
-
-
     const payload = {
       app_name: APP_NAME,
       app_version_code: APP_VERSION_CODE,
@@ -54,32 +51,13 @@ export const RegisterAppOneSignal = async () => {
       userId: deviceId,
       tenant: 0,
     };
-    let user = await Common.getLoggedInUser()
-    let realUserId = user.id;
 
-    if (typeof realUserId === "string" && realUserId.includes("user_id")) {
-      const parsed = JSON.parse(realUserId);
-      realUserId = parsed.user_id;
-    }
-
-
-    console.log("📦 Payload being sent:", payload);
     const url = `${API_URL2}/appRegistered?api-token=${user.api_token}&user-id=${realUserId}`;
-
-
-    console.log("🌐 Request URL:", url);
-    console.log(user, "++++++++++++user++++++++++++")
 
     const headers = {
       "Content-Type": "application/json",
       "Ism-Auth": `{"api-token":"${user.api_token}","user-id":${realUserId},"site-id":${user.societyId}}`
-    }
-
-    console.log("📨 Headers:", headers);
-
-
-
-
+    };
 
     const response = await ApiCommon.postReq(url, payload, headers);
 
@@ -88,11 +66,8 @@ export const RegisterAppOneSignal = async () => {
     return true;
 
   } catch (error) {
-
     console.error("❌ OneSignal register error:", error);
-
     return false;
-
   }
 };
 

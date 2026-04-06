@@ -86,22 +86,23 @@ class VisitorModule(reactContext: ReactApplicationContext) :
        clearAll — call on logout
     ───────────────────────────────────────────────────────────────────── */
     @ReactMethod
-    fun clearAll(promise: Promise) {
-        try {
-            prefs.edit().remove(KEY_VISITOR).apply()
+fun clearAll(promise: Promise) {
+    try {
+        // Purge ALL keys in VisitorPrefs (future-proofs the logout logic)
+        prefs.edit().clear().apply()
 
-            // Also clear auth so the native activity can't make stale calls
-            reactApplicationContext
-                .getSharedPreferences("VisitorAuth", Context.MODE_PRIVATE)
-                .edit().clear().apply()
+        // Purge ALL keys in VisitorAuth
+        reactApplicationContext
+            .getSharedPreferences("VisitorAuth", Context.MODE_PRIVATE)
+            .edit().clear().apply()
 
-            Log.d(TAG, "clearAll → done")
-            promise.resolve(true)
-        } catch (e: Exception) {
-            Log.e(TAG, "clearAll → ERROR: ${e.message}")
-            promise.reject("ERROR", e.message)
-        }
+        Log.d(TAG, "clearAll → done")
+        promise.resolve(true)
+    } catch (e: Exception) {
+        Log.e(TAG, "clearAll → ERROR: ${e.message}")
+        promise.reject("ERROR", e.message)
     }
+}
 
     /* ─────────────────────────────────────────────────────────────────────
        debugDump — dev utility

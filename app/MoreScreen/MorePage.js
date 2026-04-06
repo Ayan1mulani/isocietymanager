@@ -27,6 +27,9 @@ import { RegisterAppOneSignal } from '../../services/oneSignalService';
 import * as ImagePicker from 'react-native-image-picker';
 import { otherServices } from '../../services/otherServices'; // 👈 add this
 
+import { NativeModules } from "react-native";
+
+
 const InfoRow = ({ label, value, theme }) => (
   <View style={[styles.infoRow, { borderBottomColor: theme.divider }]}>
     <Text style={[styles.infoLabel, { color: theme.textSub }]} numberOfLines={1}>
@@ -37,6 +40,9 @@ const InfoRow = ({ label, value, theme }) => (
     </Text>
   </View>
 );
+
+const { VisitorModule } = NativeModules;
+
 
 const ProfileScreen = () => {
   const { nightMode, loadPermissions } = usePermissions();
@@ -177,14 +183,42 @@ const ProfileScreen = () => {
       buttons: [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Logout', style: 'destructive',
+          text: 'Logout',
+          style: 'destructive',
           onPress: async () => {
             try {
+              console.log("🚪 Logging out...");
+
+              // 1. Stop push
               OneSignal.User.pushSubscription.optOut();
+
+              // 2. Remove mapping (🔥 important)
+             OneSignal.logout();   // ✅ correct way
+
+              // 3. Unregister backend
               await UnRegisterOneSignal();
+
+              // 4. Clear native auth
+              if (VisitorModule?.clearAll) {
+                await VisitorModule.clearAll();
+                console.log("🧹 Native cleared");
+              }
+
+              // 5. Clear storage
               await AsyncStorage.clear();
-              navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
-            } catch (e) { console.log('Logout error:', e); }
+
+              console.log("✅ Logout complete");
+
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'Login' }],
+                })
+              );
+
+            } catch (e) {
+              console.log('Logout error:', e);
+            }
           },
         },
       ],
@@ -370,31 +404,31 @@ const ProfileScreen = () => {
 
         {/* ── Profile Header ─────────────────────────────────────────────── */}
         <View style={[styles.profileCard, { backgroundColor: theme.cardBg }]}>
-  
-  <View style={{ alignItems: 'center' }}>
-    <View onPress={handleChangeProfileImage}>
-      <Image source={avatarSource} style={styles.avatar} />
-    </View>
 
-    {/* 🔥 CHANGE BUTTON */}
-    <TouchableOpacity onPress={handleChangeProfileImage}>
-      <Text style={styles.changeText}>Change</Text>
-    </TouchableOpacity>
-  </View>
+          <View style={{ alignItems: 'center' }}>
+            <View onPress={handleChangeProfileImage}>
+              <Image source={avatarSource} style={styles.avatar} />
+            </View>
 
-  <View style={styles.profileInfo}>
-    <Text style={[styles.userName, { color: theme.textMain }]} numberOfLines={1}>
-      {userProfile.name}
-    </Text>
-    <Text style={[styles.userSub, { color: theme.textSub }]} numberOfLines={1}>
-      {userProfile.phone_no}
-    </Text>
-    <Text style={[styles.userSub, { color: theme.textSub }]} numberOfLines={1}>
-      {userProfile.email}
-    </Text>
-  </View>
+            {/* 🔥 CHANGE BUTTON */}
+            <TouchableOpacity onPress={handleChangeProfileImage}>
+              <Text style={styles.changeText}>Change</Text>
+            </TouchableOpacity>
+          </View>
 
-</View>
+          <View style={styles.profileInfo}>
+            <Text style={[styles.userName, { color: theme.textMain }]} numberOfLines={1}>
+              {userProfile.name}
+            </Text>
+            <Text style={[styles.userSub, { color: theme.textSub }]} numberOfLines={1}>
+              {userProfile.phone_no}
+            </Text>
+            <Text style={[styles.userSub, { color: theme.textSub }]} numberOfLines={1}>
+              {userProfile.email}
+            </Text>
+          </View>
+
+        </View>
 
         {/* ── Virtual ID Card ─────────────────────────────────────────────── */}
         <TouchableOpacity style={[styles.virtualIdCard, { backgroundColor: theme.cardBg }]} onPress={() => navigation.navigate('ResidentIdCard')} activeOpacity={0.8}>
@@ -614,11 +648,11 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   changeText: {
-  marginTop: 6,
-  fontSize: 13,
-  fontWeight: '600',
-  color: BRAND.COLORS.primary,
-},
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    color: BRAND.COLORS.primary,
+  },
 
   // ── Settings rows ────────────────────────────────────────────────────────
   actionRow: {
