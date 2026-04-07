@@ -11,10 +11,12 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  NativeModules,
 } from 'react-native';
 
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Svg, Path } from 'react-native-svg';
+import AccountSelectorModal from './SelectUserMode';
 
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 
@@ -26,6 +28,7 @@ import { RegisterAppOneSignal } from "../../services/oneSignalService";
 
 import BRAND from '../config';
 
+const { VisitorModule } = NativeModules;
 const { width } = Dimensions.get('window');
 
 const Wave = () => (
@@ -52,28 +55,36 @@ const OtpVerifyScreen = () => {
 
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-
   const [statusMessage, setStatusMessage] = useState(message || "");
   const [errorMessage, setErrorMessage] = useState("");
+  const [modalVisible, setModalVisible] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+  const [otpToken, setOtpToken] = useState(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
+  const handleAccountSelect = (account) => {
+    setModalVisible(false);
+    loginWithAccount(account, otpToken);
+  };
+
   /* ===============================
         LOGIN WITH ACCOUNT
-
-        Sends token in URL + full account
-        object in body — server validates
-        token and returns full user object.
-
-        We fix id = unit_id before saving
-        because logMeIn returns id as a
-        JSON string instead of plain number
   =============================== */
   const loginWithAccount = async (account, token) => {
-
     try {
+
+      // ✅ Role check at selection time
+      const ALLOWED_ROLES = ["member", "resident", "tenant"];
+      const userRole = (account.role || "").toLowerCase();
+      if (!ALLOWED_ROLES.includes(userRole)) {
+        setErrorMessage(
+          `Access denied. This app is not for ${account.role || "this role"}.`
+        );
+        return;
+      }
 
       const loginResponse = await ismServices.logMeIn(token, account);
 
@@ -86,48 +97,73 @@ const OtpVerifyScreen = () => {
 
       let userData = { ...loginResponse.data };
 
-      // ✅ Fix id — logMeIn returns id as JSON string
+      // Fix id — logMeIn returns id as JSON string
       // e.g. "{\"user_id\":518162,\"unit_id\":367102,...}"
-      // Normal login returns id as plain number
       if (typeof userData.id === "string" && userData.id.startsWith("{")) {
         try {
           const parsed = JSON.parse(userData.id);
-          userData.id = parsed.unit_id;
+        userData = {
+  ...userData,
+  id: parsed.user_id,
+  unit_id: parsed.unit_id,
+  role_id: parsed.group_id,
+  flat_no: parsed.flat_no,
+  societyId: parsed.society_id
+};
         } catch (e) {
           console.log("Failed to parse id:", e);
         }
       }
 
-      // ✅ Always keep id === unit_id
+      // Always keep id === unit_id
       // getMyBalance uses user.id → /getOutstandingBalance/${user.id}
-      if (userData.unit_id && userData.id !== userData.unit_id) {
-        userData.id = userData.unit_id;
-      }
+     
 
       console.log("Saving userInfo:", JSON.stringify(userData, null, 2));
 
+      // ✅ Save identity
+      await AsyncStorage.setItem("loginIdentity", identity || "");
+
+      // ✅ Save user info
       await AsyncStorage.setItem("userInfo", JSON.stringify(userData));
 
-      await AsyncStorage.removeItem("permissions");
+      // ✅ Save to native
+      if (VisitorModule?.saveAuthDetails) {
+        await VisitorModule.saveAuthDetails({
+          apiToken: userData.api_token || "",
+          userId: String(userData.id || ""),
+          societyId: String(userData.societyId || userData.society_id || ""),
+          roleId: String(userData.role_id || userData.group_id || ""),
+          unitId: String(userData.unit_id || ""),
+          flatNo: String(userData.flat_no || ""),
+        });
+        console.log("✅ Auth saved to native via OTP flow");
+      } else {
+        console.log("❌ VisitorModule not available");
+      }
 
+      await AsyncStorage.removeItem("permissions");
       await loadPermissions();
 
-      await RegisterAppOneSignal();
+      // ✅ Match regular login timing
+      setTimeout(async () => {
+        console.log("📡 Registering OneSignal...");
+        await RegisterAppOneSignal();
+      }, 800);
 
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "MainApp" }]
-        })
-      );
+      setTimeout(() => {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "MainApp" }]
+          })
+        );
+      }, 100);
 
     } catch (error) {
-
       console.log("loginWithAccount error:", error);
       setErrorMessage("Login failed. Please try again.");
-
     }
-
   };
 
   /* ===============================
@@ -145,7 +181,6 @@ const OtpVerifyScreen = () => {
     setErrorMessage("");
 
     try {
-
       const response = await ismServices.verifyOtp({
         id: otpData?.id,
         otp
@@ -166,42 +201,26 @@ const OtpVerifyScreen = () => {
           return;
         }
 
-        const accounts = accountResponse.data || [];
+        const fetchedAccounts = accountResponse.data || [];
 
-        if (accounts.length === 0) {
+        console.log("RAW ACCOUNTS:", JSON.stringify(fetchedAccounts, null, 2));
+
+        if (fetchedAccounts.length === 0) {
           setErrorMessage("No account found for this user.");
           return;
         }
 
-        const ALLOWED_ROLES = ["member", "resident", "tenant"];
+        // ✅ Show ALL accounts in modal — role check happens on selection
+        setOtpToken(token);
+        setAccounts(fetchedAccounts);
+        setModalVisible(true);
 
-        const validAccounts = accounts.filter(acc =>
-          ALLOWED_ROLES.includes((acc.role || "").toLowerCase())
-        );
-
-        if (validAccounts.length === 0) {
-
-          setErrorMessage(
-            "Admin login is not allowed in this app. Please use the Admin Portal."
-          );
-
-          return;
-
-        }
-
-        await loginWithAccount(validAccounts[0], token);
-      }
-
-      else {
+      } else {
 
         setStatusMessage("");
 
-        if (
-          response?.message?.includes("OTP Related Authentication")
-        ) {
-
+        if (response?.message?.includes("OTP Related Authentication")) {
           setErrorMessage("Time limit exceeded. Please login again.");
-
           setTimeout(() => {
             navigation.dispatch(
               CommonActions.reset({
@@ -210,37 +229,26 @@ const OtpVerifyScreen = () => {
               })
             );
           }, 1500);
-
         } else {
-
           setErrorMessage(response?.message || "Invalid OTP");
-
         }
-
       }
 
-    }
-
-    catch (error) {
-
+    } catch (error) {
       console.log("OTP VERIFY ERROR:", error);
       setErrorMessage("OTP verification failed. Please try again.");
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
-
+  /* ===============================
+        RESEND OTP
+  =============================== */
   const handleResendOtp = async () => {
     if (loading) return;
 
-
     try {
-
       setLoading(true);
       setStatusMessage("");
       setErrorMessage("");
@@ -250,29 +258,20 @@ const OtpVerifyScreen = () => {
       });
 
       if (response?.status === "success") {
-
         setStatusMessage("OTP resent successfully");
         setErrorMessage("");
-
       } else {
-
         setErrorMessage(response?.message || "Failed to resend OTP");
-
       }
 
     } catch (error) {
       setErrorMessage("Unable to resend OTP");
-
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
   return (
-
     <View style={styles.safeArea}>
 
       <StatusBar barStyle="dark-content" />
@@ -281,7 +280,6 @@ const OtpVerifyScreen = () => {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-
         <ScrollView
           contentContainerStyle={styles.scrollViewContent}
           keyboardShouldPersistTaps="handled"
@@ -289,7 +287,6 @@ const OtpVerifyScreen = () => {
           <View style={styles.container}>
 
             <View style={styles.headerContainer}>
-
               <View style={styles.logoContainer}>
                 <Image
                   source={BRAND.LOGO}
@@ -297,30 +294,20 @@ const OtpVerifyScreen = () => {
                   resizeMode="contain"
                 />
               </View>
-
-              <Text style={styles.welcomeMessage}>
-                Verify OTP
-              </Text>
-
+              <Text style={styles.welcomeMessage}>Verify OTP</Text>
               <Text style={styles.subWelcomeMessage}>
                 Enter OTP sent to {identity}
               </Text>
-
             </View>
 
             <View style={styles.formContainer}>
-
               <Wave />
-
               <View style={styles.formInputsWrapper}>
 
                 <View style={styles.inputContainer}>
-
                   <View style={styles.icon}>
                     <Icon name="lock" size={20} color="#9e9e9e" />
                   </View>
-
-
                   <TextInput
                     ref={inputRef}
                     style={styles.input}
@@ -335,28 +322,21 @@ const OtpVerifyScreen = () => {
                       setErrorMessage("");
                     }}
                   />
-
                 </View>
+
                 <TouchableOpacity
                   style={styles.resendLink}
                   onPress={handleResendOtp}
                 >
-                  <Text style={styles.resendText}>
-                    Resend OTP
-                  </Text>
+                  <Text style={styles.resendText}>Resend OTP</Text>
                 </TouchableOpacity>
 
                 {statusMessage !== "" && errorMessage === "" && (
-                  <Text style={styles.successText}>
-                    {statusMessage}
-                  </Text>
+                  <Text style={styles.successText}>{statusMessage}</Text>
                 )}
 
-
                 {errorMessage !== "" && (
-                  <Text style={styles.errorText}>
-                    {errorMessage}
-                  </Text>
+                  <Text style={styles.errorText}>{errorMessage}</Text>
                 )}
 
                 <TouchableOpacity
@@ -382,153 +362,57 @@ const OtpVerifyScreen = () => {
                 )}
 
               </View>
-
             </View>
 
           </View>
-
         </ScrollView>
-
       </KeyboardAvoidingView>
 
+      {/* ✅ Outside ScrollView — renders as proper full-screen overlay */}
+      <AccountSelectorModal
+        visible={modalVisible}
+        accounts={accounts}
+        onSelect={handleAccountSelect}
+        onClose={() => setModalVisible(false)}
+      />
+
     </View>
-
   );
-
 };
 
 export default OtpVerifyScreen;
 
 const styles = StyleSheet.create({
-
   flex: { flex: 1 },
-
-  safeArea: {
-    flex: 1,
-    backgroundColor: BRAND.PRIMARY_COLOR
-  },
-
+  safeArea: { flex: 1, backgroundColor: BRAND.PRIMARY_COLOR },
   scrollViewContent: { flexGrow: 1 },
+  container: { flex: 1, justifyContent: 'flex-end', backgroundColor: BRAND.PRIMARY_COLOR },
 
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: BRAND.PRIMARY_COLOR
-  },
+  headerContainer: { alignItems: 'center', justifyContent: 'center', paddingBottom: 40 },
+  logoContainer: { width: '100%', alignItems: 'center' },
+  logo: { width: 200, height: 60, resizeMode: 'contain' },
 
-  headerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 40
-  },
-
-  logoContainer: {
-    width: '100%',
-    alignItems: 'center'
-  },
-
-  logo: {
-    width: 200,
-    height: 60,
-    resizeMode: 'contain'
-  },
-  resendLink: {
-    alignSelf: "flex-end",
-    marginTop: 6,
-    marginBottom: 10
-  },
-
-  resendText: {
-    color: BRAND.PRIMARY_COLOR,
-    fontSize: 13,
-    fontWeight: "600"
-  },
-
-  welcomeMessage: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8
-  },
-
-  subWelcomeMessage: {
-    fontSize: 16,
-    color: '#E8F4FD'
-  },
+  welcomeMessage: { fontSize: 36, fontWeight: '700', color: '#FFFFFF', marginBottom: 8 },
+  subWelcomeMessage: { fontSize: 16, color: '#E8F4FD' },
 
   formContainer: {},
+  formInputsWrapper: { backgroundColor: '#FFFFFF', paddingHorizontal: 25, paddingTop: 30, paddingBottom: 50 },
 
-  formInputsWrapper: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 25,
-    paddingTop: 30,
-    paddingBottom: 50
-  },
-
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    marginBottom: 10,
-    paddingHorizontal: 15,
-    height: 60
-  },
-
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 12, marginBottom: 10, paddingHorizontal: 15, height: 60 },
   icon: { marginRight: 15 },
+  input: { flex: 1, height: 60, fontSize: 16, color: '#000' },
 
-  input: {
-    flex: 1,
-    height: 60,
-    fontSize: 16,
-    color: '#000'
-  },
+  resendLink: { alignSelf: "flex-end", marginTop: 6, marginBottom: 10 },
+  resendText: { color: BRAND.PRIMARY_COLOR, fontSize: 13, fontWeight: "600" },
 
-  successText: {
-    color: '#16A34A',
-    textAlign: 'center',
-    marginBottom: 5,
-    fontWeight: '600'
-  },
+  successText: { color: '#16A34A', textAlign: 'center', marginBottom: 5, fontWeight: '600' },
+  infoText: { color: '#6B7280', textAlign: 'center', marginBottom: 15 },
+  errorText: { color: '#DC2626', textAlign: 'center', marginBottom: 15 },
 
-  infoText: {
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 15
-  },
+  loginButton: { backgroundColor: BRAND.COLORS.button, paddingVertical: 18, borderRadius: 12, alignItems: 'center', height: 60 },
+  loginButtonDisabled: { backgroundColor: '#B0B0B0' },
+  loginButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 },
 
-  errorText: {
-    color: '#DC2626',
-    textAlign: 'center',
-    marginBottom: 15
-  },
-
-  loginButton: {
-    backgroundColor: BRAND.COLORS.button,
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    height: 60
-  },
-
-  loginButtonDisabled: {
-    backgroundColor: '#B0B0B0'
-  },
-
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 18
-  },
-
-  passwordLogin: {
-    marginTop: 20,
-    alignItems: "center"
-  },
-
-  passwordLoginText: {
-    color: BRAND.PRIMARY_COLOR,
-    fontWeight: "600"
-  }
-
+  passwordLogin: { marginTop: 20, alignItems: "center" },
+  passwordLoginText: { color: BRAND.PRIMARY_COLOR, fontWeight: "600" },
 });

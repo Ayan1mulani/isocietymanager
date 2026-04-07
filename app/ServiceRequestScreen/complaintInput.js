@@ -726,7 +726,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[s.priorityTxt, { color: !isASAP ? PRIMARY : t.text }]}>Schedule</Text>
-                <Text style={[s.priorityDesc, { color: t.sub }]}>Pick date & time</Text>
+                <Text style={[s.priorityDesc, { color: t.sub }]}>Date & time</Text>
               </View>
 
             </TouchableOpacity>

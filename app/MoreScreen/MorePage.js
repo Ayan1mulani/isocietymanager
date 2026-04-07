@@ -596,8 +596,10 @@ const ProfileScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Change Password</Text>
-            <TextInput placeholder="New Password" secureTextEntry value={newPassword} onChangeText={setNewPassword} placeholderTextColor="#9CA3AF" style={styles.passwordInput} />
-            <TextInput placeholder="Confirm Password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#9CA3AF" style={styles.passwordInput} />
+            <TextInput placeholder="New Password" secureTextEntry value={newPassword} onChangeText={setNewPassword} placeholderTextColor="#9CA3AF" style={styles.passwordInput}     autoCapitalize="none"
+                    autoCorrect={false} />
+            <TextInput placeholder="Confirm Password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#9CA3AF" style={styles.passwordInput}           autoCapitalize="none"
+                    autoCorrect={false}/>
             <TouchableOpacity style={[styles.modalPrimaryBtn, { backgroundColor: theme.primary }]} onPress={handleChangePassword} disabled={changingPassword}>
               <Text style={styles.modalPrimaryBtnText}>{changingPassword ? 'Updating...' : 'Update Password'}</Text>
             </TouchableOpacity>

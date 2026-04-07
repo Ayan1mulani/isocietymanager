@@ -1,11 +1,7 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput
+  View, Text, StyleSheet, TouchableOpacity,
+  ScrollView, TextInput
 } from "react-native";
 import ProviderSelector from "../components/ProviderSelector";
 import CalendarSelector from "../components/Calender";
@@ -15,7 +11,6 @@ import { useNavigation } from "@react-navigation/native";
 import BRAND from "../../config";
 import SubmitButton from "../../components/SubmitButton";
 import { useRoute } from "@react-navigation/native";
-
 
 const SingleDeliveryForm = ({ theme }) => {
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -36,11 +31,9 @@ const SingleDeliveryForm = ({ theme }) => {
       newErrors.provider = "Please select delivery company";
     }
 
-    // 👉 custom validation
     if (isCustom && !customName.trim()) {
       newErrors.custom = "Please enter company name";
     }
-
 
     if (!visitDate) {
       newErrors.date = "Please select visit date";
@@ -61,23 +54,18 @@ const SingleDeliveryForm = ({ theme }) => {
 
       const payload = {
         date_time: formattedDate,
-        company_name: isCustom
-          ? customName
-          : selectedProvider?.name || selectedProvider,
+        company_name: isCustom ? customName : selectedProvider, // ✅ selectedProvider is already a string
         type: "delivery",
       };
+
       setModalType("loading");
       const res = await visitorServices.addMyVisitor(payload);
+
       if (res) {
         setModalType("success");
-
         setTimeout(() => {
           setModalType(null);
-
-          if (onGoBack) {
-            onGoBack(); // ✅ refresh VisitorSection
-          }
-
+          if (onGoBack) onGoBack();
           navigation.goBack();
         }, 1400);
       } else {
@@ -93,27 +81,26 @@ const SingleDeliveryForm = ({ theme }) => {
   return (
     <>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Provider */}
-       <ProviderSelector
-  visitorType="delivery"
-  theme={theme}
-  required={true}
-  selectedProvider={selectedProvider}   // ✅ ADD THIS LINE
-  setSelectedProvider={(val) => {
-    setSelectedProvider(val);
 
-    if (val === "Custom") {
-      setIsCustom(true);
-    } else {
-      setIsCustom(false);
-      setCustomName("");
-    }
+        <ProviderSelector
+          visitorType="delivery"
+          theme={theme}
+          required={true}
+          selectedProvider={selectedProvider}
+          setSelectedProvider={(val) => {
+            setSelectedProvider(val);
+            if (val === "Custom") {
+              setIsCustom(true);
+            } else {
+              setIsCustom(false);
+              setCustomName("");
+            }
+            if (errors.provider)
+              setErrors((prev) => ({ ...prev, provider: null }));
+          }}
+          stylesFromParent={styles}
+        />
 
-    if (errors.provider)
-      setErrors((prev) => ({ ...prev, provider: null }));
-  }}
-  stylesFromParent={styles}
-/>
         {errors.provider && (
           <Text style={styles.errorText}>{errors.provider}</Text>
         )}
@@ -121,28 +108,23 @@ const SingleDeliveryForm = ({ theme }) => {
         {isCustom && (
           <View style={[styles.card, { backgroundColor: theme.cardBg, marginTop: 10 }]}>
             <Text style={styles.label}>Enter Delivery Company</Text>
-
             <TextInput
               value={customName}
               onChangeText={(text) => {
                 setCustomName(text);
-
-                if (errors.custom) {
+                if (errors.custom)
                   setErrors((prev) => ({ ...prev, custom: null }));
-                }
               }}
               placeholder="Enter company name"
               placeholderTextColor="#9CA3AF"
               style={styles.input}
             />
-
             {errors.custom && (
               <Text style={styles.errorText}>{errors.custom}</Text>
             )}
           </View>
         )}
 
-        {/* Visit Date */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <CalendarSelector
             selectedDate={visitDate}
@@ -160,37 +142,31 @@ const SingleDeliveryForm = ({ theme }) => {
           )}
         </View>
 
-        {/* Submit */}
         <SubmitButton
           title="Schedule Delivery"
           onPress={handleSubmit}
           loading={modalType === "loading"}
         />
+
       </ScrollView>
 
-      {/* Reusable Modal */}
       <StatusModal
         visible={!!modalType}
         type={modalType}
         title={
-          modalType === "loading"
-            ? "Scheduling..."
-            : modalType === "success"
-              ? "Delivery Scheduled"
+          modalType === "loading" ? "Scheduling..."
+            : modalType === "success" ? "Delivery Scheduled"
               : "Failed!"
         }
         subtitle={
-          modalType === "loading"
-            ? "Please wait"
-            : modalType === "success"
-              ? "Delivery pass created"
+          modalType === "loading" ? "Please wait"
+            : modalType === "success" ? "Delivery pass created"
               : "Please try again"
         }
       />
     </>
   );
 };
-
 
 export default SingleDeliveryForm;
 
@@ -199,7 +175,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
-
   label: {
     fontSize: 14,
     fontWeight: "600",
@@ -211,13 +186,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 16,
   },
-
-
   phoneRow: {
     flexDirection: "row",
     gap: 8,
   },
-
   countryCode: {
     width: 60,
     height: 48,
@@ -226,7 +198,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   input: {
     height: 48,
     borderWidth: 1,
@@ -244,13 +215,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 14,
   },
-
   counterRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
-
   counterBtn: {
     width: 40,
     height: 40,
@@ -259,24 +228,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   counterText: {
     fontSize: 18,
     fontWeight: "600",
   },
-
   submitButton: {
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 10,
     marginBottom: 40,
-    position: "relative",
-    bottom: 0,
-    marginHorizontal: '3%',
-    backgroundColor: BRAND.COLORS.button
+    marginHorizontal: "3%",
+    backgroundColor: BRAND.COLORS.button,
   },
-
   submitText: {
     color: "#fff",
     fontWeight: "700",

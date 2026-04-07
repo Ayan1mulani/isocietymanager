@@ -1,19 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  StyleSheet,
-  Image,
-  TextInput,
+  View, Text, TouchableOpacity, Modal, FlatList,
+  StyleSheet, Image, TextInput, ActivityIndicator,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import BRAND from "../../config";
-
-const BASE_URL = "https://ism-vms.s3.amazonaws.com/company-logo/";
+import { ismServices } from "../../../services/ismServices";
 
 const ProviderSelector = ({
   visitorType,
@@ -21,105 +13,81 @@ const ProviderSelector = ({
   required,
   selectedProvider,
   setSelectedProvider,
-  stylesFromParent = {},   // FIX 3: default fallback to avoid crash
+  stylesFromParent = {},
 }) => {
   const [showProviderModal, setShowProviderModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [allCompanies, setAllCompanies] = useState([]);  // ✅ from API
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
 
-  if (visitorType !== "cab" && visitorType !== "delivery") {
-    return null;
-  }
+  if (visitorType !== "cab" && visitorType !== "delivery") return null;
 
-  const deliveryCompanies = [
-    { name: "Dominos", logo_url: `${BASE_URL}dominos.png` },
-    { name: "Runnr", logo_url: `${BASE_URL}runnr.png` },
-    { name: "Shadow fax", logo_url: `${BASE_URL}shadow-fax.png` },
-    { name: "Snapdeal", logo_url: `${BASE_URL}snapdeal.png` },
-    { name: "Swiggy", logo_url: `${BASE_URL}swiggy.png` },
-    { name: "Uber eats", logo_url: `${BASE_URL}uber-eats.png` },
-    { name: "UPS", logo_url: `${BASE_URL}ups.png` },
-    { name: "Xpressbees", logo_url: `${BASE_URL}xpressbees.png` },
-    { name: "Zomato", logo_url: `${BASE_URL}zomato.png` },
-    { name: "Box8", logo_url: `${BASE_URL}box8.png` },
-    { name: "DHL", logo_url: `${BASE_URL}dhl.png` },
-    { name: "Pizza hut", logo_url: `${BASE_URL}pizza-hut.png` },
-    { name: "Zop now", logo_url: `${BASE_URL}zop-now.png` },
-    { name: "Licious", logo_url: `${BASE_URL}licious.png` },
-    { name: "Firstcry", logo_url: `${BASE_URL}firstcry.png` },
-    { name: "1mg", logo_url: `${BASE_URL}1MG.jpg` },
-    { name: "Yatharth", logo_url: `${BASE_URL}Yatharth.png` },
-    { name: "Ekart", logo_url: `${BASE_URL}ekart.png` },
-    { name: "Flipkart", logo_url: `${BASE_URL}flipkart.png` },
-    { name: "Amazon", logo_url: `${BASE_URL}amazon.png` },
-    { name: "Bharat gas", logo_url: `${BASE_URL}bharat-gas.png` },
-    { name: "Big basket", logo_url: `${BASE_URL}big-basket.png` },
-    { name: "Delhivery", logo_url: `${BASE_URL}delhivery.png` },
-    { name: "DTDC", logo_url: `${BASE_URL}dtdc.png` },
-    { name: "Dunzo", logo_url: `${BASE_URL}dunzo.png` },
-    { name: "Ecom express", logo_url: `${BASE_URL}ecom-express.png` },
-    { name: "Faasos", logo_url: `${BASE_URL}faasos.png` },
-    { name: "Fedex", logo_url: `${BASE_URL}fedex.png` },
-    { name: "First flight", logo_url: `${BASE_URL}first-flight.png` },
-    { name: "ABC Retail", logo_url: `${BASE_URL}abc.jpeg` },
-    { name: "Food panda", logo_url: `${BASE_URL}food-panda.png` },
-    { name: "Freshmenu", logo_url: `${BASE_URL}freshmenu.png` },
-    { name: "Gati", logo_url: `${BASE_URL}gati.png` },
-    { name: "Grofers", logo_url: `${BASE_URL}grofers.png` },
-    { name: "HP Gas", logo_url: `${BASE_URL}hp-gas.png` },
-    { name: "Indane", logo_url: `${BASE_URL}indane.png` },
-    { name: "India post", logo_url: `${BASE_URL}india-post.png` },
-    { name: "Myntra", logo_url: `${BASE_URL}myntra.png` },
-    { name: "Paytm", logo_url: `${BASE_URL}paytm.png` },
-  ];
+  // ✅ Fetch from API on mount
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        setLoadingCompanies(true);
+        const category = visitorType === "cab" ? "cab" : "delivery";
+        const res = await ismServices.getMasterCompanies(category);
+        if (res?.status === "success") {
+          console.log("Fetched companies:", res.data);
+          // Normalize: API uses "icon", component uses "logo_url"
+          const normalized = (res.data || []).map((item) => ({
+            name: item.name,
+            logo_url: item.icon,
+          }));
+          setAllCompanies(normalized);
+        }
+      } catch (err) {
+        console.log("ProviderSelector fetch error:", err);
+      } finally {
+        setLoadingCompanies(false);
+      }
+    };
 
-  const cabCompanies = [
-    { name: "Ola", logo_url: `${BASE_URL}ola.png` },
-    { name: "Uber", logo_url: `${BASE_URL}uber.png` },
-    { name: "Meru", logo_url: `${BASE_URL}meru.png` },
-  ];
+    fetchCompanies();
+  }, [visitorType]);
 
-  const rawList = visitorType === "cab" ? cabCompanies : deliveryCompanies;
-
-  // FIX 1: popularProviders is now actually used to build the quick row
-  const popularProviders = ["Amazon", "Dominos", "Zop now"];
+  // ✅ Popular providers shown in quick row (first 3 from API)
+  const popularProviders = ["Amazon", "Dominos", "Zomato"];
 
   let quickList = [];
 
   if (visitorType === "cab") {
-    quickList = [{ name: "Custom", logo_url: null }, ...rawList];
+    quickList = [...allCompanies];
   } else {
-    // FIX 1: filter by popularProviders instead of hardcoded slice(0,3)
-    let popularItems = rawList.filter((item) =>
+    let popularItems = allCompanies.filter((item) =>
       popularProviders.includes(item.name)
     );
 
-    // FIX 4: if selected item came from modal, replace last slot so row stays fixed
+    // If fewer than 3 popular found, fill from top of list
+    if (popularItems.length < 3) {
+      const extras = allCompanies
+        .filter((item) => !popularProviders.includes(item.name))
+        .slice(0, 3 - popularItems.length);
+      popularItems = [...popularItems, ...extras];
+    }
+
+    // If selected came from modal, replace last quick slot
     const isModalSelection =
       selectedProvider &&
-      selectedProvider !== "Custom" &&
-      !popularProviders.includes(selectedProvider);
+      !popularItems.find((item) => item.name === selectedProvider);
 
     if (isModalSelection) {
-      const selectedItem = rawList.find((item) => item.name === selectedProvider);
+      const selectedItem = allCompanies.find((item) => item.name === selectedProvider);
       if (selectedItem) {
-        // Replace last popular item with the modal selection
-        popularItems = [...popularItems.slice(0, -1), selectedItem];
+        popularItems = [...popularItems.slice(0, 2), selectedItem];
       }
     }
 
-    quickList = [
-      { name: "Custom", logo_url: null },
-      ...popularItems,
-    ];
+    quickList = popularItems;
   }
 
-  /* ================== MODAL LIST ================== */
-
-  const providerList = rawList.filter((item) =>
+  // Modal list filtered by search
+  const providerList = allCompanies.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  // FIX 2: clear search when closing modal
   const handleCloseModal = () => {
     setShowProviderModal(false);
     setSearch("");
@@ -131,13 +99,12 @@ const ProviderSelector = ({
       onPress={() => {
         setSelectedProvider(item.name);
         setShowProviderModal(false);
-        setSearch(""); // FIX 2: clear search on item select
+        setSearch("");
       }}
     >
       <View
         style={[
           styles.logoBox,
-          // FIX 5: only change borderColor, not borderWidth (no layout shift)
           selectedProvider === item.name
             ? { borderColor: theme.primaryBlue, backgroundColor: "#E6F4FB" }
             : { borderColor: "transparent" },
@@ -145,76 +112,68 @@ const ProviderSelector = ({
       >
         <Image source={{ uri: item.logo_url }} style={styles.logo} />
       </View>
-      <Text style={{ marginTop: 6 }}>{item.name}</Text>
+      <Text style={{ marginTop: 6, fontSize: 11, textAlign: "center" }}>
+        {item.name}
+      </Text>
     </TouchableOpacity>
   );
 
   return (
     <>
-      {/* Divider */}
-      <View
-        style={[
-          stylesFromParent.horizontalLine,
-          { backgroundColor: theme.border },
-        ]}
-      />
+      <View style={[stylesFromParent.horizontalLine, { backgroundColor: theme.border }]} />
 
-      {/* Card */}
       <View style={[stylesFromParent.card, { backgroundColor: theme.cardBg }]}>
         <Text style={[stylesFromParent.label, { color: theme.text }]}>
-          {visitorType === "cab"
-            ? "Select Cab Provider"
-            : "Select Delivery Company"}
+          {visitorType === "cab" ? "Select Cab Provider" : "Select Delivery Company"}
           {required && <Text style={{ color: "#EF4444" }}> *</Text>}
         </Text>
 
-        {/* QUICK ROW */}
-        <View style={styles.row}>
-          {quickList.map((item) => (
-            <TouchableOpacity
-              key={item.name}
-              style={styles.quickItem}
-              onPress={() => setSelectedProvider(item.name)}
-            >
-              <View
-                style={[
-                  styles.logoBox,
-                  // FIX 5: only change borderColor, not borderWidth (no layout shift / blank image)
-                  selectedProvider === item.name
-                    ? { borderColor: "#000000", backgroundColor: "#E6F4FB" }
-                    : { borderColor: "transparent" },
-                ]}
+        {/* ✅ Show loader while fetching */}
+        {loadingCompanies ? (
+          <ActivityIndicator
+            size="small"
+            color={theme.primaryBlue || "#1565A9"}
+            style={{ marginTop: 12 }}
+          />
+        ) : (
+          <View style={styles.row}>
+            {quickList.map((item) => (
+              <TouchableOpacity
+                key={item.name}
+                style={styles.quickItem}
+                onPress={() => setSelectedProvider(item.name)}
               >
-                {item.name === "Custom" ? (
-                  <Ionicons
-                    name="layers-outline"
-                    size={26}
-                    color={BRAND.COLORS.icon}
-                  />
-                ) : (
+                <View
+                  style={[
+                    styles.logoBox,
+                    selectedProvider === item.name
+                      ? { borderColor: "#000000", backgroundColor: "#E6F4FB" }
+                      : { borderColor: "transparent" },
+                  ]}
+                >
                   <Image source={{ uri: item.logo_url }} style={styles.logo} />
-                )}
-              </View>
-              <Text style={styles.quickText}>{item.name}</Text>
-            </TouchableOpacity>
-          ))}
+                </View>
+                <Text style={styles.quickText}>{item.name}</Text>
+              </TouchableOpacity>
+            ))}
 
-          {/* DELIVERY ONLY — More button */}
-          {visitorType === "delivery" && (
-            <TouchableOpacity
-              style={styles.quickItem}
-              onPress={() => setShowProviderModal(true)}
-            >
-              <View style={[styles.logoBox, { borderColor: "transparent" }]}>
-                <Ionicons name="ellipsis-horizontal" size={20} />
-              </View>
-              <Text style={styles.quickText}>More</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            {/* More button — delivery only */}
+            {visitorType === "delivery" && (
+              <TouchableOpacity
+                style={styles.quickItem}
+                onPress={() => setShowProviderModal(true)}
+              >
+                <View style={[styles.logoBox, { borderColor: "transparent" }]}>
+                  <Ionicons name="ellipsis-horizontal" size={20} />
+                </View>
+                <Text style={styles.quickText}>More</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
-      {/* MODAL (Delivery only) */}
+      {/* Modal */}
       {visitorType === "delivery" && (
         <Modal visible={showProviderModal} animationType="slide">
           <SafeAreaView style={{ flex: 1 }}>
@@ -232,11 +191,7 @@ const ProviderSelector = ({
                 placeholderTextColor="#9CA3AF"
                 value={search}
                 onChangeText={setSearch}
-                style={{
-                  flex: 1,
-                  marginLeft: 8,
-                  color: "#111827"
-                }}
+                style={{ flex: 1, marginLeft: 8, color: "#111827" }}
               />
             </View>
 
@@ -256,21 +211,17 @@ const ProviderSelector = ({
 
 export default ProviderSelector;
 
-/* ================== STYLES ================== */
-
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     marginTop: 12,
-
+    flexWrap: "wrap",
   },
-
   quickItem: {
     alignItems: "center",
     marginRight: 18,
     marginBottom: 8,
   },
-
   logoBox: {
     width: 50,
     height: 50,
@@ -280,21 +231,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     overflow: "hidden",
     marginBottom: 6,
-    borderWidth: 2,            // FIX 5: always present — no layout shift
-    borderColor: "transparent", // FIX 5: transparent by default
+    borderWidth: 2,
+    borderColor: "transparent",
   },
-
   logo: {
     width: "100%",
     height: "100%",
     resizeMode: "contain",
   },
-
   quickText: {
     fontSize: 11,
     textAlign: "center",
   },
-
   modalHeader: {
     backgroundColor: "#2E6AA3",
     padding: 16,
@@ -302,13 +250,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   modalTitle: {
     color: "#fff",
     fontSize: 18,
     fontWeight: "600",
   },
-
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -318,7 +264,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 44,
   },
-
   modalItem: {
     flex: 1,
     alignItems: "center",

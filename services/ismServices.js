@@ -247,6 +247,32 @@ const ismServices = {
     }
   },
 
+  getMasterCompanies: async (category = "delivery") => {
+  try {
+    const user = await Common.getLoggedInUser();
+
+    const uObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId,
+    };
+
+    const url =
+      `https://vms-api.isocietymanager.com/v1/mastercompanies` +
+      `?api-token=${user.api_token}` +
+      `&user-id=${encodeURIComponent(JSON.stringify(uObj))}` +
+      `&category=${category}`;
+
+    const headers = await Util.getCommonAuth();
+    return ApiCommon.getReq(url, headers);
+  } catch (error) {
+    console.log("getMasterCompanies Error:", error);
+    return null;
+  }
+},
+
   getAccountStatement: async (billTypeId, pageNo = 1) => {
     try {
       const user = await Common.getLoggedInUser();

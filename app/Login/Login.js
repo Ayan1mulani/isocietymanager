@@ -409,19 +409,17 @@ const NewLoginScreen = () => {
                     />
                   </TouchableOpacity>
 
-                  <Text style={styles.termsText}>
-                    I Agree and Accept the
-                  </Text>
-
-                  <TouchableOpacity
+                <Text style={styles.termsText}>
+                  I Agree and Accept the{' '}
+                  <Text
+                    style={styles.termsLink}
                     onPress={() =>
                       Linking.openURL('https://isocietymanager.com/terms-conditions.html')
                     }
                   >
-                    <Text style={styles.termsLink}>
-                      {' '}Terms And Conditions
-                    </Text>
-                  </TouchableOpacity>
+                    Terms And Conditions
+                  </Text>
+                </Text>
                 </View>
 
                 {/* ── Powered By ── */}
@@ -484,11 +482,11 @@ const styles = StyleSheet.create({
   forgotPasswordButton: { alignSelf: 'flex-end', marginBottom: 25 },
   forgotPasswordText: { color: '#074B7C', fontSize: 14, fontWeight: '600' },
 
-  loginButton: { backgroundColor: BRAND.COLORS.button, paddingVertical: 18, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 25, height: 60, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
+  loginButton: { backgroundColor: BRAND.COLORS.button, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 25, height: 60, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
   loginButtonDisabled: { backgroundColor: '#B0B0B0', elevation: 0, shadowOpacity: 0 },
-  loginButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 },
+  loginButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 , lineHeight: 22,},
 
-  signUpContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 15 },
+  signUpContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 13 },
   signUpText: { fontSize: 14, color: '#9e9e9e' },
   signUpLink: { fontSize: 14, color: '#074B7C', fontWeight: 'bold' },
 
@@ -509,7 +507,7 @@ const styles = StyleSheet.create({
   termsText: {
     fontSize: 13,
     color: '#555',
-    flexShrink: 1,
+ textAlign: 'center',
   },
 
   termsLink: {

@@ -181,7 +181,7 @@ const segments = enrichedData.map((item) => {    const percentage = total > 0 ? 
 export default ComplaintStats;
 
 const styles = StyleSheet.create({
-  container: { margin: 16, padding: 16, borderRadius: 16 },
+  container: { margin: 3.5, padding: 16, borderRadius: 16, marginRight:18,marginLeft:18 , elevation:0.1},
   chartWrapper: { width: 120, height: 120, marginRight: 16 },
   centerLabel: { position: "absolute", width: 120, height: 120, alignItems: "center", justifyContent: "center" },
   legendItem: { flexDirection: "row", alignItems: "center", width: "48%", marginBottom: 10, marginRight: "2%" },
