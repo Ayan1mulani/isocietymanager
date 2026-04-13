@@ -82,8 +82,8 @@ android {
         applicationId "com.sumasamu.iSocietyManager"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 457
-        versionName "3.2.10"
+        versionCode 458
+        versionName "3.2.11"
     }
     signingConfigs {
         release {

@@ -13,6 +13,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import BRAND from "./app/config";
+import SocietySearchScreen from './app/Login/SocietySearchScreen';
+import SearchUnitScreen from './app/Login/SearchUnitScreen';
+import RegistrationFormScreen from './app/Login/RegistrationFormScreen';
+import CreateAccount from './app/Login/SignUpScreen';
+
+import PendingStatusScreen from './app/Login/PendingStatusScreen'; // ✅ The yellow status screen
 
 import VisitorPopup from "./app/components/VisitorPopup";
 import { setPopupHandler } from "./services/VisitorPopupService";
@@ -173,11 +179,11 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   };
 
   console.log("LoginScreen:", typeof LoginScreen);
-console.log("Header:", typeof Header);
-console.log("VisitorsScreen:", typeof VisitorsScreen);
-console.log("BillsPage:", typeof BillsPage);
-console.log("BillPaymentScreen:", typeof BillPaymentScreen);
-console.log("Payment:", typeof Payment);
+  console.log("Header:", typeof Header);
+  console.log("VisitorsScreen:", typeof VisitorsScreen);
+  console.log("BillsPage:", typeof BillsPage);
+  console.log("BillPaymentScreen:", typeof BillPaymentScreen);
+  console.log("Payment:", typeof Payment);
 
   return (
     <View style={styles.bottomNavContainer}>
@@ -267,34 +273,34 @@ const NavigationTabs = () => {
   const { nightMode } = usePermissions();
 
 
-    useEffect(() => {
-  const checkPendingNavigation = async () => {
-    try {
-      const shouldNavigate = await AsyncStorage.getItem("SHOULD_NAVIGATE_VISITOR");
-      const visitorStr = await AsyncStorage.getItem("PENDING_VISITOR_NAVIGATE");
+  useEffect(() => {
+    const checkPendingNavigation = async () => {
+      try {
+        const shouldNavigate = await AsyncStorage.getItem("SHOULD_NAVIGATE_VISITOR");
+        const visitorStr = await AsyncStorage.getItem("PENDING_VISITOR_NAVIGATE");
 
-      if (!shouldNavigate || !visitorStr) return;
+        if (!shouldNavigate || !visitorStr) return;
 
-      const visitor = JSON.parse(visitorStr);
-      if (!visitor?.id) return;
+        const visitor = JSON.parse(visitorStr);
+        if (!visitor?.id) return;
 
-      console.log("🚀 Navigating AFTER APP READY:", visitor.id);
+        console.log("🚀 Navigating AFTER APP READY:", visitor.id);
 
-      // 🔥 CLEAR BEFORE NAVIGATION
-      await AsyncStorage.removeItem("SHOULD_NAVIGATE_VISITOR");
-      await AsyncStorage.removeItem("PENDING_VISITOR_NAVIGATE");
+        // 🔥 CLEAR BEFORE NAVIGATION
+        await AsyncStorage.removeItem("SHOULD_NAVIGATE_VISITOR");
+        await AsyncStorage.removeItem("PENDING_VISITOR_NAVIGATE");
 
-      setTimeout(() => {
-        navigationRef.navigate("VisitorApproval", { visitor });
-      }, 600);
+        setTimeout(() => {
+          navigationRef.navigate("VisitorApproval", { visitor });
+        }, 600);
 
-    } catch (e) {
-      console.log("❌ Navigation error:", e);
-    }
-  };
+      } catch (e) {
+        console.log("❌ Navigation error:", e);
+      }
+    };
 
-  checkPendingNavigation();
-}, []);
+    checkPendingNavigation();
+  }, []);
 
 
   return (
@@ -353,82 +359,87 @@ const NavigationPage = () => {
     });
   }, []);
   return (
-      <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
-        <Stack.Navigator screenOptions={{
-          cardStyle: { backgroundColor: "#ffffff" },
-          cardOverlayEnabled: false,
-          cardShadowEnabled: false,
-          headerShown: false,
-          animation: "simple_push"
-        }} initialRouteName="Login">
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="MainApp" component={NavigationTabs} />
-          <Stack.Screen name="AddVisitor" component={AddVisitor} />
-          <Stack.Screen name="AddPreVisitor" component={AddPreApprovedVisitor} />
-          <Stack.Screen name="AddFrequentVisitor" component={AddFrequentVisitor} />
-          <Stack.Screen name="CategorySelection" component={CategorySelectionScreen} />
-          <Stack.Screen name="ServiceRequestDetail" component={ServiceRequestDetailScreen} />
-          <Stack.Screen name="SubCategorySelection" component={SubCategorySelectionScreen} />
-          <Stack.Screen name="complaintInput" component={ComplaintInputScreen} />
-          <Stack.Screen name="PassDetails" component={PassDetailsScreen} />
-          <Stack.Screen name="Accounts" component={AccountsScreen} />
-          <Stack.Screen name="VisitDetailScreen" component={VisitDetailScreen} />
-          <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
-          <Stack.Screen name="AddVehicleScreen" component={AddVehicleScreen} />
-          <Stack.Screen name="MyVehiclesScreen" component={MyVehiclesScreen} />
-          <Stack.Screen name="VehicleDetailsScreen" component={VehicleDetailsScreen} />
-          <Stack.Screen name="VehicleLogsScreen" component={VehicleLogsScreen} />
-          <Stack.Screen name="VehicleTagScreen" component={VehicleTagScreen} />
-          <Stack.Screen name="StaffScreen" component={StaffScreen} />
-          <Stack.Screen name="StaffDetailScreen" component={StaffDetailScreen} />
-          <Stack.Screen name="MyStaffDetailScreen" component={MyStaffDetailScreen} />
-          <Stack.Screen name="MyStaffAttendanceScreen" component={MyStaffAttendanceScreen} />
-          <Stack.Screen name="ContactUsScreen" component={ContactUsScreen} />
-          <Stack.Screen name="AllServicesScreen" component={AllServicesScreen} />
-          <Stack.Screen name="AddMember" component={AddMemberScreen} />
-          <Stack.Screen name="MyNoticesScreen" component={MyNoticesScreen} />
-          <Stack.Screen name="NoticeDetailScreen" component={NoticeDetailScreen} />
-          <Stack.Screen name="Visitors" component={VisitorsScreen} screenOptions={{ headerShown: true }} />
-          <Stack.Screen name="Settings" component={SettingsScreen} />
-          <Stack.Screen name="bills" component={BillsPage} />
-          <Stack.Screen name="AmenitiesListScreen" component={AmenitiesListScreen} />
-          <Stack.Screen name="AmenityBooking" component={AmenityBookingScreen} />
-          <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
-          <Stack.Screen name="OtpLoginScreen" component={OtpLoginScreen} />
-          <Stack.Screen name="Notices" component={MyComplexScreen} />
-          <Stack.Screen name="NoticeDetail" component={myNoticeDetailScreen} />
-          <Stack.Screen name="FamilyMember" component={MembersScreen} />
-          <Stack.Screen name="OtpLogin" component={OtpLoginScreen} />
-          <Stack.Screen name="OtpVerify" component={OtpVerifyScreen} />
-          <Stack.Screen name="Meter" component={MeterScreen} />
-          <Stack.Screen name="BillPaymentScreen" component={BillPaymentScreen} />
+    <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
+      <Stack.Navigator screenOptions={{
+        cardStyle: { backgroundColor: "#ffffff" },
+        cardOverlayEnabled: false,
+        cardShadowEnabled: false,
+        headerShown: false,
+        animation: "simple_push"
+      }} initialRouteName="Login">
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="MainApp" component={NavigationTabs} />
+        <Stack.Screen name="AddVisitor" component={AddVisitor} />
+        <Stack.Screen name="AddPreVisitor" component={AddPreApprovedVisitor} />
+        <Stack.Screen name="AddFrequentVisitor" component={AddFrequentVisitor} />
+        <Stack.Screen name="CategorySelection" component={CategorySelectionScreen} />
+        <Stack.Screen name="ServiceRequestDetail" component={ServiceRequestDetailScreen} />
+        <Stack.Screen name="SubCategorySelection" component={SubCategorySelectionScreen} />
+        <Stack.Screen name="complaintInput" component={ComplaintInputScreen} />
+        <Stack.Screen name="PassDetails" component={PassDetailsScreen} />
+        <Stack.Screen name="Accounts" component={AccountsScreen} />
+        <Stack.Screen name="SocietySearch" component={SocietySearchScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="PendingStatus" component={PendingStatusScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="VisitDetailScreen" component={VisitDetailScreen} />
+        <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
+        <Stack.Screen name="AddVehicleScreen" component={AddVehicleScreen} />
+        <Stack.Screen name="MyVehiclesScreen" component={MyVehiclesScreen} />
+        <Stack.Screen name="VehicleDetailsScreen" component={VehicleDetailsScreen} />
+        <Stack.Screen name="VehicleLogsScreen" component={VehicleLogsScreen} />
+        <Stack.Screen name="VehicleTagScreen" component={VehicleTagScreen} />
+        <Stack.Screen name="StaffScreen" component={StaffScreen} />
+        <Stack.Screen name="StaffDetailScreen" component={StaffDetailScreen} />
+        <Stack.Screen name="MyStaffDetailScreen" component={MyStaffDetailScreen} />
+        <Stack.Screen name="MyStaffAttendanceScreen" component={MyStaffAttendanceScreen} />
+        <Stack.Screen name="ContactUsScreen" component={ContactUsScreen} />
+        <Stack.Screen name="AllServicesScreen" component={AllServicesScreen} />
+        <Stack.Screen name="SignUp" component={CreateAccount} options={{ headerShown: false }} />
+        <Stack.Screen name="SearchUnit" component={SearchUnitScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="RegistrationForm" component={RegistrationFormScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="AddMember" component={AddMemberScreen} />
+        <Stack.Screen name="MyNoticesScreen" component={MyNoticesScreen} />
+        <Stack.Screen name="NoticeDetailScreen" component={NoticeDetailScreen} />
+        <Stack.Screen name="Visitors" component={VisitorsScreen} screenOptions={{ headerShown: true }} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="bills" component={BillsPage} />
+        <Stack.Screen name="AmenitiesListScreen" component={AmenitiesListScreen} />
+        <Stack.Screen name="AmenityBooking" component={AmenityBookingScreen} />
+        <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+        <Stack.Screen name="OtpLoginScreen" component={OtpLoginScreen} />
+        <Stack.Screen name="Notices" component={MyComplexScreen} />
+        <Stack.Screen name="NoticeDetail" component={myNoticeDetailScreen} />
+        <Stack.Screen name="FamilyMember" component={MembersScreen} />
+        <Stack.Screen name="OtpLogin" component={OtpLoginScreen} />
+        <Stack.Screen name="OtpVerify" component={OtpVerifyScreen} />
+        <Stack.Screen name="Meter" component={MeterScreen} />
+        <Stack.Screen name="BillPaymentScreen" component={BillPaymentScreen} />
         <Stack.Screen name="Payment" component={Payment} />
-          <Stack.Screen name="PaymentDetailScreen" component={PaymentDetailScreen} />
-          <Stack.Screen name="ExportMeter" component={ExportMeterScreen} />
+        <Stack.Screen name="PaymentDetailScreen" component={PaymentDetailScreen} />
+        <Stack.Screen name="ExportMeter" component={ExportMeterScreen} />
 
-          <Stack.Screen
-            name="VisitorNotificationMessage"
-            component={VisitorNotificationMessage}
-          />
-          <Stack.Screen
-            name="ResidentIdCard"
-            component={ResidentIdCardScreen}
-            options={{ title: "Resident ID Card" }}
-          />
-        
-
-
-
-
-        </Stack.Navigator>
-        <VisitorPopup
-          visible={popupVisible}
-          message={popupMessage}
-          onClose={() => setPopupVisible(false)}
+        <Stack.Screen
+          name="VisitorNotificationMessage"
+          component={VisitorNotificationMessage}
         />
-        
-      </NavigationContainer>
-    
+        <Stack.Screen
+          name="ResidentIdCard"
+          component={ResidentIdCardScreen}
+          options={{ title: "Resident ID Card" }}
+        />
+
+
+
+
+
+      </Stack.Navigator>
+      <VisitorPopup
+        visible={popupVisible}
+        message={popupMessage}
+        onClose={() => setPopupVisible(false)}
+      />
+
+    </NavigationContainer>
+
   );
 };
 

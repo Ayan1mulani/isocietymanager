@@ -19,13 +19,11 @@ import { Svg, Path } from 'react-native-svg';
 import AccountSelectorModal from './SelectUserMode';
 
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { ismServices } from '../../services/ismServices';
 import { usePermissions } from '../../Utils/ConetextApi';
 import { RegisterAppOneSignal } from "../../services/oneSignalService";
-
 import BRAND from '../config';
 
 const { VisitorModule } = NativeModules;
@@ -47,10 +45,10 @@ const OtpVerifyScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
 
-  const { otpData, identity, message } = route.params || {};
+  // ✅ Extract isRegistration from params
+  const { otpData, identity, message, isRegistration, mobile, email, name } = route.params || {};
 
   const { loadPermissions } = usePermissions();
-
   const inputRef = useRef(null);
 
   const [otp, setOtp] = useState("");
@@ -71,24 +69,18 @@ const OtpVerifyScreen = () => {
   };
 
   /* ===============================
-        LOGIN WITH ACCOUNT
+        LOGIN WITH ACCOUNT (Existing Logic)
   =============================== */
   const loginWithAccount = async (account, token) => {
     try {
-
-      // ✅ Role check at selection time
       const ALLOWED_ROLES = ["member", "resident", "tenant"];
       const userRole = (account.role || "").toLowerCase();
       if (!ALLOWED_ROLES.includes(userRole)) {
-        setErrorMessage(
-          `Access denied. This app is not for ${account.role || "this role"}.`
-        );
+        setErrorMessage(`Access denied. This app is not for ${account.role || "this role"}.`);
         return;
       }
 
       const loginResponse = await ismServices.logMeIn(token, account);
-
-      console.log("LOGMEIN RESPONSE:", JSON.stringify(loginResponse, null, 2));
 
       if (loginResponse.status !== "success") {
         setErrorMessage(loginResponse.message || "Login failed");
@@ -97,37 +89,25 @@ const OtpVerifyScreen = () => {
 
       let userData = { ...loginResponse.data };
 
-      // Fix id — logMeIn returns id as JSON string
-      // e.g. "{\"user_id\":518162,\"unit_id\":367102,...}"
       if (typeof userData.id === "string" && userData.id.startsWith("{")) {
         try {
           const parsed = JSON.parse(userData.id);
-        userData = {
-  ...userData,
-  id: parsed.user_id,
-  unit_id: parsed.unit_id,
-  role_id: parsed.group_id,
-  flat_no: parsed.flat_no,
-  societyId: parsed.society_id
-};
+          userData = {
+            ...userData,
+            id: parsed.user_id,
+            unit_id: parsed.unit_id,
+            role_id: parsed.group_id,
+            flat_no: parsed.flat_no,
+            societyId: parsed.society_id
+          };
         } catch (e) {
           console.log("Failed to parse id:", e);
         }
       }
 
-      // Always keep id === unit_id
-      // getMyBalance uses user.id → /getOutstandingBalance/${user.id}
-     
-
-      console.log("Saving userInfo:", JSON.stringify(userData, null, 2));
-
-      // ✅ Save identity
       await AsyncStorage.setItem("loginIdentity", identity || "");
-
-      // ✅ Save user info
       await AsyncStorage.setItem("userInfo", JSON.stringify(userData));
 
-      // ✅ Save to native
       if (VisitorModule?.saveAuthDetails) {
         await VisitorModule.saveAuthDetails({
           apiToken: userData.api_token || "",
@@ -137,17 +117,12 @@ const OtpVerifyScreen = () => {
           unitId: String(userData.unit_id || ""),
           flatNo: String(userData.flat_no || ""),
         });
-        console.log("✅ Auth saved to native via OTP flow");
-      } else {
-        console.log("❌ VisitorModule not available");
       }
 
       await AsyncStorage.removeItem("permissions");
       await loadPermissions();
 
-      // ✅ Match regular login timing
       setTimeout(async () => {
-        console.log("📡 Registering OneSignal...");
         await RegisterAppOneSignal();
       }, 800);
 
@@ -161,13 +136,12 @@ const OtpVerifyScreen = () => {
       }, 100);
 
     } catch (error) {
-      console.log("loginWithAccount error:", error);
       setErrorMessage("Login failed. Please try again.");
     }
   };
 
   /* ===============================
-        VERIFY OTP
+        VERIFY OTP (Updated for Registration Flow)
   =============================== */
   const handleVerifyOtp = async () => {
     if (loading) return;
@@ -186,15 +160,22 @@ const OtpVerifyScreen = () => {
         otp
       });
 
-      console.log("VERIFY OTP RESPONSE:", JSON.stringify(response, null, 2));
-
       if (response.status === "success") {
-
         const token = response.data.token;
 
-        const accountResponse = await ismServices.getMyAccounts(token);
+        // ✅ FIXED: Pass all the user data to the next screen!
+        if (isRegistration) {
+          navigation.navigate('SocietySearch', { 
+            token: token,
+            mobile: mobile,
+            email: email,
+            name: name
+          });
+          return; // Stop execution here, don't run the login logic
+        }
 
-        console.log("GET ACCOUNTS RESPONSE:", JSON.stringify(accountResponse, null, 2));
+        // ⬇️ EXISTING: If it's a Login flow, fetch accounts
+        const accountResponse = await ismServices.getMyAccounts(token);
 
         if (accountResponse.status !== "success") {
           setErrorMessage("Unable to fetch account details");
@@ -203,31 +184,21 @@ const OtpVerifyScreen = () => {
 
         const fetchedAccounts = accountResponse.data || [];
 
-        console.log("RAW ACCOUNTS:", JSON.stringify(fetchedAccounts, null, 2));
-
         if (fetchedAccounts.length === 0) {
           setErrorMessage("No account found for this user.");
           return;
         }
 
-        // ✅ Show ALL accounts in modal — role check happens on selection
         setOtpToken(token);
         setAccounts(fetchedAccounts);
         setModalVisible(true);
 
       } else {
-
         setStatusMessage("");
-
         if (response?.message?.includes("OTP Related Authentication")) {
-          setErrorMessage("Time limit exceeded. Please login again.");
+          setErrorMessage("Time limit exceeded. Please try again.");
           setTimeout(() => {
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: "Login" }]
-              })
-            );
+            navigation.goBack();
           }, 1500);
         } else {
           setErrorMessage(response?.message || "Invalid OTP");
@@ -235,7 +206,6 @@ const OtpVerifyScreen = () => {
       }
 
     } catch (error) {
-      console.log("OTP VERIFY ERROR:", error);
       setErrorMessage("OTP verification failed. Please try again.");
     } finally {
       setLoading(false);
@@ -253,9 +223,14 @@ const OtpVerifyScreen = () => {
       setStatusMessage("");
       setErrorMessage("");
 
-      const response = await ismServices.resendOtp({
-        id: otpData?.id
-      });
+      let response;
+
+      // ✅ Re-trigger correct OTP type based on the flow
+      if (isRegistration) {
+        response = await ismServices.generateRegistrationOtp(name, mobile, email);
+      } else {
+        response = await ismServices.resendOtp({ id: otpData?.id });
+      }
 
       if (response?.status === "success") {
         setStatusMessage("OTP resent successfully");
@@ -295,8 +270,10 @@ const OtpVerifyScreen = () => {
                 />
               </View>
               <Text style={styles.welcomeMessage}>Verify OTP</Text>
+              
+              {/* ✅ Dynamically update message based on flow */}
               <Text style={styles.subWelcomeMessage}>
-                Enter OTP sent to {identity}
+                Enter OTP sent to {identity || mobile || email}
               </Text>
             </View>
 
@@ -350,7 +327,8 @@ const OtpVerifyScreen = () => {
                   </Text>
                 </TouchableOpacity>
 
-                {errorMessage !== "" && (
+                {/* Only show Login fallback link if it's NOT a registration flow */}
+                {!isRegistration && errorMessage !== "" && (
                   <TouchableOpacity
                     style={styles.passwordLogin}
                     onPress={() => navigation.navigate("Login")}
@@ -368,7 +346,6 @@ const OtpVerifyScreen = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ✅ Outside ScrollView — renders as proper full-screen overlay */}
       <AccountSelectorModal
         visible={modalVisible}
         accounts={accounts}
@@ -382,6 +359,7 @@ const OtpVerifyScreen = () => {
 
 export default OtpVerifyScreen;
 
+// ... keeping all your exact existing styles below ...
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1, backgroundColor: BRAND.PRIMARY_COLOR },

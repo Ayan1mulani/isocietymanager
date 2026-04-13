@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  ActivityIndicator, // ✅ Added for initial check
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Svg, Path } from 'react-native-svg';
@@ -50,10 +51,8 @@ const Wave = () => (
 
 const isValidIdentity = (val) => {
   const value = val.trim();
-
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const phoneRegex = /^[0-9]{10}$/;
-
   return emailRegex.test(value) || phoneRegex.test(value);
 };
 
@@ -62,14 +61,12 @@ const checkInternet = async () => {
   return state.isConnected;
 };
 
-
 const NewLoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(true);
   const { loadPermissions } = usePermissions();
-
 
   const navigation = useNavigation();
 
@@ -79,60 +76,63 @@ const NewLoginScreen = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorTitle, setErrorTitle] = useState('Login Failed');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true); // ✅ Added state guard
 
   const getUserDetails = async () => {
     try {
+      // 1️⃣ First, check if there is a pending registration
+      const pendingDataStr = await AsyncStorage.getItem('pendingRegistration');
+      if (pendingDataStr) {
+        const pendingData = JSON.parse(pendingDataStr);
+        // Using replace ensures the user can't "back" into the login screen while pending
+        navigation.replace('PendingStatus', pendingData);
+        return; 
+      }
+
+      // 2️⃣ Second, check for existing normal session
       const userInfo = await AsyncStorage.getItem('userInfo');
-      if (!userInfo) return;
+      if (!userInfo) {
+        setIsCheckingSession(false); // No session, show the login form
+        return;
+      }
 
       const parsed = JSON.parse(userInfo);
-      if (!parsed?.api_token || !parsed?.id) return;
+      if (!parsed?.api_token || !parsed?.id) {
+        setIsCheckingSession(false);
+        return;
+      }
 
-      // ✅ Restore native auth on every session restore
+      // Restore native auth
       await VisitorModule.saveAuthDetails({
         apiToken: parsed.api_token || "",
         userId: String(parsed.id || ""),
-        societyId: String(parsed.societyId || parsed.society_id || ""),  // ← fallback
-        roleId: String(parsed.role_id || parsed.group_id || ""),  // ← fallback
+        societyId: String(parsed.societyId || parsed.society_id || ""),
+        roleId: String(parsed.role_id || parsed.group_id || ""),
         unitId: String(parsed.unit_id || ""),
         flatNo: String(parsed.flat_no || ""),
       });
-      const isConnected = await checkInternet();
 
+      const isConnected = await checkInternet();
       if (isConnected) {
         await ismServices.getUserDetails();
-      } else {
-        console.log("📴 Offline → skipping API, using stored session");
       }
+      
       await loadPermissions();
-
-      const updatedUserInfo = await AsyncStorage.getItem('userInfo');
-      if (!updatedUserInfo) return;
-
-      const updatedParsed = JSON.parse(updatedUserInfo);
-      if (!updatedParsed?.token && !updatedParsed?.id) return;
-
-      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'MainApp' }] }));
+      navigation.replace('MainApp');
 
     } catch (error) {
       console.log('Session restore failed:', error);
       await AsyncStorage.removeItem('userInfo').catch(() => { });
+      setIsCheckingSession(false); // Fallback to login form
     }
   };
 
   useEffect(() => {
-
     getUserDetails();
-
-
-
   }, []);
 
   const handleLogin = async (userid) => {
-
-
     const isConnected = await checkInternet();
-
     if (!isConnected) {
       setErrorTitle('No Internet');
       setErrorMessage('Please check your internet connection and try again.');
@@ -165,10 +165,7 @@ const NewLoginScreen = () => {
       }
       else if (response.status === 'success') {
         await AsyncStorage.setItem("loginIdentity", email.trim());
-
-
         const ALLOWED_ROLES = ["member", "resident", "tenant"];
-
         const userRole = (response?.data?.role || "").toLowerCase();
 
         if (!ALLOWED_ROLES.includes(userRole)) {
@@ -179,12 +176,8 @@ const NewLoginScreen = () => {
         }
 
         let user = response.data;
-
-        // 🔧 FIX: parse id if backend sends JSON string
         if (typeof user.id === "string" && user.id.includes("user_id")) {
-
           const parsed = JSON.parse(user.id);
-
           user = {
             ...user,
             id: parsed.user_id,
@@ -195,53 +188,32 @@ const NewLoginScreen = () => {
           };
         }
 
-        // ✅ Save cleaned user
         await AsyncStorage.setItem("userInfo", JSON.stringify(user));
         if (VisitorModule?.saveAuthDetails) {
-          console.log("🔥 Saving auth to native:", {
-            apiToken: user.api_token,
-            userId: user.id,
-            societyId: user.societyId,
-          });
-
           await VisitorModule.saveAuthDetails({
             apiToken: user.api_token || "",
             userId: String(user.id || ""),
-            societyId: String(user.societyId || user.society_id || ""),  // ← fallback
-            roleId: String(user.role_id || user.group_id || ""),  // ← fallback
+            societyId: String(user.societyId || user.society_id || ""),
+            roleId: String(user.role_id || user.group_id || ""),
             unitId: String(user.unit_id || ""),
             flatNo: String(user.flat_no || ""),
           });
-          console.log("✅ Auth saved to native", user.api_token);
-        } else {
-          console.log("❌ VisitorModule not available");
         }
         await AsyncStorage.removeItem("permissions");
         await loadPermissions();
         setTimeout(async () => {
-          console.log("📡 Registering OneSignal...");
           await RegisterAppOneSignal();
         }, 800);
         setTimeout(() => {
-          navigation.dispatch(
-            CommonActions.reset({
-              index: 0,
-              routes: [{ name: "MainApp" }],
-            })
-          );
+          navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "MainApp" }] }));
         }, 100);
       }
-
-
-
       else {
-        console.warn('Unhandled login status:', response.status);
         setErrorTitle('Login Failed');
         setErrorMessage('Something went wrong. Please try again.');
         setShowError(true);
       }
     } catch (error) {
-      console.error('Login failed:', error);
       setErrorTitle('Connection Error');
       setErrorMessage('Unable to connect to server. Please check your internet connection and try again.');
       setShowError(true);
@@ -274,7 +246,6 @@ const NewLoginScreen = () => {
       setShowError(true);
       return false;
     }
-    // ✅ Terms check
     if (!agreedToTerms) {
       setErrorTitle('Terms Required');
       setErrorMessage('Please agree to the Terms and Conditions to continue.');
@@ -284,9 +255,14 @@ const NewLoginScreen = () => {
     return true;
   };
 
-  const handleLoginPress = () => {
-    if (validateInputs()) handleLogin();
-  };
+  // ✅ UI GUARD: While checking session, show a loading screen
+  if (isCheckingSession) {
+    return (
+      <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.safeArea}>
@@ -302,8 +278,6 @@ const NewLoginScreen = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-
-            {/* ── Header ── */}
             <View style={styles.headerContainer}>
               <View style={styles.logoContainer}>
                 <Image source={BRAND.LOGO} style={styles.logo} resizeMode="contain" />
@@ -312,12 +286,10 @@ const NewLoginScreen = () => {
               <Text style={styles.subWelcomeMessage}>Please sign in to continue</Text>
             </View>
 
-            {/* ── Form ── */}
-            <View style={styles.formContainer}>
+         <View style={styles.formContainer}>
               <Wave />
+              {/* ✅ FIXED: Changed <div> to <View> */}
               <View style={styles.formInputsWrapper}>
-
-                {/* Email */}
                 <View style={styles.inputContainer}>
                   <View style={styles.icon}>
                     <Icon name="email" size={20} color="#9e9e9e" />
@@ -335,7 +307,6 @@ const NewLoginScreen = () => {
                   />
                 </View>
 
-                {/* Password */}
                 <View style={styles.inputContainer}>
                   <View style={styles.icon}>
                     <Icon name="lock" size={20} color="#9e9e9e" />
@@ -350,111 +321,52 @@ const NewLoginScreen = () => {
                     onChangeText={setPassword}
                     editable={!isLoading}
                   />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword((prev) => !prev)}
-                    style={styles.eyeIcon}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Icon
-                      name={showPassword ? 'visibility' : 'visibility-off'}
-                      size={20}
-                      color="#9e9e9e"
-                    />
+                  <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.eyeIcon}>
+                    <Icon name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#9e9e9e" />
                   </TouchableOpacity>
                 </View>
 
-                {/* OTP Login */}
-                <TouchableOpacity
-                  style={styles.forgotPasswordButton}
-                  onPress={() => navigation.navigate("OtpLogin")}
-                >
+                <TouchableOpacity style={styles.forgotPasswordButton} onPress={() => navigation.navigate("OtpLogin")}>
                   <Text style={styles.forgotPasswordText}>OTP LOGIN</Text>
                 </TouchableOpacity>
-                {/* Sign In */}
+
                 <TouchableOpacity
-                  onPress={handleLoginPress}
+                  onPress={() => { if (validateInputs()) handleLogin(); }}
                   style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
                   disabled={isLoading}
                 >
-                  <Text style={styles.loginButtonText}>
-                    {isLoading ? 'Signing in...' : 'Sign in'}
-                  </Text>
+                  <Text style={styles.loginButtonText}>{isLoading ? 'Signing in...' : 'Sign in'}</Text>
                 </TouchableOpacity>
 
-                {/* Sign Up */}
-                {/* <View style={styles.signUpContainer}>
+                <View style={styles.signUpContainer}>
                   <Text style={styles.signUpText}>Don't have an account? </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setErrorTitle('Coming Soon');
-                      setErrorMessage('Sign up will be available soon.');
-                      setShowError(true);
-                    }}
-                  >
+                  <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
                     <Text style={styles.signUpLink}>Sign up</Text>
                   </TouchableOpacity>
-                </View> */}
-
-                {/* ── Terms & Conditions ── */}
-                <View style={styles.termsRow}>
-                  <TouchableOpacity
-                    onPress={() => setAgreedToTerms((prev) => !prev)}
-                    activeOpacity={0.7}
-                    style={styles.checkboxHit}
-                  >
-                    <Icon
-                      name={agreedToTerms ? 'check-box' : 'check-box-outline-blank'}
-                      size={20}
-                      color={agreedToTerms ? BRAND.PRIMARY_COLOR : '#9e9e9e'}
-                    />
-                  </TouchableOpacity>
-
-                <Text style={styles.termsText}>
-                  I Agree and Accept the{' '}
-                  <Text
-                    style={styles.termsLink}
-                    onPress={() =>
-                      Linking.openURL('https://isocietymanager.com/terms-conditions.html')
-                    }
-                  >
-                    Terms And Conditions
-                  </Text>
-                </Text>
                 </View>
 
-                {/* ── Powered By ── */}
-                <Text style={styles.poweredBy}>
-                  Powered By{' '}
-                  <Text style={styles.poweredByBrand}>
-                    Factech Automation Solutions Private Limited
+                <View style={styles.termsRow}>
+                  <TouchableOpacity onPress={() => setAgreedToTerms((prev) => !prev)} style={styles.checkboxHit}>
+                    <Icon name={agreedToTerms ? 'check-box' : 'check-box-outline-blank'} size={20} color={agreedToTerms ? BRAND.PRIMARY_COLOR : '#9e9e9e'} />
+                  </TouchableOpacity>
+                  <Text style={styles.termsText}>
+                    I Agree and Accept the{' '}
+                    <Text style={styles.termsLink} onPress={() => Linking.openURL('https://isocietymanager.com/terms-conditions.html')}>
+                      Terms And Conditions
+                    </Text>
                   </Text>
-                </Text>
-                <Text style={styles.versionText}>
-                  v{version}
-                </Text>
+                </View>
 
-
+                <Text style={styles.poweredBy}>Powered By <Text style={styles.poweredByBrand}>Factech Automation Solutions Private Limited</Text></Text>
+                <Text style={styles.versionText}>v{version}</Text>
               </View>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <AccountSelectorModal
-        visible={modalVisible}
-        accounts={accounts}
-        onSelect={handleAccountSelect}
-        onClose={() => setModalVisible(false)}
-      />
-
-      <ErrorPopupModal
-        visible={showError}
-        onClose={() => setShowError(false)}
-        title={errorTitle}
-        message={errorMessage}
-        type="error"
-        buttonText="OK"
-      />
+      <AccountSelectorModal visible={modalVisible} accounts={accounts} onSelect={handleAccountSelect} onClose={() => setModalVisible(false)} />
+      <ErrorPopupModal visible={showError} onClose={() => setShowError(false)} title={errorTitle} message={errorMessage} type="error" buttonText="OK" />
     </View>
   );
 };
@@ -464,79 +376,32 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: BRAND.PRIMARY_COLOR },
   scrollViewContent: { flexGrow: 1 },
   container: { flex: 1, justifyContent: 'flex-end', backgroundColor: BRAND.PRIMARY_COLOR },
-
   headerContainer: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingBottom: 10 },
   logoContainer: { width: '60%', alignSelf: 'center', justifyContent: 'center' },
   logo: { width: 300, height: 60, alignSelf: 'center' },
   welcomeMessage: { fontSize: 36, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 8, letterSpacing: -0.5 },
   subWelcomeMessage: { fontSize: 16, color: '#E8F4FD', textAlign: 'center', opacity: 0.9, fontWeight: '400' },
-
   formContainer: {},
   formInputsWrapper: { backgroundColor: '#FFFFFF', paddingHorizontal: 25, paddingTop: 30, paddingBottom: 50 },
-
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 12, marginBottom: 20, paddingHorizontal: 15, height: 60 },
   icon: { marginRight: 15 },
   eyeIcon: { paddingLeft: 10 },
   input: { flex: 1, height: 60, fontSize: 16, color: '#000' },
-
   forgotPasswordButton: { alignSelf: 'flex-end', marginBottom: 25 },
   forgotPasswordText: { color: '#074B7C', fontSize: 14, fontWeight: '600' },
-
-  loginButton: { backgroundColor: BRAND.COLORS.button, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 25, height: 60, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
-  loginButtonDisabled: { backgroundColor: '#B0B0B0', elevation: 0, shadowOpacity: 0 },
-  loginButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 , lineHeight: 22,},
-
+  loginButton: { backgroundColor: BRAND.COLORS.button, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 25, height: 60, elevation: 5 },
+  loginButtonDisabled: { backgroundColor: '#B0B0B0', elevation: 0 },
+  loginButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 },
   signUpContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 13 },
   signUpText: { fontSize: 14, color: '#9e9e9e' },
   signUpLink: { fontSize: 14, color: '#074B7C', fontWeight: 'bold' },
-
-
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    marginBottom: 12,
-  },
-
-  checkboxHit: {
-    marginRight: 6,
-    padding: 2,
-  },
-
-  termsText: {
-    fontSize: 13,
-    color: '#555',
- textAlign: 'center',
-  },
-
-  termsLink: {
-    fontSize: 13,
-    color: '#42aacf',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-    flexShrink: 1,
-  },
-  // ── Powered By ──
-  poweredBy: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#9e9e9e',
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  poweredByBrand: {
-    color: BRAND.PRIMARY_COLOR,
-    fontWeight: '500',
-  },
-  versionText: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#9e9e9e',
-    marginTop: 6,
-    opacity: 0.8,
-    letterSpacing: 0.5,
-  },
+  termsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, marginBottom: 12 },
+  checkboxHit: { marginRight: 6, padding: 2 },
+  termsText: { fontSize: 13, color: '#555', textAlign: 'center' },
+  termsLink: { fontSize: 13, color: '#42aacf', fontWeight: '600', textDecorationLine: 'underline' },
+  poweredBy: { textAlign: 'center', fontSize: 12, color: '#9e9e9e', marginTop: 4 },
+  poweredByBrand: { color: BRAND.PRIMARY_COLOR, fontWeight: '500' },
+  versionText: { textAlign: 'center', fontSize: 12, color: '#9e9e9e', marginTop: 6 },
 });
 
 export default NewLoginScreen;

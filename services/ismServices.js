@@ -130,6 +130,31 @@ const ismServices = {
     }
   },
 
+
+  generateRegistrationOtp: async (name, mobile, email) => {
+    const payload = {
+      name: name,
+      phone_no: mobile,
+      email: email,
+      app_roles: [],
+      otp_type: "USER_REGISTRATION"
+    };
+    const url = `${API_URL2}/generateotp`;
+    return ApiCommon.postReq(url, payload);
+  },
+searchSociety: async (keyword, token) => {
+    try {
+      // 🔥 FIX: Removed encodeURIComponent(token). 
+      // The token from validateotp is already URL-encoded. Double-encoding breaks it!
+      const url = `${API_URL2}/searchsociety?key=${encodeURIComponent(keyword)}&token=${token}`;
+      
+      const response = await ApiCommon.getReq(url);
+      return response;
+    } catch (error) {
+      console.error("Search Society API Error:", error);
+      throw error;
+    }
+  },
   changePassword: async (payload) => {
   try {
     const user = await Common.getLoggedInUser();
@@ -163,6 +188,75 @@ const ismServices = {
       status: "error",
       message: "Password change failed"
     };
+  }
+},
+
+// --- ADD THESE TO YOUR ismServices OBJECT ---
+
+  getSocietyAssets: async (societyId, token) => {
+    try {
+      const url = `${API_URL2}/societyassets?society_id=${societyId}&token=${token}`;
+      return await ApiCommon.getReq(url);
+    } catch (error) {
+      console.error("Get Society Assets Error:", error);
+      throw error;
+    }
+  },
+
+  getRegistrationFormFields: async (societyId, token) => {
+    try {
+      const url = `${API_URL2}/form?form_type=USER_REGISTRATION&society_id=${societyId}&token=${token}`;
+      return await ApiCommon.getReq(url);
+    } catch (error) {
+      console.error("Get Form Fields Error:", error);
+      throw error;
+    }
+  },
+
+  submitRegistrationForm: async (payload, token) => {
+    try {
+      const url = `${API_URL2}/submitform?token=${token}`;
+      // Based on your trace, this is a POST request sending JSON
+      return await ApiCommon.postReq(url, payload);
+    } catch (error) {
+      console.error("Submit Registration Error:", error);
+      throw error;
+    }
+  },
+  getSocietyAssets: async (societyId, token) => {
+  try {
+    const url = `${API_URL2}/societyassets?society_id=${societyId}&token=${token}`;
+    return await ApiCommon.getReq(url);
+  } catch (error) {
+    console.error("Get Society Assets Error:", error);
+    throw error;
+  }
+},
+getRegistrationFormFields: async (societyId, token) => {
+  try {
+    const url = `${API_URL2}/form?form_type=USER_REGISTRATION&society_id=${societyId}&token=${token}`;
+    return await ApiCommon.getReq(url);
+  } catch (error) {
+    console.error("Get Form Fields Error:", error);
+    throw error;
+  }
+},
+submitRegistrationForm: async (payload, token) => {
+  try {
+    const url = `${API_URL2}/submitform?token=${token}`;
+    return await ApiCommon.postReq(url, payload);
+  } catch (error) {
+    console.error("Submit Registration Error:", error);
+    throw error;
+  }
+},
+getFormStatus: async (societyId, formId, token) => {
+  try {
+    const url = `${API_URL2}/getformstatus?token=${token}&society_id=${societyId}&form_id=${formId}`;
+    return await ApiCommon.getReq(url);
+  } catch (error) {
+    console.error("Get Form Status Error:", error);
+    throw error;
   }
 },
 
