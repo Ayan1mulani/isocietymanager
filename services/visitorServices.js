@@ -258,9 +258,6 @@ visitAttended: async (visitId) => {
     )
 
     const headers = await Util.getCommonAuth()
-
-
-
     return ApiCommon.postReq(url, data, headers)
   },
 

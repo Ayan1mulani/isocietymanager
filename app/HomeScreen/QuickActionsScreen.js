@@ -10,6 +10,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { usePermissions } from "../../Utils/ConetextApi";
 import { hasPermission } from "../../Utils/PermissionHelper";
+import LinearGradient from 'react-native-linear-gradient';
 import BRAND from "../config";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -45,9 +46,14 @@ const QuickActionsScreen = () => {
           activeOpacity={0.75}
           onPress={() => navigation.navigate(item.screen)}
         >
-          <View style={styles.iconWrapper}>
-            <Ionicons name={item.icon} size={22} color="#fff" />
-          </View>
+          <LinearGradient
+ colors={["#5a7cc6", "#5a7cc6"]}
+  start={{ x: 0, y: 0 }}
+  end={{ x: 1, y: 1 }}
+  style={styles.iconWrapper}
+>
+  <Ionicons name={item.icon} size={22} color="#fff" />
+</LinearGradient>
 
           <Text style={styles.label} numberOfLines={1}>
             {item.title}
@@ -78,7 +84,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: BRAND.COLORS.iconbg || "#5a7cc6",
+    backgroundColor: "#5572b0d1",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 6,

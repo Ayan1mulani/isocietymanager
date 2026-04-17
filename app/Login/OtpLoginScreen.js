@@ -40,6 +40,8 @@ const OtpPhoneScreen = () => {
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [inputError, setInputError] = useState("");
+
   const [showError, setShowError] = useState(false);
   const [errorTitle, setErrorTitle] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -50,9 +52,7 @@ const OtpPhoneScreen = () => {
   const handleSendOtp = async () => {
 
     if (!inputValue) {
-      setErrorTitle("Validation Error");
-      setErrorMessage("Enter mobile number or email");
-      setShowError(true);
+      setInputError("Enter mobile number or email");
       return;
     }
 
@@ -60,11 +60,11 @@ const OtpPhoneScreen = () => {
     const isEmail = isValidEmail(inputValue);
 
     if (!isPhone && !isEmail) {
-      setErrorTitle("Validation Error");
-      setErrorMessage("Enter valid mobile number or email");
-      setShowError(true);
+      setInputError("Enter valid mobile number or email");
       return;
     }
+
+    setInputError("");
 
     Keyboard.dismiss();
     setLoading(true);
@@ -145,19 +145,31 @@ const OtpPhoneScreen = () => {
 
               <View style={styles.formInputsWrapper}>
 
-                <View style={styles.inputContainer}>
+                <View style={[
+                  styles.inputContainer,
+                  inputError && styles.inputErrorBorder
+                ]}>
 
                   <TextInput
                     style={styles.input}
                     placeholder="Mobile Number or Email"
                     placeholderTextColor="#9e9e9e"
                     value={inputValue}
-                    onChangeText={setInputValue}
+                    onChangeText={(text) => {
+                      setInputValue(text);
+                      setInputError("");
+                    }}
                     editable={!loading}
                     autoFocus={true}
                   />
 
                 </View>
+
+                {inputError ? (
+                  <Text style={styles.errorText}>
+                    {inputError}
+                  </Text>
+                ) : null}
 
                 <TouchableOpacity
                   onPress={handleSendOtp}
@@ -184,6 +196,7 @@ const OtpPhoneScreen = () => {
 
       </KeyboardAvoidingView>
 
+      {/* ONLY for API errors */}
       <ErrorPopupModal
         visible={showError}
         onClose={() => setShowError(false)}
@@ -264,6 +277,20 @@ const styles = StyleSheet.create({
   input: {
     fontSize: 16,
     color: "#000"
+  },
+
+  inputErrorBorder: {
+    borderWidth: 1,
+    borderColor: "#EF4444",
+    backgroundColor: "#FEF2F2"
+  },
+
+  errorText: {
+    color: "#EF4444",
+    fontSize: 12,
+    marginTop: -12,
+    marginBottom: 10,
+    marginLeft: 4
   },
 
   loginButton: {

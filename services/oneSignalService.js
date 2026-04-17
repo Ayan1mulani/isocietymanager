@@ -19,6 +19,7 @@ export const RegisterAppOneSignal = async () => {
 
 
     const userInfo = await AsyncStorage.getItem("userInfo");
+    const tenantValue = await AsyncStorage.getItem("isTenant");
 
     if (!userInfo) {
       console.log("❌ No user session found");
@@ -43,13 +44,15 @@ export const RegisterAppOneSignal = async () => {
       console.log("❌ Device ID not ready yet");
       return false;
     }
+    const tenant = Number(tenantValue ?? 0); // ✅ define before payload
+
 
     const payload = {
       app_name: APP_NAME,
       app_version_code: APP_VERSION_CODE,
-      app_device_id: deviceId,
+      app_device_id: deviceId, 
       userId: deviceId,
-      tenant: 0,
+      tenant: tenant,
     };
 
     const url = `${API_URL2}/appRegistered?api-token=${user.api_token}&user-id=${realUserId}`;
@@ -105,9 +108,13 @@ export const UnRegisterOneSignal = async () => {
       "Ism-Auth": `{"api-token":"${apiToken}","user-id":${realUserId},"site-id":${societyId}}`
     }
 
+    const tenantValue = await AsyncStorage.getItem("isTenant");
+    
+const tenant = Number(tenantValue ?? 0); // ✅ define before payload
+
     const payload = {
       userId: deviceId,
-      tenant: 0
+      tenant: tenant
     };
 
     const url = `${API_URL2}/appUnRegistered`;

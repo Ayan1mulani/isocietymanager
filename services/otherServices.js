@@ -1,4 +1,4 @@
-import { API_URL2, API_URL4 } from "../app/config/env"
+import { API_URL2, API_URL4,PAYMENT_URL } from "../app/config/env"
 import { ApiCommon } from "./ApiCommon"
 import { Common } from "./Common";
 import { Util } from "./Util";
@@ -373,6 +373,76 @@ changeProfilePicture: async (image) => {
     const headers = await Util.getCommonAuth();
     return ApiCommon.getReq(url, headers);
   },
+
+
+  // 🔥 GET ALL BOUNCED CHEQUES
+getBouncedCheques: async () => {
+  try {
+    const user = await Common.getLoggedInUser();
+
+    const userObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId,
+    };
+
+    const params = {
+      "api-token": user.api_token,
+      "user-id": JSON.stringify(userObj),
+      flat_no_x: user.flat_no,
+      status: "RETURNED", // 🔥 IMPORTANT
+    };
+
+    const url = otherServices.appendParamsInUrl(
+      `${PAYMENT_URL}/v1/society/${user.societyId}/getpayments`,
+      params
+    );
+
+    const headers = await Util.getCommonAuth();
+
+    return await ApiCommon.getReq(url, headers);
+
+  } catch (error) {
+    console.log("Bounced Cheques Error:", error);
+    throw error;
+  }
+},
+
+// 🔥 GET SINGLE BOUNCED CHEQUE DETAILS
+getBouncedChequeById: async (id) => {
+  try {
+    const user = await Common.getLoggedInUser();
+
+    const userObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId,
+    };
+
+    const params = {
+      "api-token": user.api_token,
+      "user-id": JSON.stringify(userObj),
+      id: id,
+    };
+
+    const url = otherServices.appendParamsInUrl(
+      `${PAYMENT_URL}/v1/society/${user.societyId}/getpayments`,
+      params
+    );
+
+    const headers = await Util.getCommonAuth();
+
+    return await ApiCommon.getReq(url, headers);
+
+  } catch (error) {
+    console.log("Bounced Cheque Detail Error:", error);
+    throw error;
+  }
+},
 
   updateUserSettings: async (payload) => {
     const user = await Common.getLoggedInUser();
@@ -891,6 +961,8 @@ changeProfilePicture: async (image) => {
       throw error;
     }
   },
+
+
 
   toggleVehicleSubscription: async (vehicleId, isSubscribed) => {
     try {

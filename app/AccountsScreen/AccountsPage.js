@@ -20,6 +20,7 @@ import { hasPermission } from '../../Utils/PermissionHelper';
 import BRAND from '../config';
 import useAlert from '../components/UseAlert';
 
+
 // ─── Theme constants ───────────────────────────────────────────────────────────
 
 const THEME = {
@@ -36,11 +37,13 @@ const THEME = {
 };
 
 const NAV_OPTIONS = [
+  { key: 'Debit Credit Note', icon: 'time-outline', screen: 'PaymentHistory' }, // ✅ ADDED THIS LINE
   { key: 'Payments', icon: 'card-outline', screen: 'Payment' },
   { key: 'Bills', icon: 'document-text-outline', screen: 'bills' },
+  { key: 'Bounced Cheque', icon: 'alert-circle-outline', screen: 'BouncedCheques' }
 ];
 
-// ─── Pure helpers (defined outside component so they are never re-created) ─────
+// ─── Pure helpers ──────────────────────────────────────────────────────────────
 
 const formatCurrency = (amount) => {
   const num = parseFloat(amount);
@@ -57,10 +60,10 @@ const formatDate = (date) => {
 };
 
 /**
- * Maps a statement row to an icon — same logic as Angular's getIcon():
+ * Maps a statement row to an icon:
  *   type === 'bill'           → document / primary blue
- *   type_of_payment === DEBIT → card / danger red   (money out)
- *   anything else             → card / success green (money in)
+ *   type_of_payment === DEBIT → card / danger red
+ *   anything else             → card / success green
  */
 const getStatementIcon = (item) => {
   if (item.type === 'bill')
@@ -94,13 +97,6 @@ export default function AccountsScreen() {
   const canSeeOutstanding = permissionsLoaded && hasPermission(permissions, 'OUTSND', 'R');
   const canSeeBills = permissionsLoaded && hasPermission(permissions, 'BILL', 'R');
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  //
-  //  billTypes      → tab list         from GET /getBillType/{societyId}
-  //  outstandingMap → balance per plan from GET /my/outstandingbalances  { [id]: item }
-  //  selectedTabId  → currently active tab id
-  //  statements     → per-tab rows     from GET /getAccountStatement?bill_type=X
-  //
   const [billTypes, setBillTypes] = useState([]);
   const [outstandingMap, setOutstandingMap] = useState({});
   const [selectedTabId, setSelectedTabId] = useState(null);
@@ -164,12 +160,6 @@ export default function AccountsScreen() {
     if (canSeeOutstanding || canSeeBills) fetchInitialData();
   }, [permissionsLoaded]);
 
-  /**
-   * Loads both APIs in parallel, then auto-selects the first tab.
-   *
-   *   GET /getBillType/{societyId}   → bill plan list  → tabs
-   *   GET /my/outstandingbalances    → balance per plan → outstanding banner
-   */
   const fetchInitialData = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
@@ -177,15 +167,12 @@ export default function AccountsScreen() {
       const outstandingRes = await otherServices.getOutStandings();
       const outList = outstandingRes?.data ?? [];
 
-      // Build map for quick balance lookup
       const oMap = {};
       outList.forEach((item) => { oMap[item.id] = item; });
       setOutstandingMap(oMap);
 
-      // Tabs = ALL items from outstanding (same as Angular)
       setBillTypes(outList);
 
-      // Auto-select first tab only on initial load
       if (outList.length > 0 && selectedTabId === null) {
         const firstId = outList[0].id;
         setSelectedTabId(firstId);
@@ -193,21 +180,13 @@ export default function AccountsScreen() {
       } else if (selectedTabId !== null) {
         await fetchStatements(selectedTabId);
       }
-
     } catch (e) {
       console.log('fetchInitialData error:', e);
     } finally {
       if (!silent) setLoading(false);
     }
   };
-  /**
-   * Fetches invoice / payment rows for a specific bill plan.
-   *
-   *   GET /getAccountStatement?bill_type={id}&page_no=1
-   *
-   * Mirrors Angular's bpProvider.getAccountStatement(id, pageNo).
-   * ⚠️  Confirm the exact endpoint path with your backend if needed.
-   */
+
   const fetchStatements = async (billTypeId) => {
     try {
       setTabLoading(true);
@@ -221,13 +200,10 @@ export default function AccountsScreen() {
     }
   };
 
-  /** Tab tap — mirrors Angular onChange(id) */
   const onTabChange = (id) => {
     if (id === selectedTabId) return;
     setSelectedTabId(id);
     setStatements([]);
-
-    // Only call API if this plan has actual data
     const plan = outstandingMap[id];
     if (plan?.show_bal && plan?.data?.balance) {
       fetchStatements(id);
@@ -249,40 +225,31 @@ export default function AccountsScreen() {
   const totalOutstanding = plansWithBalance.reduce(
     (sum, item) => sum + parseFloat(item?.data?.balance || 0), 0,
   );
-const handleDownload = async (item) => {
-  try {
-    if (!item?.url) {
-      console.log("No URL found");
-      return;
+
+  const handleDownload = async (item) => {
+    try {
+      if (!item?.url) {
+        console.log('No URL found');
+        return;
+      }
+      const url = item.url;
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        console.log('Cannot open URL:', url);
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (error) {
+      console.log('Download Error:', error);
     }
-
-    const url = item.url;
-
-    const supported = await Linking.canOpenURL(url);
-
-    if (!supported) {
-      console.log("Cannot open URL:", url);
-      return;
-    }
-
-    // 🔥 DIRECT OPEN (no popup)
-    await Linking.openURL(url);
-
-  } catch (error) {
-    console.log("Download Error:", error);
-  }
-};
+  };
 
   // ── Sub-components ─────────────────────────────────────────────────────────
 
   /**
-   * Horizontal pill tabs — one per plan from /getBillType.
-   * Plans that have an outstanding balance get a small red dot.
-   * Hidden when only a single tab with id === 0.
+   * Outstanding row — balance is always owed (Dr), so we strip the sign
+   * with Math.abs() and hardcode "Dr".
    */
-
-
-  /** Outstanding flat row — name left, balance right */
   const OutstandingRow = ({ item, isLast }) => (
     <View style={[
       styles.outRow,
@@ -292,16 +259,15 @@ const handleDownload = async (item) => {
         {item.name}
       </Text>
       <Text style={[styles.outAmount, { color: THEME.danger }]}>
-        {formatCurrency(item?.data?.balance)}
+        {formatCurrency(Math.abs(item?.data?.balance))} Dr
       </Text>
     </View>
   );
 
   /**
-   * Statement card — one per row from /getAccountStatement.
-   * Shows: icon | statement_no + date | download
-   *        amount | balance | type badge
-   *        optional meta fields
+   * Statement card:
+   *   Amount  → Math.abs(current) + Dr/Cr from type_of_payment
+   *   Balance → Math.abs(balance) + Dr/Cr from sign  (negative = Dr)
    */
   const StatementCard = ({ item }) => {
     const icon = getStatementIcon(item);
@@ -309,9 +275,8 @@ const handleDownload = async (item) => {
     const balance = parseFloat(item.balance ?? item.bal_amt ?? 0);
 
     return (
-      <View
-        style={[styles.stmtCard, { backgroundColor: theme.card }]}
-      >
+      <View style={[styles.stmtCard, { backgroundColor: theme.card }]}>
+
         {/* TOP: icon | info | download button */}
         <View style={styles.stmtTopRow}>
           <View style={[styles.stmtIconBox, { backgroundColor: theme.iconBg }]}>
@@ -345,20 +310,24 @@ const handleDownload = async (item) => {
 
         {/* AMOUNTS ROW */}
         <View style={styles.stmtAmountsRow}>
+
+          {/* Amount — strip sign, label by transaction type */}
           <View style={styles.stmtAmountItem}>
             <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>Amount</Text>
             <Text style={[styles.stmtAmountValue, { color: theme.text }]}>
-              {formatCurrency(current)}
+              {formatCurrency(Math.abs(current))} {item.type_of_payment === 'DEBIT' ? 'Dr' : 'Cr'}
             </Text>
           </View>
 
+          {/* Balance — strip sign, label by sign (negative = Dr) */}
           <View style={[styles.stmtAmountItem, { alignItems: 'center' }]}>
             <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>Balance</Text>
             <Text style={[styles.stmtAmountValue, { color: BRAND.COLORS.icon }]}>
-              {formatCurrency(balance)}
+              {formatCurrency(Math.abs(balance))} {balance < 0 ? 'Dr' : 'Cr'}
             </Text>
           </View>
 
+          {/* Type badge */}
           <View style={[styles.stmtAmountItem, { alignItems: 'flex-end' }]}>
             <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>Type</Text>
             <View style={[styles.typeBadge, {
@@ -375,7 +344,11 @@ const handleDownload = async (item) => {
                     ? THEME.danger
                     : THEME.success,
               }]}>
-                {item.type === 'bill' ? 'INVOICE' : (item.type_of_payment || 'CREDIT')}
+                {item.type === 'bill'
+                  ? 'INVOICE'
+                  : item.type_of_payment === 'DEBIT'
+                    ? 'DEBIT'
+                    : 'CREDIT'}
               </Text>
             </View>
           </View>
@@ -457,7 +430,9 @@ const handleDownload = async (item) => {
             <View style={styles.summaryInner}>
               <View>
                 <Text style={styles.summaryLabel}>Total Outstanding</Text>
-                <Text style={styles.summaryAmount}>{formatCurrency(totalOutstanding)}</Text>
+                <Text style={styles.summaryAmount}>
+                  {formatCurrency(Math.abs(totalOutstanding))} Dr
+                </Text>
                 <Text style={styles.summaryNote}>
                   {plansWithBalance.length} plan{plansWithBalance.length !== 1 ? 's' : ''} with balance
                 </Text>
@@ -510,7 +485,7 @@ const handleDownload = async (item) => {
               <Text style={[styles.sectionTitle, { color: theme.text }]}>Account Statement</Text>
             </View>
 
-            {/* Horizontal tabs from /getBillType */}
+            {/* Horizontal tabs */}
             {canSeeBills && billTypes.length > 0 && !(billTypes.length === 1 && billTypes[0]?.id === 0) && (
               <ScrollView
                 ref={tabScrollRef}
@@ -549,7 +524,7 @@ const handleDownload = async (item) => {
               </ScrollView>
             )}
 
-            {/* Statement cards for the active tab */}
+            {/* Statement cards */}
             {tabLoading ? (
               <View style={styles.tabLoader}>
                 <ActivityIndicator size="small" color={THEME.primary} />

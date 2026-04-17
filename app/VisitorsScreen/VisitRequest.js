@@ -75,21 +75,37 @@ const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
     const allow = visit.allow;
     const attended = visit.attended;
 
+    // ✅ Expiry check
+    const requestTimeStr = visit?.created_at || visit?.start_time;
+    let isExpired = false;
+
+    if (requestTimeStr) {
+      const requestTime = new Date(requestTimeStr.replace(" ", "T")).getTime();
+      const now = new Date().getTime();
+
+      isExpired = now - requestTime >= 10 * 60 * 1000;
+    }
+
+    // 🔥 PRIORITY: expired first
+    if (isExpired && allow === null) {
+      return { label: "EXPIRED", color: "#9CA3AF" };
+    }
+
     if (allow === 0) return { label: "REJECTED", color: theme.grey };
     if (allow === 1 && attended === 1) return { label: "ATTENDED", color: theme.success };
     if (allow === 1 && attended === 0) return { label: "NOT VISITED", color: theme.grey };
     if (allow === 1 && attended === null) return { label: "APPROVED", color: theme.primary };
+
     return { label: "PENDING", color: theme.danger };
   };
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("🔄 Screen focused → refreshing visits");
 
-useFocusEffect(
-  React.useCallback(() => {
-    console.log("🔄 Screen focused → refreshing visits");
+      onRefresh?.();
 
-    onRefresh?.();
-
-  }, [])
-);
+    }, [])
+  );
 
 
   const renderCard = ({ item }) => {
@@ -107,10 +123,16 @@ useFocusEffect(
         }
       >
         <View style={styles.cardHeader}>
-          <Image
-            source={{ uri: item.image}}
-            style={styles.avatar}
-          />
+          {item.image ? (
+            <Image
+              source={{ uri: item.image }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={28} color="#9CA3AF" />
+            </View>
+          )}
 
           <View style={styles.infoSection}>
             <Text style={[styles.title, { color: theme.text }]}>
@@ -162,7 +184,7 @@ useFocusEffect(
 
       {/* SEARCH BAR */}
       <View style={styles.searchContainer}>
-        <View style={[styles.searchBar, { backgroundColor: theme.surface }]}>
+        <View style={[styles.searchBar, { borderWidth: showFilters ? 0 : 0.5, borderColor: theme.border, }]}>
           <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}

@@ -131,6 +131,35 @@ const ismServices = {
   },
 
 
+  getPaymentsList: async () => {
+    try {
+      const user = await Common.getLoggedInUser();
+
+      const userObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
+
+      const encodedUser = encodeURIComponent(JSON.stringify(userObj));
+
+      // Added types[]=DEBIT&types[]=CREDIT as per your network request
+      const url = `${PAYMENT_URL}/v1/society/${user.societyId}/getpayments?api-token=${user.api_token}&user-id=${encodedUser}&flat_no_x=${user.flat_no}&types[]=DEBIT&types[]=CREDIT`;
+
+      const headers = await Util.getCommonAuth();
+      const res = await ApiCommon.getReq(url, headers);
+
+      console.log("Payments API Response:", res);
+      return res;
+
+    } catch (e) {
+      console.log("Payments API Error:", e);
+      return null;
+    }
+  },
+
   generateRegistrationOtp: async (name, mobile, email) => {
     const payload = {
       name: name,
@@ -436,45 +465,48 @@ getFormStatus: async (societyId, formId, token) => {
   },
 
   // ✅ KEPT: original function used by other pages
-  getUserDetails: async () => {
-    const user = await Common.getLoggedInUser();
-    console.log(user, "++++++++++=user+++++")
-    if (!user) throw new Error("User not logged in");
+getUserDetails: async () => {
+  const user = await Common.getLoggedInUser();
 
-    const uObj = {
-      user_id: user.id,
-      group_id: user.role_id,
-      flat_no: user.flat_no,
-      unit_id: user.unit_id,
-      society_id: user.societyId
-    };
+  if (!user) throw new Error("User not logged in");
 
-    const u = encodeURIComponent(JSON.stringify(uObj));
-    let url = `${API_URL2}/userDetailsById/${u}`;
-    url = await ismServices.appendParamsInUrl(url);
+  const uObj = {
+    user_id: user.id,
+    group_id: user.role_id,
+    flat_no: user.flat_no,
+    unit_id: user.unit_id,
+    society_id: user.societyId
+  };
 
-    const headers = await Util.getCommonAuth();
-    const response = await ApiCommon.getReq(url, headers);
+  // ✅ RAW JSON (NO encoding)
+  const u = JSON.stringify(uObj);
 
-    await AsyncStorage.setItem("userDetails", JSON.stringify(response));
-    return response;
-  },
+  // ✅ FULL manual URL (NO helper)
+  const url = `${API_URL2}/userDetailsById/${u}?api-token=${user.api_token}&user-id=${u}&group-id=${user.role_id}&app_id=ism_resident`;
 
+  console.log("✅ FINAL URL:", url); // debug once
+
+  const headers = await Util.getCommonAuth();
+  const response = await ApiCommon.getReq(url, headers);
+
+  await AsyncStorage.setItem("userDetails", JSON.stringify(response));
+  return response;
+},
   // ✅ NEW: fetches full profile including permissions — used by ConetextApi
-  getUserProfileData: async () => {
-    const user = await Common.getLoggedInUser();
+getUserProfileData: async () => {
+  const tenantStr = await AsyncStorage.getItem("isTenant");
+  const tenant = Number(tenantStr ?? 0); // convert to number
 
-    const url = await ismServices.appendParamsInUrl(
-      `${API_URL2}/getUserProfileData`,
-      { tenant: user.tenant ?? 0 }
-    );
+  const url = await ismServices.appendParamsInUrl(
+    `${API_URL2}/getUserProfileData`,
+    { tenant }
+  );
 
-    const headers = await Util.getCommonAuth();
-    const response = await ApiCommon.getReq(url, headers);
+  const headers = await Util.getCommonAuth();
+  const response = await ApiCommon.getReq(url, headers);
 
-    return response; // response.data.permissions has the permissions array
-  },
-
+  return response;
+},
   getMyBalance: async () => {
     const user = await Common.getLoggedInUser();
 

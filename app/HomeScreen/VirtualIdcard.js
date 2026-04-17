@@ -50,8 +50,8 @@ const ResidentIdCardScreen = () => {
 
   const loadUser = async () => {
     try {
-      const details = await ismServices.getUserDetails();
-      setUser(details);
+      const details = await ismServices.getUserProfileData();
+      setUser(details?.data);
     } catch (err) {
       console.log("ID CARD ERROR:", err);
     } finally {
@@ -69,7 +69,8 @@ const ResidentIdCardScreen = () => {
 
   const getAvatarUri = () => {
     if (user?.image_src) return { uri: user.image_src };
-    const name = encodeURIComponent(user?.name || "User");
+    const displayName = getUserField(user?.name, user?.alt_name);
+    const name = encodeURIComponent(displayName || "User");
     return {
       uri: `https://ui-avatars.com/api/?name=${name}&background=1996D3&color=fff&size=250`,
     };
@@ -131,7 +132,14 @@ const ResidentIdCardScreen = () => {
     return { transform: [{ translateX }, { translateY }], opacity };
   });
 
-  const residentType = user?.tenant === 0 ? "OWNER" : "TENANT";
+  const residentType = user?.tenant == 1 ? "TENANT" : "OWNER";
+
+  const getUserField = (main, alt) => {
+    return user?.tenant == 1 ? (alt || main) : main;
+  };
+
+  const parsedId = user?.id ? JSON.parse(user.id) : null;
+  const userId = parsedId?.user_id;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -157,12 +165,7 @@ const ResidentIdCardScreen = () => {
                       <Text style={styles.headerText} numberOfLines={1}>
                         OFFICIAL RESIDENT ID
                       </Text>
-                      <View style={styles.statusBadge}>
-                        <View style={styles.activeDot} />
-                        <Text style={styles.statusText} numberOfLines={1}>
-                          {user.activated ? "ACTIVE" : "INACTIVE"}
-                        </Text>
-                      </View>
+                     
                     </View>
 
                     {/* MAIN INFO */}
@@ -179,10 +182,10 @@ const ResidentIdCardScreen = () => {
                         adjustsFontSizeToFit
                         minimumFontScale={0.7}
                       >
-                        {user.name}
+                        {getUserField(user.name, user.alt_name)}
                       </Text>
                       <Text style={styles.orangeUserId} numberOfLines={1}>
-                        #{user.user_id}
+                        #{userId}
                       </Text>
 
                       <View style={styles.tagsRow}>
@@ -231,22 +234,36 @@ const ResidentIdCardScreen = () => {
                       <Detail
                         icon="call-outline"
                         label="Phone"
-                        value={user.phone_no}
+                        value={getUserField(user.phone_no, user.alt_phone_no)}
                         half
                       />
                       <Detail
-                        icon="business-outline"
-                        label="Block"
-                        value={user.block}
+                        icon="home-outline"
+                        label="Unit"
+                        value={`${user.display_unit_no || user.flat_no}`}
                         half
                       />
                       <Detail
                         icon="mail-outline"
                         label="Email"
-                        value={user.email}
+                        value={getUserField(user.email, user.alt_email)}
                         multiline
                       />
+                      <Detail
+                        icon="business-outline"
+                        label="Society"
+                        value={user.society_name}
+                        half
+                      />
+                       <Detail
+                        icon="key-outline"
+                        label="unit-id"
+                        value={user.unit_id}
+                        half
+                      />
+                    
                     </View>
+
 
                     {/* FOOTER */}
                     <View style={styles.footer}>

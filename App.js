@@ -15,6 +15,7 @@ import { complaintService } from "./services/complaintService";
 import { visitorServices } from "./services/visitorServices";
 import { navigationRef } from "./NavigationService";
 import { PermissionsProvider } from "./Utils/ConetextApi";
+import { fetchAndCacheSettings } from "./services/settingsCache";
 
 Text.defaultProps = Text.defaultProps || {};
 Text.defaultProps.allowFontScaling = false;
@@ -29,33 +30,42 @@ const TAG = "[App]";
    Dedup store — prevents the same visitor notification firing twice
    (e.g. AppState fires + cold-start both run)
 ═══════════════════════════════════════════════════════════════════════ */
-const handledInMemory     = new Set();
+const handledInMemory = new Set();
 const VISITOR_HANDLED_KEY = "HANDLED_VISITORS";
-const DEDUP_TTL_MS        = 24 * 60 * 60 * 1000; // 24 hours
+const DEDUP_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const isAlreadyHandled = async (id) => {
   if (handledInMemory.has(id)) return true;
   try {
-    const raw  = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
+    const raw = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
     const list = raw ? JSON.parse(raw) : [];
-    const now  = Date.now();
+    const now = Date.now();
     return list.filter(i => now - i.time < DEDUP_TTL_MS).some(i => i.id === id);
   } catch { return false; }
 };
 
+
+
+const checkTenant = async () => {
+  const tenant = await AsyncStorage.getItem("isTenant");
+  console.log("Tenant value:", tenant);
+};
+
+checkTenant();
+
 const markHandled = async (id) => {
   handledInMemory.add(id);
   try {
-    const raw  = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
-    let list   = raw ? JSON.parse(raw) : [];
-    const now  = Date.now();
+    const raw = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
+    let list = raw ? JSON.parse(raw) : [];
+    const now = Date.now();
     list = list.filter(i => now - i.time < DEDUP_TTL_MS);
     list.push({ id, time: now });
     await AsyncStorage.setItem(VISITOR_HANDLED_KEY, JSON.stringify(list));
-  } catch {}
+  } catch { }
 };
 
-const AUTH_SCREENS   = ["Login", "OtpLoginScreen", "OtpLogin", "OtpVerify"];
+const AUTH_SCREENS = ["Login", "OtpLoginScreen", "OtpLogin", "OtpVerify"];
 const isUserLoggedIn = (route) => route && !AUTH_SCREENS.includes(route);
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -122,14 +132,63 @@ export default function App() {
     init();
   }, []);
 
+
+  useEffect(() => {
+    const preloadSettings = async () => {
+      try {
+        console.log("🚀 Preloading settings...");
+
+        const cached = await AsyncStorage.getItem("cached_user_settings");
+
+        // ✅ If already cached → don't block UI
+        if (cached) {
+          fetchAndCacheSettings(); // background only
+        } else {
+          fetchAndCacheSettings(); // no await needed
+        }
+
+      } catch (e) {
+        console.log("Settings preload error:", e);
+      }
+    };
+
+    preloadSettings();
+  }, []);
   /* ── OneSignal init ──────────────────────────────────────────────────── */
   useEffect(() => {
     const setup = async () => {
       await initializeOneSignal();
-      setOnVisitorPending((visitor) => {
-        console.log(TAG, `onVisitorPending → ${visitor.id}`);
-        pendingVisitorRef.current = visitor;
-        tryNavigate();
+      setOnVisitorPending((payload) => {
+        console.log(TAG, "🔥 Notification Payload:", payload);
+
+        // ✅ STAFF FLOW
+        if (payload?.type === "STAFF") {
+          console.log(TAG, "🚀 Opening Staff Tab");
+
+          if (navigationRef.isReady()) {
+
+            navigationRef.navigate("MainApp", {
+              screen: "Home",
+              params: {
+                screen: "HomeMain",   // first go to HomeMain
+              },
+            });
+
+            // then push staff screen AFTER small delay
+            setTimeout(() => {
+              navigationRef.navigate("StaffDetailsScreen");
+            }, 300);
+          }
+
+          return;
+        }
+
+        // ✅ VISITOR FLOW (existing)
+        if (payload?.id) {
+          console.log(TAG, `onVisitorPending → ${payload.id}`);
+          pendingVisitorRef.current = payload;
+          tryNavigate();
+        }
       });
     };
     setup();

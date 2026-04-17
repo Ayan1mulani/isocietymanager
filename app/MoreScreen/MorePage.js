@@ -51,6 +51,8 @@ const ProfileScreen = () => {
   const { nightMode, loadPermissions } = usePermissions();
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [ownerOpen, setOwnerOpen] = useState(false);
+  const [userDetails, setUserDetails] = useState(null);
 
   // ✅ Separate eye toggle for each password field
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -100,9 +102,11 @@ const ProfileScreen = () => {
   const loadUserProfile = async () => {
     try {
       setLoading(true);
+
       const storedUser = await AsyncStorage.getItem('userInfo');
       if (!storedUser) { setUserProfile(null); return; }
-
+      const userdeteails = await AsyncStorage.getItem('userDetails');
+      console.log("Cached user details:", userdeteails); // ✅ LOGGING
       const parsedUser = JSON.parse(storedUser);
       const ALLOWED = ['member', 'resident', 'tenant'];
       const userRole = (parsedUser?.role || '').toLowerCase();
@@ -113,14 +117,32 @@ const ProfileScreen = () => {
           message: `This app is not for ${parsedUser.role}`,
           buttons: [{ text: 'OK' }],
         });
+
         await AsyncStorage.clear();
         navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
         return;
       }
 
-      const detailsRes = await ismServices.getUserDetails();
-      setUserProfile(detailsRes);
-      await AsyncStorage.setItem('userDetails', JSON.stringify(detailsRes));
+      const res = await ismServices.getUserProfileData();
+
+      const res2 = await ismServices.getUserDetails();
+
+
+      console.log("PROFILE DATA1:", res);
+      console.log("PROFILE DATA2:", res2);
+
+      if (res?.status === 'success') {
+        setUserProfile(res.data); // ✅ FIXED
+        await AsyncStorage.setItem('userDetails', JSON.stringify(res.data)); // ✅ FIXED
+      } else {
+        console.log("API Error:", res);
+      }
+
+
+      if (res2) {
+        setUserDetails(res2); // ✅ IMPORTANT
+      }
+
     } catch (e) {
       console.error('Error loading profile:', e);
     } finally {
@@ -456,13 +478,47 @@ const ProfileScreen = () => {
           </TouchableOpacity>
           {unitOpen && (
             <View style={styles.dropdownContent}>
-              <InfoRow label="Tower" value={userProfile.tower} theme={theme} />
-              <InfoRow label="Flat No" value={userProfile.flat_no} theme={theme} />
-              <InfoRow label="Area (Sq Ft)" value={userProfile.size_sf} theme={theme} />
-              <InfoRow label="Category" value={userProfile.fc_name} theme={theme} />
+              <InfoRow label="Tower" value={userDetails?.tower} theme={theme} />
+              <InfoRow label="Flat No" value={userDetails?.flat_no} theme={theme} />
+              <InfoRow label="Area (Sq Ft)" value={userDetails?.size_sf} theme={theme} />
+              <InfoRow label="Category" value={userDetails?.fc_name} theme={theme} />
             </View>
           )}
         </View>
+
+        {userProfile?.tenant == 1 && (
+          <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
+
+            {/* Header */}
+            <TouchableOpacity
+              style={styles.dropdownHeader}
+              onPress={() => setOwnerOpen(p => !p)}
+            >
+              <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
+                Owner Details
+              </Text>
+
+              <Ionicons
+                name={ownerOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+                size={20}
+                color={theme.textSub}
+              />
+            </TouchableOpacity>
+
+            {/* Dropdown Content */}
+            {ownerOpen && (
+              <View style={styles.dropdownContent}>
+
+                <InfoRow label="Owner Name" value={userDetails?.name} theme={theme} />
+
+                <InfoRow label="Phone" value={userDetails?.phone_no || userDetails?.owner_alt_phone_no} theme={theme} />
+
+                <InfoRow label="Email" value={userDetails?.email || userDetails?.owner_alt_email} theme={theme} />
+
+              </View>
+            )}
+          </View>
+        )}
 
         {/* ── Meter Details ────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
@@ -472,11 +528,11 @@ const ProfileScreen = () => {
           </TouchableOpacity>
           {meterOpen && (
             <View style={styles.dropdownContent}>
-              <InfoRow label="Grid Meter No" value={userProfile.grid_meter_no} theme={theme} />
-              <InfoRow label="Grid Demand Load" value={userProfile.grid_demand_load} theme={theme} />
-              <InfoRow label="DG Meter No" value={userProfile.dg_meter_no} theme={theme} />
-              <InfoRow label="DG Demand Load" value={userProfile.dg_demand_load} theme={theme} />
-              <InfoRow label="Meter Seal No" value={userProfile.meter_seal_no} theme={theme} />
+              <InfoRow label="Grid Meter No" value={userDetails?.grid_meter_no} theme={theme} />
+              <InfoRow label="Grid Demand Load" value={userDetails?.grid_demand_load} theme={theme} />
+              <InfoRow label="DG Meter No" value={userDetails?.dg_meter_no} theme={theme} />
+              <InfoRow label="DG Demand Load" value={userDetails?.dg_demand_load} theme={theme} />
+              <InfoRow label="Meter Seal No" value={userDetails?.meter_seal_no} theme={theme} />
             </View>
           )}
         </View>

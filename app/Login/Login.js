@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
-  ActivityIndicator, // ✅ Added for initial check
+  Animated,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Svg, Path } from 'react-native-svg';
@@ -28,6 +28,7 @@ import BRAND from '../config';
 import { RegisterAppOneSignal } from "../../services/oneSignalService";
 import { NativeModules } from "react-native";
 import DeviceInfo from 'react-native-device-info';
+
 
 const { VisitorModule } = NativeModules;
 const version = DeviceInfo.getVersion();
@@ -72,27 +73,70 @@ const NewLoginScreen = () => {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [accounts, setAccounts] = useState([]);
+
+  // ── Inline field-level errors ──────────────────────────────────────────────
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  // General (non-field) error still uses the modal
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorTitle, setErrorTitle] = useState('Login Failed');
+  // ──────────────────────────────────────────────────────────────────────────
+
   const [isLoading, setIsLoading] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(true); // ✅ Added state guard
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+  // ── Splash animation ───────────────────────────────────────────────────────
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 0.88,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 900,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+  }, []);
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // Clear field errors as soon as the user starts re-typing
+  const handleEmailChange = (text) => {
+    setEmail(text);
+    if (emailError) setEmailError('');
+  };
+
+  const handlePasswordChange = (text) => {
+    setPassword(text);
+    if (passwordError) setPasswordError('');
+  };
 
   const getUserDetails = async () => {
     try {
-      // 1️⃣ First, check if there is a pending registration
       const pendingDataStr = await AsyncStorage.getItem('pendingRegistration');
       if (pendingDataStr) {
         const pendingData = JSON.parse(pendingDataStr);
-        // Using replace ensures the user can't "back" into the login screen while pending
         navigation.replace('PendingStatus', pendingData);
-        return; 
+        return;
       }
 
-      // 2️⃣ Second, check for existing normal session
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (!userInfo) {
-        setIsCheckingSession(false); // No session, show the login form
+        setIsCheckingSession(false);
         return;
       }
 
@@ -102,7 +146,6 @@ const NewLoginScreen = () => {
         return;
       }
 
-      // Restore native auth
       await VisitorModule.saveAuthDetails({
         apiToken: parsed.api_token || "",
         userId: String(parsed.id || ""),
@@ -116,14 +159,14 @@ const NewLoginScreen = () => {
       if (isConnected) {
         await ismServices.getUserDetails();
       }
-      
+
       await loadPermissions();
       navigation.replace('MainApp');
 
     } catch (error) {
       console.log('Session restore failed:', error);
       await AsyncStorage.removeItem('userInfo').catch(() => { });
-      setIsCheckingSession(false); // Fallback to login form
+      setIsCheckingSession(false);
     }
   };
 
@@ -159,11 +202,26 @@ const NewLoginScreen = () => {
         setAccounts(response.data);
         setModalVisible(true);
       } else if (response.status === 'error') {
-        setErrorTitle('Login Failed');
-        setErrorMessage(response.message || 'Incorrect email or password. Please try again.');
-        setShowError(true);
-      }
-      else if (response.status === 'success') {
+        // ── Show inline errors instead of a modal ──────────────────────────
+        const msg = response.message || '';
+        const lowerMsg = msg.toLowerCase();
+
+        if (lowerMsg.includes('password')) {
+          setPasswordError(msg || 'Incorrect password. Please try again.');
+        } else if (
+          lowerMsg.includes('email') ||
+          lowerMsg.includes('mobile') ||
+          lowerMsg.includes('user') ||
+          lowerMsg.includes('not found') ||
+          lowerMsg.includes('invalid')
+        ) {
+          setEmailError(msg || 'No account found for this email / mobile number.');
+        } else {
+          // Fallback: show under password field
+          setPasswordError(msg || 'Incorrect email or password. Please try again.');
+        }
+        // ──────────────────────────────────────────────────────────────────
+      } else if (response.status === 'success') {
         await AsyncStorage.setItem("loginIdentity", email.trim());
         const ALLOWED_ROLES = ["member", "resident", "tenant"];
         const userRole = (response?.data?.role || "").toLowerCase();
@@ -187,7 +245,7 @@ const NewLoginScreen = () => {
             societyId: parsed.society_id
           };
         }
-
+        await AsyncStorage.setItem("isTenant", String(user?.tenant || 0));
         await AsyncStorage.setItem("userInfo", JSON.stringify(user));
         if (VisitorModule?.saveAuthDetails) {
           await VisitorModule.saveAuthDetails({
@@ -207,8 +265,7 @@ const NewLoginScreen = () => {
         setTimeout(() => {
           navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "MainApp" }] }));
         }, 100);
-      }
-      else {
+      } else {
         setErrorTitle('Login Failed');
         setErrorMessage('Something went wrong. Please try again.');
         setShowError(true);
@@ -228,41 +285,51 @@ const NewLoginScreen = () => {
   };
 
   const validateInputs = () => {
+    let valid = true;
+
     if (!email.trim()) {
-      setErrorTitle('Validation Error');
-      setErrorMessage('Please enter your email address.');
-      setShowError(true);
-      return false;
+      setEmailError('Please enter your email address.');
+      valid = false;
+    } else if (!isValidIdentity(email)) {
+      setEmailError('Please enter a valid email or mobile number.');
+      valid = false;
     }
-    if (!isValidIdentity(email)) {
-      setErrorTitle('Validation Error');
-      setErrorMessage('Please enter a valid email or mobile number.');
-      setShowError(true);
-      return false;
-    }
+
     if (!password.trim()) {
-      setErrorTitle('Validation Error');
-      setErrorMessage('Please enter your password.');
-      setShowError(true);
-      return false;
+      setPasswordError('Please enter your password.');
+      valid = false;
     }
+
     if (!agreedToTerms) {
       setErrorTitle('Terms Required');
       setErrorMessage('Please agree to the Terms and Conditions to continue.');
       setShowError(true);
-      return false;
+      valid = false;
     }
-    return true;
+
+    return valid;
   };
 
-  // ✅ UI GUARD: While checking session, show a loading screen
+  // ── Logo splash while session is being checked ─────────────────────────────
   if (isCheckingSession) {
     return (
-      <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#FFFFFF" />
+      <View style={[styles.safeArea, styles.splashContainer]}>
+        <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY_COLOR} />
+        <Animated.Image
+          source={BRAND.LOGO}
+          style={[
+            styles.splashLogo,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: pulseAnim }],
+            },
+          ]}
+          resizeMode="contain"
+        />
       </View>
     );
   }
+  // ──────────────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.safeArea}>
@@ -286,13 +353,19 @@ const NewLoginScreen = () => {
               <Text style={styles.subWelcomeMessage}>Please sign in to continue</Text>
             </View>
 
-         <View style={styles.formContainer}>
+            <View style={styles.formContainer}>
               <Wave />
-              {/* ✅ FIXED: Changed <div> to <View> */}
               <View style={styles.formInputsWrapper}>
-                <View style={styles.inputContainer}>
+
+                {/* ── Email / Mobile field ── */}
+                <View
+                  style={[
+                    styles.inputContainer,
+                    emailError ? styles.inputContainerError : null,
+                  ]}
+                >
                   <View style={styles.icon}>
-                    <Icon name="email" size={20} color="#9e9e9e" />
+                    <Icon name="email" size={20} color={emailError ? '#e53935' : '#9e9e9e'} />
                   </View>
                   <TextInput
                     style={styles.input}
@@ -300,16 +373,25 @@ const NewLoginScreen = () => {
                     placeholderTextColor="#9e9e9e"
                     keyboardType="email-address"
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={handleEmailChange}
                     autoCapitalize="none"
                     autoCorrect={false}
                     editable={!isLoading}
                   />
                 </View>
+                {emailError ? (
+                  <Text style={styles.fieldError}>{emailError}</Text>
+                ) : null}
 
-                <View style={styles.inputContainer}>
+                {/* ── Password field ── */}
+                <View
+                  style={[
+                    styles.inputContainer,
+                    passwordError ? styles.inputContainerError : null,
+                  ]}
+                >
                   <View style={styles.icon}>
-                    <Icon name="lock" size={20} color="#9e9e9e" />
+                    <Icon name="lock" size={20} color={passwordError ? '#e53935' : '#9e9e9e'} />
                   </View>
                   <TextInput
                     style={styles.input}
@@ -318,17 +400,22 @@ const NewLoginScreen = () => {
                     secureTextEntry={!showPassword}
                     value={password}
                     autoCapitalize="none"
-                    onChangeText={setPassword}
+                    onChangeText={handlePasswordChange}
                     editable={!isLoading}
                   />
                   <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.eyeIcon}>
                     <Icon name={showPassword ? 'visibility' : 'visibility-off'} size={20} color="#9e9e9e" />
                   </TouchableOpacity>
                 </View>
+                {passwordError ? (
+                  <Text style={styles.fieldError}>{passwordError}</Text>
+                ) : null}
 
-                <TouchableOpacity style={styles.forgotPasswordButton} onPress={() => navigation.navigate("OtpLogin")}>
-                  <Text style={styles.forgotPasswordText}>OTP LOGIN</Text>
-                </TouchableOpacity>
+                <View style={styles.rowBetween}>
+                  <TouchableOpacity onPress={() => navigation.navigate("OtpLogin")}>
+                    <Text style={styles.otpText}>OTP LOGIN</Text>
+                  </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity
                   onPress={() => { if (validateInputs()) handleLogin(); }}
@@ -345,19 +432,10 @@ const NewLoginScreen = () => {
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.termsRow}>
-                  <TouchableOpacity onPress={() => setAgreedToTerms((prev) => !prev)} style={styles.checkboxHit}>
-                    <Icon name={agreedToTerms ? 'check-box' : 'check-box-outline-blank'} size={20} color={agreedToTerms ? BRAND.PRIMARY_COLOR : '#9e9e9e'} />
-                  </TouchableOpacity>
-                  <Text style={styles.termsText}>
-                    I Agree and Accept the{' '}
-                    <Text style={styles.termsLink} onPress={() => Linking.openURL('https://isocietymanager.com/terms-conditions.html')}>
-                      Terms And Conditions
-                    </Text>
-                  </Text>
-                </View>
-
-                <Text style={styles.poweredBy}>Powered By <Text style={styles.poweredByBrand}>Factech Automation Solutions Private Limited</Text></Text>
+                <Text style={styles.poweredBy}>
+                  Powered By{' '}
+                  <Text style={styles.poweredByBrand}>Factech Automation Solutions Private Limited</Text>
+                </Text>
                 <Text style={styles.versionText}>v{version}</Text>
               </View>
             </View>
@@ -365,8 +443,20 @@ const NewLoginScreen = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <AccountSelectorModal visible={modalVisible} accounts={accounts} onSelect={handleAccountSelect} onClose={() => setModalVisible(false)} />
-      <ErrorPopupModal visible={showError} onClose={() => setShowError(false)} title={errorTitle} message={errorMessage} type="error" buttonText="OK" />
+      <AccountSelectorModal
+        visible={modalVisible}
+        accounts={accounts}
+        onSelect={handleAccountSelect}
+        onClose={() => setModalVisible(false)}
+      />
+      <ErrorPopupModal
+        visible={showError}
+        onClose={() => setShowError(false)}
+        title={errorTitle}
+        message={errorMessage}
+        type="error"
+        buttonText="OK"
+      />
     </View>
   );
 };
@@ -374,6 +464,18 @@ const NewLoginScreen = () => {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safeArea: { flex: 1, backgroundColor: BRAND.PRIMARY_COLOR },
+
+  // ── Splash / session-check screen ──────────────────────────────────────────
+  splashContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splashLogo: {
+    width: width * 0.65,
+    height: 80,
+  },
+  // ──────────────────────────────────────────────────────────────────────────
+
   scrollViewContent: { flexGrow: 1 },
   container: { flex: 1, justifyContent: 'flex-end', backgroundColor: BRAND.PRIMARY_COLOR },
   headerContainer: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingBottom: 10 },
@@ -383,25 +485,57 @@ const styles = StyleSheet.create({
   subWelcomeMessage: { fontSize: 16, color: '#E8F4FD', textAlign: 'center', opacity: 0.9, fontWeight: '400' },
   formContainer: {},
   formInputsWrapper: { backgroundColor: '#FFFFFF', paddingHorizontal: 25, paddingTop: 30, paddingBottom: 50 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 12, marginBottom: 20, paddingHorizontal: 15, height: 60 },
+
+  // ── Input containers ───────────────────────────────────────────────────────
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    marginBottom: 4,          // reduced — error text sits right below
+    paddingHorizontal: 15,
+    height: 60,
+    borderWidth: 1.5,
+    borderColor: 'transparent', // invisible by default
+  },
+  inputContainerError: {
+    borderColor: '#e53935',   // red border on error
+    backgroundColor: '#fff5f5',
+  },
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // ── Inline field error text ────────────────────────────────────────────────
+  fieldError: {
+    color: '#e53935',
+    fontSize: 12,
+    marginBottom: 14,
+    marginLeft: 4,
+  },
+  // ──────────────────────────────────────────────────────────────────────────
+
   icon: { marginRight: 15 },
   eyeIcon: { paddingLeft: 10 },
   input: { flex: 1, height: 60, fontSize: 16, color: '#000' },
-  forgotPasswordButton: { alignSelf: 'flex-end', marginBottom: 25 },
-  forgotPasswordText: { color: '#074B7C', fontSize: 14, fontWeight: '600' },
   loginButton: { backgroundColor: BRAND.COLORS.button, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 25, height: 60, elevation: 5 },
   loginButtonDisabled: { backgroundColor: '#B0B0B0', elevation: 0 },
   loginButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 },
   signUpContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 13 },
   signUpText: { fontSize: 14, color: '#9e9e9e' },
   signUpLink: { fontSize: 14, color: '#074B7C', fontWeight: 'bold' },
-  termsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, marginBottom: 12 },
-  checkboxHit: { marginRight: 6, padding: 2 },
-  termsText: { fontSize: 13, color: '#555', textAlign: 'center' },
-  termsLink: { fontSize: 13, color: '#42aacf', fontWeight: '600', textDecorationLine: 'underline' },
   poweredBy: { textAlign: 'center', fontSize: 12, color: '#9e9e9e', marginTop: 4 },
   poweredByBrand: { color: BRAND.PRIMARY_COLOR, fontWeight: '500' },
   versionText: { textAlign: 'center', fontSize: 12, color: '#9e9e9e', marginTop: 6 },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  otpText: {
+    color: '#074B7C',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
 
 export default NewLoginScreen;

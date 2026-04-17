@@ -54,7 +54,9 @@ const SingleDeliveryForm = ({ theme }) => {
 
       const payload = {
         date_time: formattedDate,
-        company_name: isCustom ? customName : selectedProvider, // ✅ selectedProvider is already a string
+        company_name:
+         isCustom ? customName :
+         selectedProvider, 
         type: "delivery",
       };
 

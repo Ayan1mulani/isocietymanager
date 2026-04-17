@@ -179,7 +179,7 @@ const ServicesSection = () => {
             <View
               style={[
                 styles.iconContainer,
-                { backgroundColor: service.isPanic ? '#FEE2E2' : BRAND.COLORS.iconbg },
+                { backgroundColor: service.isPanic ? '#FEE2E2' : "#FFFF" },
               ]}
             >
               <Ionicons

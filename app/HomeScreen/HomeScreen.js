@@ -22,7 +22,13 @@ import { usePermissions } from '../../Utils/ConetextApi';
 import { hasPermission } from '../../Utils/PermissionHelper';
 import { ismServices } from '../../services/ismServices';
 
+
 const theme = BRAND.COLORS;
+
+
+
+
+
 
 const HomeScreen = () => {
   const { nightMode, permissions } = usePermissions();
@@ -34,6 +40,10 @@ const HomeScreen = () => {
   const canViewNotices =
     permissions && hasPermission(permissions, 'NTC', 'R');
 
+    const canViewVisitors =
+  permissions && hasPermission(permissions, 'VMS', 'R');
+
+
   /* -------------------------------------------------------
      📦 LOAD USER DETAILS
   ------------------------------------------------------- */
@@ -41,7 +51,10 @@ const HomeScreen = () => {
     const loadUserDetails = async () => {
       try {
         setLoading(true);
-        await ismServices.getUserDetails();
+        const res = await ismServices.getUserDetails();
+          if (res?.data) {
+        await AsyncStorage.setItem("userDetails", JSON.stringify(res.data));
+      }
       } catch (error) {
         console.log('❌ User detail API error:', error);
       } finally {
@@ -51,6 +64,10 @@ const HomeScreen = () => {
 
     loadUserDetails();
   }, []);
+
+
+
+
 
   /* -------------------------------------------------------
      🔄 PULL TO REFRESH
@@ -107,7 +124,9 @@ const HomeScreen = () => {
               <NoticeTickerScreen refreshTrigger={refreshTrigger} />
             )}
 
-            <VisitorSection refreshTrigger={refreshTrigger} />
+            {canViewVisitors && (
+              <VisitorSection refreshTrigger={refreshTrigger} />
+            )}
             <CarouselSection refreshTrigger={refreshTrigger} />
             <ServicesSection refreshTrigger={refreshTrigger} />
 

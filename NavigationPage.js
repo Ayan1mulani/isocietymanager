@@ -17,7 +17,8 @@ import SocietySearchScreen from './app/Login/SocietySearchScreen';
 import SearchUnitScreen from './app/Login/SearchUnitScreen';
 import RegistrationFormScreen from './app/Login/RegistrationFormScreen';
 import CreateAccount from './app/Login/SignUpScreen';
-
+import BouncedChequeListScreen from './app/AccountsScreen/BouncedChequeListScreen';
+import BouncedChequeDetailScreen from './app/AccountsScreen/BouncedChequeDetailScreen';
 import PendingStatusScreen from './app/Login/PendingStatusScreen'; // ✅ The yellow status screen
 
 import VisitorPopup from "./app/components/VisitorPopup";
@@ -26,6 +27,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
 import HomeScreen from './app/HomeScreen/HomeScreen';
+import PaymentHistoryScreen from './app/AccountsScreen/PaymentHistoryScreen'; 
+import PaymentDetail from './app/AccountsScreen/PaymentDetailScreen'; 
+
+
 import VisitorsScreen from './app/VisitorsScreen/VisitorScreen';
 import Header from './app/Common/Header/Header';
 import LoginScreen from './app/Login/Login';
@@ -342,7 +347,7 @@ const NavigationTabs = () => {
 };
 
 const NavigationPage = () => {
-  const getUserDetails = async () => {
+  const getUserDetails= async () => {
     await ismServices.getUserDetails();
   };
 
@@ -402,6 +407,9 @@ const NavigationPage = () => {
         <Stack.Screen name="Visitors" component={VisitorsScreen} screenOptions={{ headerShown: true }} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="bills" component={BillsPage} />
+        <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
+        
+        <Stack.Screen name="PaymentDetail" component={PaymentDetail} />
         <Stack.Screen name="AmenitiesListScreen" component={AmenitiesListScreen} />
         <Stack.Screen name="AmenityBooking" component={AmenityBookingScreen} />
         <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
@@ -415,7 +423,9 @@ const NavigationPage = () => {
         <Stack.Screen name="BillPaymentScreen" component={BillPaymentScreen} />
         <Stack.Screen name="Payment" component={Payment} />
         <Stack.Screen name="PaymentDetailScreen" component={PaymentDetailScreen} />
-        <Stack.Screen name="ExportMeter" component={ExportMeterScreen} />
+        <Stack.Screen name="ExportMeter" component={ExportMeterScreen} /> 
+        <Stack.Screen name="BouncedCheques" component={BouncedChequeListScreen} />
+        <Stack.Screen name="BouncedChequeDetail" component={BouncedChequeDetailScreen} />
 
         <Stack.Screen
           name="VisitorNotificationMessage"

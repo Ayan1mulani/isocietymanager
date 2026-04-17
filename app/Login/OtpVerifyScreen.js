@@ -107,6 +107,8 @@ const OtpVerifyScreen = () => {
 
       await AsyncStorage.setItem("loginIdentity", identity || "");
       await AsyncStorage.setItem("userInfo", JSON.stringify(userData));
+      await AsyncStorage.setItem("isTenant", String(userData?.tenant || 0));
+      console.log("Tenant from backend:", userData?.tenant);
 
       if (VisitorModule?.saveAuthDetails) {
         await VisitorModule.saveAuthDetails({

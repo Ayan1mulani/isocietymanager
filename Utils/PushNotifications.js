@@ -232,6 +232,7 @@ const initializeOneSignal = async () => {
         // 🚨 ADD THIS LINE RIGHT HERE:
         console.log("🚨 FULL NOTIFICATION PAYLOAD:", JSON.stringify(notification, null, 2));
         
+        
         console.log(TAG, `foregroundWillDisplay → title='${notification.title}'`);
         console.log(TAG, "foregroundWillDisplay → additionalData:", JSON.stringify(notification.additionalData));
 
@@ -266,29 +267,45 @@ const initializeOneSignal = async () => {
      This fires when user taps the notification from background / notification tray.
      Note: Accept/Decline actions are handled by Notifee in App.js.
   ────────────────────────────────────────────────────────────────────── */
-  OneSignal.Notifications.addEventListener("click", async (event) => {
-    try {
-      const notification = event.notification;
-      console.log(TAG, `click → title='${notification.title}'`);
+OneSignal.Notifications.addEventListener("click", async (event) => {
+  try {
+    const notification = event.notification;
 
-      if (notification.title !== "Add Visit") {
-        console.log(TAG, "click → not a visitor notification, ignoring");
-        return;
+    console.log("🟢 ===== CLICK NOTIFICATION =====");
+    console.log("📦 Title:", notification.title);
+    console.log("📦 Body:", notification.body);
+    console.log("📦 AdditionalData:", JSON.stringify(notification.additionalData, null, 2));
+    console.log("🟢 =============================");
+
+    const data = notification.additionalData?.data;
+
+    // ✅ STAFF FLOW
+    if (data?.type === "STAFF") {
+      console.log("🚀 Navigating to STAFF screen");
+
+      if (_onVisitorPending) {
+        _onVisitorPending({
+          type: "staff",
+          data: data,
+        });
       }
 
+      return;
+    }
+
+    // ✅ VISITOR FLOW (existing)
+    if (notification.title === "Add Visit") {
       const visitor = extractVisitor(notification.additionalData);
-      console.log(TAG, "click → visitor:", JSON.stringify(visitor));
 
       if (visitor && _onVisitorPending) {
-        console.log(TAG, `click → calling _onVisitorPending for ${visitor.id}`);
         _onVisitorPending(visitor);
-      } else {
-        console.log(TAG, "click → no visitor or no callback registered");
       }
-    } catch (e) {
-      console.log(TAG, "click → ERROR:", e);
     }
-  });
+
+  } catch (e) {
+    console.log(TAG, "click → ERROR:", e);
+  }
+});
 
   console.log(TAG, "initializeOneSignal → all listeners registered");
 };

@@ -49,6 +49,8 @@ const AllServicesScreen = () => {
     { title: "My Bookings", icon: "bookmark-outline", route: "MyBookings" },
     { title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
     { title: 'Payment', icon: 'cash-outline', route: 'Payment' },
+    { title: 'Bounced Cheque', icon: 'alert-circle-outline', route: 'BouncedCheques' },
+    { title: 'Debit Credit Note', icon: 'time-outline', route: 'PaymentHistory' },
   ];
 
   // Auto focus when screen is focused
