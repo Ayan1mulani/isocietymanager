@@ -91,10 +91,28 @@ const AllServicesScreen = () => {
       if (item.title === "Book Ameneties") {
         return hasPermission(permissions, "FBK", "R");
       }
-
       if (item.title === "My Bookings") {
-        return hasPermission(permissions, "FBK");
+        return hasPermission(permissions, "FBK", "R");
       }
+      if (item.title === "Energy") {
+        return hasPermission(permissions, "MTR", "R");
+      }
+      if (item.title === "Payment") {
+        return hasPermission(permissions, "PMT", "R");
+      }
+      if (item.title === "Bounced Cheque") {
+        return hasPermission(permissions, "CHKBNC", "R");
+      }
+      if (item.title === "Debit Credit Note") {
+        return hasPermission(permissions, "PMT", "R");
+      }
+      if (item.title === "Family members") {
+        return hasPermission(permissions, "FMB", "R");
+      }
+      if (item.title === "Settings") {
+        return hasPermission(permissions, "STG", "R");
+      }
+
       if (item.title === "Notices") {
         return hasPermission(permissions, "NTC", "R");
       }

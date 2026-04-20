@@ -145,9 +145,20 @@ const ServicesSection = () => {
 
     if (service.title === 'Bookings')
       return hasPermission(permissions, 'FBK', 'R');
+    if (service.title === 'Payment')
+      return hasPermission(permissions, 'PMT', 'R');
+    if (service.title === 'Family')
+      return hasPermission(permissions, 'FMB', 'R');
+    if (service.title === 'My Complex')
+  return hasPermission(permissions, 'NTC', 'R');
+    if (service.title === 'Setting')
+      return hasPermission(permissions, 'STG', 'R');
 
     if (service.title === 'Amenities')
       return hasPermission(permissions, 'FBK', 'R');
+
+    if (service.title === 'Energy')
+      return hasPermission(permissions, 'MTR', 'R');
 
     if (service.title === 'SOS')
       return canViewPanic;
@@ -346,7 +357,7 @@ const styles = StyleSheet.create({
   successTitle: { fontSize: 20, fontWeight: '700', color: '#16A34A', marginTop: 12 },
   successSubtitle: { fontSize: 14, textAlign: 'center', color: '#4B5563', marginTop: 6 },
   contactList: {
-  maxHeight: 180, // 🔥 prevents overflow
-  marginTop: 8,
-},
+    maxHeight: 180, // 🔥 prevents overflow
+    marginTop: 8,
+  },
 });
