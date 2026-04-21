@@ -8,9 +8,9 @@ const TAG = "[PushNotifications]";
 /* ─────────────────────────────────────────────────────────────────────────
    State
 ───────────────────────────────────────────────────────────────────────── */
-let isInitialized      = false;
+let isInitialized = false;
 let listenersRegistered = false;
-let _onVisitorPending  = null;
+let _onVisitorPending = null;
 
 // In-memory dedup set — marks IDs instantly before any async operation
 // Prevents race condition when multiple notifications arrive simultaneously
@@ -26,7 +26,7 @@ export const setOnVisitorPending = (cb) => {
    TTL: 24 hours — long enough to cover any OneSignal retry window
 ───────────────────────────────────────────────────────────────────────── */
 const VISITOR_HANDLED_KEY = "HANDLED_VISITORS";
-const DEDUP_TTL_MS        = 24 * 60 * 60 * 1000; // 24 hours
+const DEDUP_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const isAlreadyHandled = async (id) => {
   // Fast path: in-memory check (avoids AsyncStorage round-trip)
@@ -36,9 +36,9 @@ const isAlreadyHandled = async (id) => {
   }
 
   try {
-    const raw  = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
+    const raw = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
     const list = raw ? JSON.parse(raw) : [];
-    const now  = Date.now();
+    const now = Date.now();
     const valid = list.filter((item) => now - item.time < DEDUP_TTL_MS);
     const found = valid.some((item) => item.id === id);
     console.log(TAG, `isAlreadyHandled → ${id} found in STORAGE: ${found}`);
@@ -55,9 +55,9 @@ const markHandled = async (id) => {
   console.log(TAG, `markHandled → ${id} marked in MEMORY`);
 
   try {
-    const raw   = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
-    let   list  = raw ? JSON.parse(raw) : [];
-    const now   = Date.now();
+    const raw = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
+    let list = raw ? JSON.parse(raw) : [];
+    const now = Date.now();
 
     // Prune old entries
     list = list.filter((item) => now - item.time < DEDUP_TTL_MS);
@@ -76,10 +76,10 @@ const markHandled = async (id) => {
 const initNotifee = async () => {
   await notifee.requestPermission();
   await notifee.createChannel({
-    id:         "visitor",
-    name:       "Visitor Alerts",
+    id: "visitor",
+    name: "Visitor Alerts",
     importance: AndroidImportance.HIGH,
-    sound:      "visitor_alert",
+    sound: "visitor_alert",
   });
   console.log(TAG, "initNotifee → channel created");
 };
@@ -99,12 +99,12 @@ const extractVisitor = (additionalData) => {
   const d = additionalData.data || additionalData;
 
   const visitor = {
-    id:          d.id          || d.visitor_id    || "",
-    name:        d.visitor_name                   || "Visitor",
+    id: d.id || d.visitor_id || "",
+    name: d.visitor_name || "Visitor",
     phoneNumber: d.visitor_phone_no || d.visitor_phone || "",
-    photo:       d.visitor_img  || d.visitor_photo || "",
-    purpose:     d.visit_purpose                  || "",
-    startTime:   d.visit_start_time               || "",
+    photo: d.visitor_img || d.visitor_photo || "",
+    purpose: d.visit_purpose || "",
+    startTime: d.visit_start_time || "",
   };
 
   console.log(TAG, "extractVisitor → extracted:", JSON.stringify(visitor));
@@ -136,9 +136,9 @@ export const showVisitorNotification = async (visitor) => {
   // isAlreadyHandled checks memory first — would find the slot we just
   // claimed above and incorrectly block the notification.
   try {
-    const raw   = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
-    let   list  = raw ? JSON.parse(raw) : [];
-    const now   = Date.now();
+    const raw = await AsyncStorage.getItem(VISITOR_HANDLED_KEY);
+    let list = raw ? JSON.parse(raw) : [];
+    const now = Date.now();
 
     // Prune old entries
     list = list.filter((item) => now - item.time < DEDUP_TTL_MS);
@@ -165,17 +165,17 @@ export const showVisitorNotification = async (visitor) => {
     console.log(TAG, `showVisitorNotification → displaying notification for ${visitor.id}`);
 
     await notifee.displayNotification({
-      id:    String(visitor.id),
+      id: String(visitor.id),
       title: "🚪 Visitor at Gate",
-      body:  `${visitor.name} (${visitor.phoneNumber}) — ${visitor.purpose || "Visit"}`,
+      body: `${visitor.name} (${visitor.phoneNumber}) — ${visitor.purpose || "Visit"}`,
       android: {
-        channelId:   "visitor",
-        importance:  AndroidImportance.HIGH,
-        sound:       "default",
+        channelId: "visitor",
+        importance: AndroidImportance.HIGH,
+        sound: "default",
         pressAction: { id: "default" },
         actions: [
-          { title: "✅ Accept",  pressAction: { id: "accept"  } },
           { title: "❌ Decline", pressAction: { id: "decline" } },
+          { title: "✅ Accept", pressAction: { id: "accept" } },
         ],
       },
       data: {
@@ -218,21 +218,21 @@ const initializeOneSignal = async () => {
      This fires ONLY when the app is in foreground.
      Background/killed is handled by MyNotificationServiceExtension (native).
   ────────────────────────────────────────────────────────────────────── */
- /* ──────────────────────────────────────────────────────────────────────
-     🟢 FOREGROUND — intercept and show Notifee notification
-     This fires ONLY when the app is in foreground.
-     Background/killed is handled by MyNotificationServiceExtension (native).
-  ────────────────────────────────────────────────────────────────────── */
+  /* ──────────────────────────────────────────────────────────────────────
+      🟢 FOREGROUND — intercept and show Notifee notification
+      This fires ONLY when the app is in foreground.
+      Background/killed is handled by MyNotificationServiceExtension (native).
+   ────────────────────────────────────────────────────────────────────── */
   OneSignal.Notifications.addEventListener(
     "foregroundWillDisplay",
     async (event) => {
       try {
         const notification = event.getNotification();
-        
+
         // 🚨 ADD THIS LINE RIGHT HERE:
         console.log("🚨 FULL NOTIFICATION PAYLOAD:", JSON.stringify(notification, null, 2));
-        
-        
+
+
         console.log(TAG, `foregroundWillDisplay → title='${notification.title}'`);
         console.log(TAG, "foregroundWillDisplay → additionalData:", JSON.stringify(notification.additionalData));
 
@@ -257,7 +257,7 @@ const initializeOneSignal = async () => {
         await showVisitorNotification(visitor);
       } catch (e) {
         console.log(TAG, "foregroundWillDisplay → ERROR:", e);
-        try { event.getNotification().display(); } catch (_) {}
+        try { event.getNotification().display(); } catch (_) { }
       }
     }
   );
@@ -267,45 +267,45 @@ const initializeOneSignal = async () => {
      This fires when user taps the notification from background / notification tray.
      Note: Accept/Decline actions are handled by Notifee in App.js.
   ────────────────────────────────────────────────────────────────────── */
-OneSignal.Notifications.addEventListener("click", async (event) => {
-  try {
-    const notification = event.notification;
+  OneSignal.Notifications.addEventListener("click", async (event) => {
+    try {
+      const notification = event.notification;
 
-    console.log("🟢 ===== CLICK NOTIFICATION =====");
-    console.log("📦 Title:", notification.title);
-    console.log("📦 Body:", notification.body);
-    console.log("📦 AdditionalData:", JSON.stringify(notification.additionalData, null, 2));
-    console.log("🟢 =============================");
+      console.log("🟢 ===== CLICK NOTIFICATION =====");
+      console.log("📦 Title:", notification.title);
+      console.log("📦 Body:", notification.body);
+      console.log("📦 AdditionalData:", JSON.stringify(notification.additionalData, null, 2));
+      console.log("🟢 =============================");
 
-    const data = notification.additionalData?.data;
+      const data = notification.additionalData?.data;
 
-    // ✅ STAFF FLOW
-    if (data?.type === "STAFF") {
-      console.log("🚀 Navigating to STAFF screen");
+      // ✅ STAFF FLOW
+      if (data?.type === "STAFF") {
+        console.log("🚀 Navigating to STAFF screen");
 
-      if (_onVisitorPending) {
-        _onVisitorPending({
-          type: "staff",
-          data: data,
-        });
+        if (_onVisitorPending) {
+          _onVisitorPending({
+            type: "staff",
+            data: data,
+          });
+        }
+
+        return;
       }
 
-      return;
-    }
+      // ✅ VISITOR FLOW (existing)
+      if (notification.title === "Add Visit") {
+        const visitor = extractVisitor(notification.additionalData);
 
-    // ✅ VISITOR FLOW (existing)
-    if (notification.title === "Add Visit") {
-      const visitor = extractVisitor(notification.additionalData);
-
-      if (visitor && _onVisitorPending) {
-        _onVisitorPending(visitor);
+        if (visitor && _onVisitorPending) {
+          _onVisitorPending(visitor);
+        }
       }
-    }
 
-  } catch (e) {
-    console.log(TAG, "click → ERROR:", e);
-  }
-});
+    } catch (e) {
+      console.log(TAG, "click → ERROR:", e);
+    }
+  });
 
   console.log(TAG, "initializeOneSignal → all listeners registered");
 };

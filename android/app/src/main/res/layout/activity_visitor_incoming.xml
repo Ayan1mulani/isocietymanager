@@ -113,18 +113,6 @@
             
     </LinearLayout>
 
-    <Button
-        android:id="@+id/btnViewVisitor"
-        android:text="View Details"
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_marginBottom="14dp"
-        android:backgroundTint="#1E293B"
-        android:textColor="#E2E8F0"
-        android:textStyle="bold"
-        android:textSize="15sp"
-        android:stateListAnimator="@null"/> 
-
 
         <TextView
     android:id="@+id/tvStatus"

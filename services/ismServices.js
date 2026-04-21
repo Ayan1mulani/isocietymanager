@@ -171,12 +171,12 @@ const ismServices = {
     const url = `${API_URL2}/generateotp`;
     return ApiCommon.postReq(url, payload);
   },
-searchSociety: async (keyword, token) => {
+  searchSociety: async (keyword, token) => {
     try {
       // 🔥 FIX: Removed encodeURIComponent(token). 
       // The token from validateotp is already URL-encoded. Double-encoding breaks it!
       const url = `${API_URL2}/searchsociety?key=${encodeURIComponent(keyword)}&token=${token}`;
-      
+
       const response = await ApiCommon.getReq(url);
       return response;
     } catch (error) {
@@ -184,42 +184,50 @@ searchSociety: async (keyword, token) => {
       throw error;
     }
   },
+
+
+
   changePassword: async (payload) => {
-  try {
-    const user = await Common.getLoggedInUser();
+    try {
+      const user = await Common.getLoggedInUser();
 
-    const uObj = {
-      user_id: user.id,
-      group_id: user.role_id,
-      flat_no: user.flat_no,
-      unit_id: user.unit_id,
-      society_id: user.societyId
-    };
+      const uObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId
+      };
 
-    const url = `${API_URL2}/v1/changePassword` +
-      `?api-token=${user.api_token}` +
-      `&user-id=${JSON.stringify(uObj)}`;
+      const isTenant = user?.tenant == 1;
 
-    const headers = await Util.getCommonAuth();
+      const endpoint = isTenant
+        ? `/v1/changetenantpassword`
+        : `/v1/changePassword`;
 
-    console.log("🚀 URL:", url);
-    console.log("🚀 PAYLOAD:", payload);
+      const url = `${API_URL2}${endpoint}` +
+        `?api-token=${user.api_token}` +
+        `&user-id=${encodeURIComponent(JSON.stringify(uObj))}`; // ✅ MUST ENCODE
 
-    const response = await ApiCommon.postReq(url, payload, headers);
+      const headers = await Util.getCommonAuth();
 
-    console.log("✅ RESPONSE:", response);
+      console.log("🚀 URL:", url);
+      console.log("🚀 PAYLOAD:", payload);
 
-    return response; // 🔥 IMPORTANT
+      const response = await ApiCommon.postReq(url, payload, headers);
 
-  } catch (error) {
-    console.log("❌ CHANGE PASSWORD ERROR:", error);
-    return {
-      status: "error",
-      message: "Password change failed"
-    };
-  }
-},
+      console.log("✅ RESPONSE:", response);
 
+      return response;
+
+    } catch (error) {
+      console.log("❌ CHANGE PASSWORD ERROR:", error);
+      return {
+        status: "error",
+        message: "Password change failed"
+      };
+    }
+  },
 // --- ADD THESE TO YOUR ismServices OBJECT ---
 
   getSocietyAssets: async (societyId, token) => {
@@ -253,41 +261,41 @@ searchSociety: async (keyword, token) => {
     }
   },
   getSocietyAssets: async (societyId, token) => {
-  try {
-    const url = `${API_URL2}/societyassets?society_id=${societyId}&token=${token}`;
-    return await ApiCommon.getReq(url);
-  } catch (error) {
-    console.error("Get Society Assets Error:", error);
-    throw error;
-  }
-},
-getRegistrationFormFields: async (societyId, token) => {
-  try {
-    const url = `${API_URL2}/form?form_type=USER_REGISTRATION&society_id=${societyId}&token=${token}`;
-    return await ApiCommon.getReq(url);
-  } catch (error) {
-    console.error("Get Form Fields Error:", error);
-    throw error;
-  }
-},
-submitRegistrationForm: async (payload, token) => {
-  try {
-    const url = `${API_URL2}/submitform?token=${token}`;
-    return await ApiCommon.postReq(url, payload);
-  } catch (error) {
-    console.error("Submit Registration Error:", error);
-    throw error;
-  }
-},
-getFormStatus: async (societyId, formId, token) => {
-  try {
-    const url = `${API_URL2}/getformstatus?token=${token}&society_id=${societyId}&form_id=${formId}`;
-    return await ApiCommon.getReq(url);
-  } catch (error) {
-    console.error("Get Form Status Error:", error);
-    throw error;
-  }
-},
+    try {
+      const url = `${API_URL2}/societyassets?society_id=${societyId}&token=${token}`;
+      return await ApiCommon.getReq(url);
+    } catch (error) {
+      console.error("Get Society Assets Error:", error);
+      throw error;
+    }
+  },
+  getRegistrationFormFields: async (societyId, token) => {
+    try {
+      const url = `${API_URL2}/form?form_type=USER_REGISTRATION&society_id=${societyId}&token=${token}`;
+      return await ApiCommon.getReq(url);
+    } catch (error) {
+      console.error("Get Form Fields Error:", error);
+      throw error;
+    }
+  },
+  submitRegistrationForm: async (payload, token) => {
+    try {
+      const url = `${API_URL2}/submitform?token=${token}`;
+      return await ApiCommon.postReq(url, payload);
+    } catch (error) {
+      console.error("Submit Registration Error:", error);
+      throw error;
+    }
+  },
+  getFormStatus: async (societyId, formId, token) => {
+    try {
+      const url = `${API_URL2}/getformstatus?token=${token}&society_id=${societyId}&form_id=${formId}`;
+      return await ApiCommon.getReq(url);
+    } catch (error) {
+      console.error("Get Form Status Error:", error);
+      throw error;
+    }
+  },
 
 
   getMeterReadings: async (pageNo = 1) => {
@@ -371,30 +379,30 @@ getFormStatus: async (societyId, formId, token) => {
   },
 
   getMasterCompanies: async (category = "delivery") => {
-  try {
-    const user = await Common.getLoggedInUser();
+    try {
+      const user = await Common.getLoggedInUser();
 
-    const uObj = {
-      user_id: user.id,
-      group_id: user.role_id,
-      flat_no: user.flat_no,
-      unit_id: user.unit_id,
-      society_id: user.societyId,
-    };
+      const uObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
 
-    const url =
-      `https://vms-api.isocietymanager.com/v1/mastercompanies` +
-      `?api-token=${user.api_token}` +
-      `&user-id=${encodeURIComponent(JSON.stringify(uObj))}` +
-      `&category=${category}`;
+      const url =
+        `https://vms-api.isocietymanager.com/v1/mastercompanies` +
+        `?api-token=${user.api_token}` +
+        `&user-id=${encodeURIComponent(JSON.stringify(uObj))}` +
+        `&category=${category}`;
 
-    const headers = await Util.getCommonAuth();
-    return ApiCommon.getReq(url, headers);
-  } catch (error) {
-    console.log("getMasterCompanies Error:", error);
-    return null;
-  }
-},
+      const headers = await Util.getCommonAuth();
+      return ApiCommon.getReq(url, headers);
+    } catch (error) {
+      console.log("getMasterCompanies Error:", error);
+      return null;
+    }
+  },
 
   getAccountStatement: async (billTypeId, pageNo = 1) => {
     try {
@@ -465,48 +473,48 @@ getFormStatus: async (societyId, formId, token) => {
   },
 
   // ✅ KEPT: original function used by other pages
-getUserDetails: async () => {
-  const user = await Common.getLoggedInUser();
+  getUserDetails: async () => {
+    const user = await Common.getLoggedInUser();
 
-  if (!user) throw new Error("User not logged in");
+    if (!user) throw new Error("User not logged in");
 
-  const uObj = {
-    user_id: user.id,
-    group_id: user.role_id,
-    flat_no: user.flat_no,
-    unit_id: user.unit_id,
-    society_id: user.societyId
-  };
+    const uObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId
+    };
 
-  // ✅ RAW JSON (NO encoding)
-  const u = JSON.stringify(uObj);
+    // ✅ RAW JSON (NO encoding)
+    const u = JSON.stringify(uObj);
 
-  // ✅ FULL manual URL (NO helper)
-  const url = `${API_URL2}/userDetailsById/${u}?api-token=${user.api_token}&user-id=${u}&group-id=${user.role_id}&app_id=ism_resident`;
+    // ✅ FULL manual URL (NO helper)
+    const url = `${API_URL2}/userDetailsById/${u}?api-token=${user.api_token}&user-id=${u}&group-id=${user.role_id}&app_id=ism_resident`;
 
-  console.log("✅ FINAL URL:", url); // debug once
+    console.log("✅ FINAL URL:", url); // debug once
 
-  const headers = await Util.getCommonAuth();
-  const response = await ApiCommon.getReq(url, headers);
+    const headers = await Util.getCommonAuth();
+    const response = await ApiCommon.getReq(url, headers);
 
-  await AsyncStorage.setItem("userDetails", JSON.stringify(response));
-  return response;
-},
+    await AsyncStorage.setItem("userDetails", JSON.stringify(response));
+    return response;
+  },
   // ✅ NEW: fetches full profile including permissions — used by ConetextApi
-getUserProfileData: async () => {
-  const tenantStr = await AsyncStorage.getItem("isTenant");
-  const tenant = Number(tenantStr ?? 0); // convert to number
+  getUserProfileData: async () => {
+    const tenantStr = await AsyncStorage.getItem("isTenant");
+    const tenant = Number(tenantStr ?? 0); // convert to number
 
-  const url = await ismServices.appendParamsInUrl(
-    `${API_URL2}/getUserProfileData`,
-    { tenant }
-  );
+    const url = await ismServices.appendParamsInUrl(
+      `${API_URL2}/getUserProfileData`,
+      { tenant }
+    );
 
-  const headers = await Util.getCommonAuth();
-  const response = await ApiCommon.getReq(url, headers);
+    const headers = await Util.getCommonAuth();
+    const response = await ApiCommon.getReq(url, headers);
 
-  return response;
-},
+    return response;
+  },
   getMyBalance: async () => {
     const user = await Common.getLoggedInUser();
 

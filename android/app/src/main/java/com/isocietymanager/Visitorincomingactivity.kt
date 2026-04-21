@@ -7,7 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.BitmapFactory
-import android.media.MediaPlayer
+import android.media.Ringtone
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.*
 import android.util.Log
@@ -28,7 +29,12 @@ class VisitorIncomingActivity : Activity() {
         private const val ACTION_HANDLED = "com.sumasamu.iSocietyManager.VISITOR_HANDLED"
     }
 
-    private var mediaPlayer: MediaPlayer? = null
+    private var ringtone: Ringtone? = null
+
+    // FIX 1: Manual loop handler for API < 28 where Ringtone.isLooping is unavailable
+    private val ringtoneLoopHandler = Handler(Looper.getMainLooper())
+    private var ringtoneDurationMs  = 3_000L   // fallback poll interval for pre-P loop
+
     private val timeoutHandler = Handler(Looper.getMainLooper())
 
     private var visitorId    = ""
@@ -38,11 +44,7 @@ class VisitorIncomingActivity : Activity() {
     private var purpose      = ""
     private var notifId      = 0
 
-    /**
-     * Listens for the VISITOR_HANDLED broadcast sent by VisitorActionReceiver
-     * when the user taps Accept/Decline directly on the notification while
-     * this Activity is already open. Closes the Activity cleanly when received.
-     */
+    // FIX 4: Restored — needed so notification-action taps close this screen correctly
     private val actionHandledReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val handledId = intent.getStringExtra("visitor_id") ?: return
@@ -52,7 +54,7 @@ class VisitorIncomingActivity : Activity() {
             val success = intent.getBooleanExtra("success", false)
             Log.d(TAG, "actionHandledReceiver → $handledId was $action success=$success")
 
-            stopSound()
+            stopRingtone()
             timeoutHandler.removeCallbacksAndMessages(null)
             finish()
         }
@@ -79,11 +81,12 @@ class VisitorIncomingActivity : Activity() {
 
         bindUI()
         loadPhoto()
-        playSoundOrVibrate()
+        playRingtone()
         bindButtons()
         scheduleAutoDismiss()
     }
 
+    // FIX 4: Restored onNewIntent — handles a second visitor arriving while screen is open
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -92,22 +95,23 @@ class VisitorIncomingActivity : Activity() {
         val newId = intent.getStringExtra("visitor_id") ?: ""
         if (newId.isEmpty() || newId == visitorId) return
 
-        cancelNotification()
+        stopRingtone()
         extractIntent(intent)
         cancelNotification()
 
         bindUI()
         loadPhoto()
         resetButtons()
+        playRingtone()
         scheduleAutoDismiss()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "onDestroy")
-        stopSound()
+        stopRingtone()
         timeoutHandler.removeCallbacksAndMessages(null)
-        try { unregisterReceiver(actionHandledReceiver) } catch (_: Exception) { }
+        try { unregisterReceiver(actionHandledReceiver) } catch (_: Exception) {}
     }
 
     @Deprecated("Deprecated in Java")
@@ -132,6 +136,7 @@ class VisitorIncomingActivity : Activity() {
         )
     }
 
+    // FIX 2: Restored RECEIVER_NOT_EXPORTED flag — prevents crash on Android 14+ (API 34)
     private fun registerHandledReceiver() {
         val filter = IntentFilter(ACTION_HANDLED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -165,6 +170,7 @@ class VisitorIncomingActivity : Activity() {
 
     private fun bindUI() {
         findViewById<TextView>(R.id.tvVisitorName)?.text  = visitorName
+        // FIX 7: Show "—" for empty phone instead of blank
         findViewById<TextView>(R.id.tvVisitorPhone)?.text = visitorPhone.ifEmpty { "—" }
         findViewById<TextView>(R.id.tvVisitPurpose)?.text =
             if (purpose.isNotEmpty()) "Purpose: $purpose" else "Purpose: Not specified"
@@ -177,6 +183,7 @@ class VisitorIncomingActivity : Activity() {
             try {
                 val bmp = BitmapFactory.decodeStream(URL(visitorPhoto).openStream())
                 runOnUiThread {
+                    // FIX 6: Guard against destroyed activity before updating UI
                     if (!isDestroyed) { iv.setImageBitmap(bmp); iv.visibility = View.VISIBLE }
                 }
             } catch (e: Exception) {
@@ -188,10 +195,6 @@ class VisitorIncomingActivity : Activity() {
     private fun bindButtons() {
         findViewById<Button>(R.id.btnAccept)?.setOnClickListener  { handleAction("ACCEPT")  }
         findViewById<Button>(R.id.btnDecline)?.setOnClickListener { handleAction("DECLINE") }
-        findViewById<Button>(R.id.btnViewVisitor)?.setOnClickListener {
-            savePendingVisitorForRN()
-            finish()
-        }
     }
 
     private fun resetButtons() {
@@ -202,17 +205,17 @@ class VisitorIncomingActivity : Activity() {
 
     // ── Actions ───────────────────────────────────────────────────────────────────
 
+    // FIX 3: Only finish on API success; re-enable buttons on failure so user can retry
     private fun handleAction(action: String) {
         Log.d(TAG, "handleAction → $action")
 
-        stopSound()
+        stopRingtone()
         timeoutHandler.removeCallbacksAndMessages(null)
 
         findViewById<Button>(R.id.btnAccept)?.isEnabled  = false
         findViewById<Button>(R.id.btnDecline)?.isEnabled = false
         findViewById<ProgressBar>(R.id.loader)?.visibility = View.VISIBLE
 
-        // ── API call via shared helper ────────────────────────────────────────────
         thread {
             val result = VisitorApiHelper.call(this, action, visitorId)
 
@@ -223,7 +226,7 @@ class VisitorIncomingActivity : Activity() {
                 } else {
                     Log.e(TAG, "API failure → ${result.code} : ${result.message}")
                     Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
-                    resetButtons()
+                    resetButtons()   // let the user retry
                 }
             }
         }
@@ -233,7 +236,7 @@ class VisitorIncomingActivity : Activity() {
         timeoutHandler.removeCallbacksAndMessages(null)
         timeoutHandler.postDelayed({
             Log.d(TAG, "Auto-dismiss triggered")
-            stopSound()
+            stopRingtone()
             cancelNotification()
             finish()
         }, AUTO_DISMISS)
@@ -248,22 +251,52 @@ class VisitorIncomingActivity : Activity() {
             .apply()
     }
 
-    // ── Sound / Vibration ─────────────────────────────────────────────────────────
+    // ── Ringtone ──────────────────────────────────────────────────────────────────
 
-    private fun playSoundOrVibrate() {
+    private fun playRingtone() {
+        ringtoneLoopHandler.removeCallbacksAndMessages(null)
         try {
-            mediaPlayer = MediaPlayer().apply {
-                setDataSource(applicationContext, Uri.parse("android.resource://$packageName/raw/visitor_alert"))
-                isLooping = true
-                prepare()
-                start()
+            val uri = Uri.parse("android.resource://$packageName/raw/visitor_alert")
+            ringtone = RingtoneManager.getRingtone(applicationContext, uri)
+
+            // FIX 1: Loop the ringtone
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                // API 28+: native looping support
+                ringtone?.isLooping = true
+                ringtone?.play()
+            } else {
+                // Pre-API 28: manually restart when playback ends
+                ringtone?.play()
+                scheduleRingtoneLoop()
             }
-            Log.d(TAG, "Sound playing")
+
+            Log.d(TAG, "Ringtone playing (looping)")
         } catch (e: Exception) {
-            Log.e(TAG, "Sound error → ${e.message} — falling back to vibration")
+            Log.e(TAG, "Ringtone error → ${e.message}")
             vibrateDevice()
         }
     }
+
+    /** Pre-API-28 loop: polls every [ringtoneDurationMs] ms and restarts if stopped. */
+    private fun scheduleRingtoneLoop() {
+        ringtoneLoopHandler.postDelayed({
+            val r = ringtone ?: return@postDelayed   // stopped intentionally
+            if (!r.isPlaying) {
+                r.play()
+                Log.d(TAG, "Ringtone restarted (pre-P loop)")
+            }
+            scheduleRingtoneLoop()
+        }, ringtoneDurationMs)
+    }
+
+    private fun stopRingtone() {
+        ringtoneLoopHandler.removeCallbacksAndMessages(null)
+        ringtone?.stop()
+        ringtone = null
+        Log.d(TAG, "Ringtone stopped")
+    }
+
+    // ── Vibration fallback ────────────────────────────────────────────────────────
 
     private fun vibrateDevice() {
         val pattern = longArrayOf(0, 500, 300, 500, 300, 500)
@@ -282,11 +315,5 @@ class VisitorIncomingActivity : Activity() {
                 }
             }
         }
-    }
-
-    private fun stopSound() {
-        mediaPlayer?.let { it.stop(); it.release() }
-        mediaPlayer = null
-        Log.d(TAG, "Sound stopped")
     }
 }
