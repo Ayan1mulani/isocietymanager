@@ -57,11 +57,24 @@ const ResidentProfile = () => {
       ]);
 
       setUserDetails(detailsRes?.data || {});
+      console.log("User details loaded:", detailsRes?.data);
 
       if (detailsRes?.data?.flat_no) {
         setFlatNo(detailsRes?.data?.flat_no);
       }
 
+
+      const data = detailsRes?.data || {};
+
+      if (typeof data.id === "string") {
+        try {
+          data.id = JSON.parse(data.id);
+        } catch (e) {
+          console.log("ID parse error", e);
+        }
+      }
+
+      setUserDetails(data);
       // 2. Map the real names from Bill Types to your Outstandings
       const rawOutstandings = billRes?.data || [];
       const allTypes = Array.from((typesRes?.data ?? typesRes ?? []).values());
@@ -217,7 +230,7 @@ const ResidentProfile = () => {
             style={styles.profileCard}
           >
             <Text style={styles.greeting} numberOfLines={1}>
-              Hi, {userDetails?.name || "Resident"}
+              Hii, {userDetails?.name || "Resident"}
             </Text>
 
             <View style={styles.profileRow}>
@@ -242,21 +255,23 @@ const ResidentProfile = () => {
                 <View style={styles.badge}>
                   <Ionicons name="business" size={10} color="#fff" />
                   <Text style={styles.badgeText}>
-                    Unit: {userDetails?.unit_id || "N/A"}
+                    User id:  {userDetails?.id.
+                      user_id
+                      || "N/A"}
                   </Text>
                 </View>
 
                 <View style={styles.badge}>
                   <Ionicons name="home" size={10} color="#fff" />
                   <Text style={styles.badgeText}>
-                    Block: {userDetails?.societyId || "N/A"}
+                    Society id: {userDetails?.societyId || "N/A"}
                   </Text>
                 </View>
 
                 <View style={styles.badge}>
                   <Ionicons name="calendar" size={10} color="#fff" />
                   <Text style={styles.badgeText}>
-                    Flat: {userDetails?.flat_no || "N/A"}
+                    Flat: {userDetails?.id.flat_no || "N/A"}
                   </Text>
                 </View>
               </View>

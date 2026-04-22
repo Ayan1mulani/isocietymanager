@@ -223,44 +223,47 @@ const initializeOneSignal = async () => {
       This fires ONLY when the app is in foreground.
       Background/killed is handled by MyNotificationServiceExtension (native).
    ────────────────────────────────────────────────────────────────────── */
-  OneSignal.Notifications.addEventListener(
-    "foregroundWillDisplay",
-    async (event) => {
-      try {
-        const notification = event.getNotification();
+OneSignal.Notifications.addEventListener(
+  "foregroundWillDisplay",
+  async (event) => {
+    try {
+      const notification = event.getNotification();
+      console.log("🚨 FULL NOTIFICATION PAYLOAD:", JSON.stringify(notification, null, 2));
+      console.log(TAG, `foregroundWillDisplay → title='${notification.title}'`);
 
-        // 🚨 ADD THIS LINE RIGHT HERE:
-        console.log("🚨 FULL NOTIFICATION PAYLOAD:", JSON.stringify(notification, null, 2));
+      // ✅ STAFF — native extension already posted it with door_bell sound
+      // Just prevent OneSignal from showing a duplicate
+      const isStaff = notification.additionalData?.data?.type === "STAFF";
+      if (isStaff) {
+        event.preventDefault(); // ← block duplicate, native already handled it
+        console.log(TAG, "foregroundWillDisplay → STAFF notification, native already handled");
+        return;
+      }
 
-
-        console.log(TAG, `foregroundWillDisplay → title='${notification.title}'`);
-        console.log(TAG, "foregroundWillDisplay → additionalData:", JSON.stringify(notification.additionalData));
-
-        if (notification.title !== "Add Visit") {
-          console.log(TAG, "foregroundWillDisplay → not a visitor notification, displaying normally");
-          event.getNotification().display();
-          return;
-        }
-
-        // Stop OneSignal banner — we show Notifee instead
+      // ✅ VISITOR — intercept and show Notifee instead
+      if (notification.title === "Add Visit") {
         event.preventDefault();
         console.log(TAG, "foregroundWillDisplay → prevented OneSignal banner");
-
         const visitor = extractVisitor(notification.additionalData);
-
         if (!visitor) {
           console.log(TAG, "foregroundWillDisplay → no valid visitor, showing fallback");
           event.getNotification().display();
           return;
         }
-
         await showVisitorNotification(visitor);
-      } catch (e) {
-        console.log(TAG, "foregroundWillDisplay → ERROR:", e);
-        try { event.getNotification().display(); } catch (_) { }
+        return;
       }
+
+      // ✅ ALL OTHER notifications — display normally
+      console.log(TAG, "foregroundWillDisplay → not a visitor/staff notification, displaying normally");
+      event.getNotification().display();
+
+    } catch (e) {
+      console.log(TAG, "foregroundWillDisplay → ERROR:", e);
+      try { event.getNotification().display(); } catch (_) { }
     }
-  );
+  }
+);
 
   /* ──────────────────────────────────────────────────────────────────────
      🔵 CLICK — user taps the OneSignal notification body (no action button)
@@ -285,11 +288,10 @@ const initializeOneSignal = async () => {
 
         if (_onVisitorPending) {
           _onVisitorPending({
-            type: "staff",
+            type: "STAFF",   // ✅ FIXED — uppercase matches App.js check
             data: data,
           });
         }
-
         return;
       }
 

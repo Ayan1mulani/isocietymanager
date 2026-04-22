@@ -100,7 +100,6 @@ const HomeStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} />
-      <Stack.Screen name="StaffDetailsScreen" component={StaffScreen} />
     </Stack.Navigator>
   );
 };
@@ -110,8 +109,6 @@ const ServiceRequestsStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ServiceRequestsMain" component={ServiceRequestTabs} />
-
-
     </Stack.Navigator>
 
   );
