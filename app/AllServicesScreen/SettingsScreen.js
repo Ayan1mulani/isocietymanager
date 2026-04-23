@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, Switch,
@@ -14,40 +15,35 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import SubmitButton from "../components/SubmitButton";
 import StatusModal from "../../app/components/StatusModal";
 import { otherServices } from "../../services/otherServices";
-import { ismServices } from "../../services/ismServices";
 import { PERMISSIONS, check } from 'react-native-permissions';
-import { loadCachedSettings, fetchAndCacheSettings } from '../../services/settingsCache';
+
+import {
+  loadCachedSettings,
+  fetchAndCacheSettings,
+  markSettingsSaved,
+  wasSavedRecently,
+  getCachedUser          // ✅ new
+
+} from '../../services/settingsCache';
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
-
   const [loading, setLoading] = useState(false);
-
   const [isAway, setIsAway] = useState(false);
   const [visitSound, setVisitSound] = useState(true);
   const [staffNotification, setStaffNotification] = useState(true);
   const [ivrEnabled, setIvrEnabled] = useState(false);
-
-  // 👇 user ref — never triggers re-render, always available in callbacks
   const userRef = useRef(null);
-
   const [primaryNumber, setPrimaryNumber] = useState("");
   const [secondaryNumber, setSecondaryNumber] = useState("");
-
-  // Only track phone number changes for Save button
   const [initialPhones, setInitialPhones] = useState({ primary: "", secondary: "" });
   const [phoneChanged, setPhoneChanged] = useState(false);
-
   const [permissionWarning, setPermissionWarning] = useState(false);
   const [permissionMessage, setPermissionMessage] = useState("");
-
   const [statusModal, setStatusModal] = useState({
     visible: false, type: "success", title: "", subtitle: ""
   });
 
-  /* ------------------------------
-      APPLY SETTINGS
-  ------------------------------ */
   const applySettings = (cache) => {
     if (!cache) return;
     userRef.current = cache.user;
@@ -63,38 +59,30 @@ const SettingsScreen = () => {
     });
   };
 
-  /* ------------------------------
-      LOAD: CACHE FIRST → BACKGROUND REFRESH
-  ------------------------------ */
   const loadSettings = async () => {
     const cached = await loadCachedSettings();
-
     if (cached) {
       applySettings(cached);
     } else {
-      setLoading(true); // only on very first ever open
+      setLoading(true);
     }
 
-    // Silent background refresh — user sees nothing
-    const fresh = await fetchAndCacheSettings();
-    if (fresh) applySettings(fresh);
+    if (!wasSavedRecently()) {                  
+      const fresh = await fetchAndCacheSettings();
+      if (fresh && !wasSavedRecently()) {        
+        applySettings(fresh);
+      }
+    }
 
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  useEffect(() => { loadSettings(); }, []);
 
   useFocusEffect(
-    useCallback(() => {
-      checkPermissions();
-    }, [])
+    useCallback(() => { checkPermissions(); }, [])
   );
 
-  /* ------------------------------
-      PHONE NUMBER CHANGE DETECTION
-  ------------------------------ */
   useEffect(() => {
     const changed =
       primaryNumber !== initialPhones.primary ||
@@ -102,9 +90,6 @@ const SettingsScreen = () => {
     setPhoneChanged(changed);
   }, [primaryNumber, secondaryNumber, initialPhones]);
 
-  /* ------------------------------
-      PERMISSIONS
-  ------------------------------ */
   const checkPermissions = async () => {
     const notif = await checkNotificationPermission();
     const alarm = await checkAlarmPermission();
@@ -128,23 +113,15 @@ const SettingsScreen = () => {
   };
 
   const updateCache = async (updates) => {
-  try {
-    const raw = await AsyncStorage.getItem("cached_user_settings");
-    const cache = raw ? JSON.parse(raw) : {};
-
-    const updated = {
-      ...cache,
-      ...updates
-    };
-
-    await AsyncStorage.setItem(
-      "cached_user_settings",
-      JSON.stringify(updated)
-    );
-  } catch (e) {
-    console.log("Cache update error:", e);
-  }
-};
+    try {
+      const raw = await AsyncStorage.getItem("cached_user_settings");
+      const cache = raw ? JSON.parse(raw) : {};
+      const updated = { ...cache, ...updates };
+      await AsyncStorage.setItem("cached_user_settings", JSON.stringify(updated));
+    } catch (e) {
+      console.log("Cache update error:", e);
+    }
+  };
 
   const checkAlarmPermission = async () => {
     try {
@@ -154,28 +131,36 @@ const SettingsScreen = () => {
         return (await check(permission)) === "granted";
       }
       return true;
-    } catch {
-      return true;
-    }
+    } catch { return true; }
   };
 
-  /* ------------------------------
-      VALIDATION
-  ------------------------------ */
   const isValidPhone = (num) => {
     if (!num) return true;
     return /^[6-9]\d{9}$/.test(num);
   };
 
-  /* ------------------------------
-      SILENT SAVE HELPER (for toggles)
-      — no modals, no feedback, fully invisible
-  ------------------------------ */
+  // ✅ CHANGED: removed fetchAndCacheSettings() call, added markSettingsSaved()
+  // ✅ CHANGE 3: silentSaveUserSettings — remove markSettingsSaved (moved to toggles)
+  // ✅ Fixed silentSaveUserSettings
+  // - falls back to cache if userRef is empty
+  // - reads toggle values from overrides + cache, not stale state
   const silentSaveUserSettings = async (overrides = {}) => {
-    const user = userRef.current;
-    if (!user?.id) return;
+    // ✅ fallback to cached user if ref not populated yet
+    let user = userRef.current;
+    if (!user?.id) {
+      user = await getCachedUser();
+    }
+    if (!user?.id) {
+      console.log("Silent save skipped: no user");
+      return;
+    }
 
     try {
+      // ✅ Read current cache for all non-overridden fields
+      // This avoids stale closure values from React state
+      const raw = await AsyncStorage.getItem("cached_user_settings");
+      const cache = raw ? JSON.parse(raw) : {};
+
       const payload = {
         id: user.id,
         name: user.name,
@@ -184,99 +169,72 @@ const SettingsScreen = () => {
         flat_no: user.flat_no,
         display_unit_no: user.display_unit_no,
         tenant: user.tenant,
-        home_away: isAway ? 1 : 0,
-        ivr_enable: ivrEnabled ? 1 : 0,
-        ivr_p: primaryNumber,
-        ivr_s: secondaryNumber,
-        ...overrides // 👈 pass the latest toggled value directly
+        home_away: cache.isAway ? 1 : 0,         
+        ivr_enable: cache.ivrEnabled ? 1 : 0,     
+        ivr_p: cache.primaryNumber || "",
+        ivr_s: cache.secondaryNumber || "",
+        ...overrides,                           
       };
 
+      console.log("Saving payload:", payload);    
       await otherServices.updateUserSettings(payload);
-      fetchAndCacheSettings(); // refresh cache silently
+      console.log("Save success");
+
     } catch (err) {
       console.log("Silent save error:", err);
     }
   };
 
-  /* ------------------------------
-      TOGGLE: I AM AWAY
-      — optimistic UI + silent save
-  ------------------------------ */
-const toggleAway = (value) => {
-  setIsAway(value);
 
-  updateCache({ isAway: value });
+  const toggleAway = (value) => {
+    markSettingsSaved();
+    setIsAway(value);
+    updateCache({ isAway: value });                        
+    silentSaveUserSettings({ home_away: value ? 1 : 0 });   
+  };
 
-  silentSaveUserSettings({ home_away: value ? 1 : 0 });
-};
-  /* ------------------------------
-      TOGGLE: IVR ENABLE
-      — optimistic UI + silent save
-  ------------------------------ */
-const toggleIvr = (value) => {
-  setIvrEnabled(value);
+  const toggleIvr = (value) => {
+    markSettingsSaved();
+    setIvrEnabled(value);
+    updateCache({ ivrEnabled: value });
+    silentSaveUserSettings({ ivr_enable: value ? 1 : 0 });
+  };
 
-  updateCache({ ivrEnabled: value });
-
-  silentSaveUserSettings({ ivr_enable: value ? 1 : 0 });
-};
-
-  /* ------------------------------
-      TOGGLE: VISIT SOUND
-  ------------------------------ */
   const toggleVisitSound = async (value) => {
-  setVisitSound(value);
+    markSettingsSaved();                             
+    setVisitSound(value);
+    updateCache({ visitSound: value });
+    try {
+      await DefaultPreference.set("NATIVE_SOUND_ENABLED", value ? "true" : "false");
+      otherServices.setNotificationSound("VISIT", value);
+      const stored = await AsyncStorage.getItem("notificationSoundSettings");
+      let data = stored ? JSON.parse(stored) : [];
+      const updated = data.some(i => i.name === "VISIT")
+        ? data.map(i => i.name === "VISIT" ? { ...i, switch: value ? 1 : 0 } : i)
+        : [...data, { name: "VISIT", switch: value ? 1 : 0 }];
+      await AsyncStorage.setItem("notificationSoundSettings", JSON.stringify(updated));
+    } catch (e) {
+      console.log("Visit sound error:", e);
+    }
+  };
 
-  // ✅ update cache immediately
-  updateCache({ visitSound: value });
+  const toggleStaffSound = async (value) => {
+    markSettingsSaved();                              // ← first thing, synchronous
+    setStaffNotification(value);
+    updateCache({ staffNotification: value });
+    try {
+      otherServices.setNotificationSound("STAFF", value);
+      const stored = await AsyncStorage.getItem("notificationSoundSettings");
+      let data = stored ? JSON.parse(stored) : [];
+      const updated = data.map(i =>
+        i.name === "STAFF" ? { ...i, switch: value ? 1 : 0 } : i
+      );
+      await AsyncStorage.setItem("notificationSoundSettings", JSON.stringify(updated));
+    } catch (e) {
+      console.log("Staff sound error:", e);
+    }
+  };
 
-  try {
-    await DefaultPreference.set("NATIVE_SOUND_ENABLED", value ? "true" : "false");
-
-    otherServices.setNotificationSound("VISIT", value); // 🔄 background
-
-    const stored = await AsyncStorage.getItem("notificationSoundSettings");
-    let data = stored ? JSON.parse(stored) : [];
-
-    const updated = data.some(i => i.name === "VISIT")
-      ? data.map(i => i.name === "VISIT" ? { ...i, switch: value ? 1 : 0 } : i)
-      : [...data, { name: "VISIT", switch: value ? 1 : 0 }];
-
-    await AsyncStorage.setItem("notificationSoundSettings", JSON.stringify(updated));
-
-  } catch (e) {
-    console.log("Visit sound error:", e);
-  }
-};
-  /* ------------------------------
-      TOGGLE: STAFF SOUND
-  ------------------------------ */
- const toggleStaffSound = async (value) => {
-  setStaffNotification(value);
-
-  // ✅ update cache immediately
-  updateCache({ staffNotification: value });
-
-  try {
-    otherServices.setNotificationSound("STAFF", value); // 🔄 background
-
-    const stored = await AsyncStorage.getItem("notificationSoundSettings");
-    let data = stored ? JSON.parse(stored) : [];
-
-    const updated = data.map(i =>
-      i.name === "STAFF" ? { ...i, switch: value ? 1 : 0 } : i
-    );
-
-    await AsyncStorage.setItem("notificationSoundSettings", JSON.stringify(updated));
-
-  } catch (e) {
-    console.log("Staff sound error:", e);
-  }
-};
-
-  /* ------------------------------
-      SAVE — only for phone numbers
-  ------------------------------ */
   const handleSave = async () => {
     if (primaryNumber && !isValidPhone(primaryNumber)) {
       setStatusModal({ visible: true, type: "error", title: "Invalid Primary Number", subtitle: "Enter a valid 10-digit number starting with 6-9" });
@@ -286,20 +244,11 @@ const toggleIvr = (value) => {
       setStatusModal({ visible: true, type: "error", title: "Invalid Secondary Number", subtitle: "Enter a valid 10-digit number starting with 6-9" });
       return;
     }
-
     try {
       setStatusModal({ visible: true, type: "loading", title: "Saving", subtitle: "Please wait..." });
-
-      await silentSaveUserSettings({
-        ivr_p: primaryNumber,
-        ivr_s: secondaryNumber
-      });
-
+      await silentSaveUserSettings({ ivr_p: primaryNumber, ivr_s: secondaryNumber });
       setStatusModal({ visible: true, type: "success", title: "Saved", subtitle: "Phone numbers updated" });
-
-      // Reset so Save button disappears
       setInitialPhones({ primary: primaryNumber, secondary: secondaryNumber });
-
     } catch (err) {
       setStatusModal({ visible: true, type: "error", title: "Save Failed", subtitle: "Unable to update numbers" });
     }
@@ -308,22 +257,16 @@ const toggleIvr = (value) => {
   const handlePrimaryChange = (text) => setPrimaryNumber(text.replace(/[^0-9]/g, ''));
   const handleSecondaryChange = (text) => setSecondaryNumber(text.replace(/[^0-9]/g, ''));
 
-  /* ------------------------------
-      RENDER
-  ------------------------------ */
   return (
     <SafeAreaView style={styles.container}>
       <AppHeader title="Settings" />
-
       <View style={{ flex: 1 }}>
-
         {loading && (
           <View style={styles.loaderOverlay}>
             <ActivityIndicator size="large" color="#1996D3" />
             <Text style={styles.loaderText}>Loading settings...</Text>
           </View>
         )}
-
         {permissionWarning && (
           <View style={styles.permissionWarning}>
             <Text style={styles.permissionText}>
@@ -331,122 +274,82 @@ const toggleIvr = (value) => {
             </Text>
           </View>
         )}
-
         <ScrollView showsVerticalScrollIndicator={false}>
-
-          {/* PERSONAL */}
           <View style={styles.sectionHeader}>
             <Ionicons name="person-outline" size={16} color="#6B7280" />
             <Text style={styles.sectionTitle}>Personal</Text>
           </View>
-
           <View style={styles.card}>
             <View style={styles.row}>
               <Text style={styles.label}>I am Away</Text>
-              <Switch
-                value={isAway}
-                onValueChange={toggleAway}   // ✅ auto-saves
-                trackColor={{ false: "#ddd", true: "#1996D3" }}
-                thumbColor="#fff"
-              />
+              <Switch value={isAway} onValueChange={toggleAway}
+                trackColor={{ false: "#ddd", true: "#1996D3" }} thumbColor="#fff" />
             </View>
           </View>
-
-          {/* NOTIFICATIONS */}
           <View style={styles.sectionHeader}>
             <Ionicons name="notifications-outline" size={16} color="#6B7280" />
             <Text style={styles.sectionTitle}>Notifications</Text>
           </View>
-
           <View style={styles.card}>
             <View style={styles.row}>
               <Text style={styles.label}>Visit Sound</Text>
-              <Switch
-                value={visitSound}
-                onValueChange={toggleVisitSound}  // ✅ auto-saves
-                trackColor={{ false: "#ddd", true: "#1996D3" }}
-              />
+              <Switch value={visitSound} onValueChange={toggleVisitSound}
+                trackColor={{ false: "#ddd", true: "#1996D3" }} />
             </View>
             <View style={styles.divider} />
             <View style={styles.row}>
               <Text style={styles.label}>Staff</Text>
-              <Switch
-                value={staffNotification}
-                onValueChange={toggleStaffSound}  // ✅ auto-saves
-                trackColor={{ false: "#ddd", true: "#1996D3" }}
-              />
+              <Switch value={staffNotification} onValueChange={toggleStaffSound}
+                trackColor={{ false: "#ddd", true: "#1996D3" }} />
             </View>
           </View>
-
-          {/* IVR */}
           <View style={styles.sectionHeader}>
             <Ionicons name="call-outline" size={16} color="#6B7280" />
             <Text style={styles.sectionTitle}>IVR Settings</Text>
           </View>
-
           <View style={styles.card}>
             <View style={styles.row}>
               <Text style={styles.label}>Enable IVR</Text>
-              <Switch
-                value={ivrEnabled}
-                onValueChange={toggleIvr}   // ✅ auto-saves
-                trackColor={{ false: "#ddd", true: "#1996D3" }}
-              />
+              <Switch value={ivrEnabled} onValueChange={toggleIvr}
+                trackColor={{ false: "#ddd", true: "#1996D3" }} />
             </View>
-
             {ivrEnabled && (
               <>
                 <View style={styles.divider} />
-
                 <View style={styles.inputSection}>
                   <Text style={styles.inputLabel}>Primary Number</Text>
                   <TextInput
                     style={[styles.phoneInput, primaryNumber && !isValidPhone(primaryNumber) && styles.phoneInputError]}
-                    placeholder="Enter 10-digit number"
-                    keyboardType="phone-pad"
-                    maxLength={10}
-                    placeholderTextColor="#9CA3AF"
-                    value={primaryNumber}
-                    onChangeText={handlePrimaryChange}
-                  />
+                    placeholder="Enter 10-digit number" keyboardType="phone-pad"
+                    maxLength={10} placeholderTextColor="#9CA3AF"
+                    value={primaryNumber} onChangeText={handlePrimaryChange} />
                   {primaryNumber && !isValidPhone(primaryNumber) && (
                     <Text style={styles.errorText}>Must be 10 digits starting with 6-9</Text>
                   )}
                 </View>
-
                 <View style={styles.inputSection}>
                   <Text style={styles.inputLabel}>Secondary Number</Text>
                   <TextInput
                     style={[styles.phoneInput, secondaryNumber && !isValidPhone(secondaryNumber) && styles.phoneInputError]}
-                    placeholder="Enter 10-digit number (optional)"
-                    maxLength={10}
-                    keyboardType="phone-pad"
-                    placeholderTextColor="#9CA3AF"
-                    value={secondaryNumber}
-                    onChangeText={handleSecondaryChange}
-                  />
+                    placeholder="Enter 10-digit number (optional)" maxLength={10}
+                    keyboardType="phone-pad" placeholderTextColor="#9CA3AF"
+                    value={secondaryNumber} onChangeText={handleSecondaryChange} />
                   {secondaryNumber && !isValidPhone(secondaryNumber) && (
                     <Text style={styles.errorText}>Must be 10 digits starting with 6-9</Text>
                   )}
                 </View>
-
-                {/* ✅ Save button ONLY when phone numbers changed */}
                 {phoneChanged && (
                   <View style={styles.saveButtonContainer}>
-                    <SubmitButton
-                      title="Save Numbers"
-                      onPress={handleSave}
+                    <SubmitButton title="Save Numbers" onPress={handleSave}
                       disabled={
                         (primaryNumber && !isValidPhone(primaryNumber)) ||
                         (secondaryNumber && !isValidPhone(secondaryNumber))
-                      }
-                    />
+                      } />
                   </View>
                 )}
               </>
             )}
           </View>
-
           {ivrEnabled && (
             <View style={styles.noteOuterContainer}>
               <Text style={styles.noteTitle}>Important Note</Text>
@@ -454,22 +357,19 @@ const toggleIvr = (value) => {
                 You will receive a call for confirmation on arrival of your visitor/guest.
               </Text>
               <Text style={styles.noteText}>
-                By providing your contact details you have authorized Factech Automation Solutions Private Limited to contact you in future through calls/Email/SMS to share information from iSocietyManager.
+                By providing your contact details you have authorized Factech Automation Solutions
+                Private Limited to contact you in future through calls/Email/SMS to share
+                information from iSocietyManager.
               </Text>
             </View>
           )}
-
           <View style={{ height: 40 }} />
         </ScrollView>
       </View>
-
       <StatusModal
-        visible={statusModal.visible}
-        type={statusModal.type}
-        title={statusModal.title}
-        subtitle={statusModal.subtitle}
-        onClose={() => setStatusModal(prev => ({ ...prev, visible: false }))}
-      />
+        visible={statusModal.visible} type={statusModal.type}
+        title={statusModal.title} subtitle={statusModal.subtitle}
+        onClose={() => setStatusModal(prev => ({ ...prev, visible: false }))} />
     </SafeAreaView>
   );
 };

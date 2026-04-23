@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import {
   View, ActivityIndicator, Text, StatusBar,
-  StyleSheet, AppState, NativeModules, TextInput,
+  StyleSheet, AppState, NativeModules, TextInput, Platform,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,11 +10,10 @@ import notifee, { EventType } from "@notifee/react-native";
 import NavigationPage from "./NavigationPage";
 import BRAND from "./app/config";
 import initializeOneSignal, { setOnVisitorPending } from "./Utils/PushNotifications";
-import { RegisterAppOneSignal } from "./services/oneSignalService";
 import { complaintService } from "./services/complaintService";
 import { visitorServices } from "./services/visitorServices";
 import { navigationRef } from "./NavigationService";
-import { PermissionsProvider } from "./Utils/ConetextApi";
+import { PermissionsProvider, usePermissions } from "./Utils/ConetextApi";
 import { fetchAndCacheSettings } from "./services/settingsCache";
 
 Text.defaultProps = Text.defaultProps || {};
@@ -22,7 +21,7 @@ Text.defaultProps.allowFontScaling = false;
 TextInput.defaultProps = TextInput.defaultProps || {};
 TextInput.defaultProps.allowFontScaling = false;
 
-const { VisitorModule } = NativeModules;
+const { VisitorModule, IntentModule } = NativeModules;
 
 const TAG = "[App]";
 
@@ -61,12 +60,45 @@ const markHandled = async (id) => {
 const AUTH_SCREENS = ["Login", "OtpLoginScreen", "OtpLogin", "OtpVerify"];
 const isUserLoggedIn = (route) => route && !AUTH_SCREENS.includes(route);
 
+/* ─── Permissions component ─────────────────────────────────────────────── */
+const AppContent = () => {
+  const { loadPermissions } = usePermissions();
+
+  useEffect(() => {
+    const loadPerms = async () => {
+      try {
+        await new Promise(res => setTimeout(res, 500));
+        await loadPermissions(true);
+      } catch (e) {
+        console.log("[App] Permission load error:", e);
+      }
+    };
+    loadPerms();
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", async (state) => {
+      if (state === "active") {
+        try {
+          await loadPermissions(true);
+        } catch (e) {
+          console.log("[App] Permission refresh error:", e);
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  return <NavigationPage />;
+};
+
+/* ─── Main App ──────────────────────────────────────────────────────────── */
 export default function App() {
   const [processing, setProcessing] = React.useState(false);
   const pendingVisitorRef = useRef(null);
-  const pendingStaffRef = useRef(null); // ← NEW
+  const pendingStaffRef = useRef(null);
 
-  /* ── Visitor navigation with retry ──────────────────────────────────── */
+  /* ── Visitor navigation with retry ───────────────────────────────────── */
   const tryNavigate = async (attempts = 0) => {
     const visitor = pendingVisitorRef.current;
     if (!visitor) return;
@@ -85,18 +117,13 @@ export default function App() {
     if (await isAlreadyHandled(visitor.id)) { pendingVisitorRef.current = null; return; }
     await markHandled(visitor.id);
     pendingVisitorRef.current = null;
-    console.log(TAG, `tryNavigate → navigating for visitor ${visitor.id}`);
     navigationRef.navigate("VisitorNotificationMessage", { visitor });
   };
 
-  /* ── NEW: Staff navigation with retry ───────────────────────────────── */
+  /* ── Staff navigation with retry ─────────────────────────────────────── */
   const tryNavigateStaff = async (attempts = 0) => {
     if (!pendingStaffRef.current) return;
-
-    if (attempts > 10) {
-      pendingStaffRef.current = null;
-      return;
-    }
+    if (attempts > 10) { pendingStaffRef.current = null; return; }
 
     if (!navigationRef.isReady()) {
       setTimeout(() => tryNavigateStaff(attempts + 1), 500);
@@ -110,16 +137,49 @@ export default function App() {
     }
 
     pendingStaffRef.current = null;
-
     await AsyncStorage.setItem("PENDING_STAFF_NAVIGATE", "true").catch(() => { });
-
-    console.log(TAG, "tryNavigateStaff → navigating to StaffScreen (root)");
-
-    // ✅ Navigate directly to root-level StaffScreen — no nested params needed
     navigationRef.navigate("StaffScreen");
   };
 
-  /* ── Load society config ─────────────────────────────────────────────── */
+  /* ── Read staff intent from Kotlin tap (locked screen / background) ───
+     Kotlin puts extras on the launch intent when user taps the staff
+     notification. We read those extras here and navigate to StaffScreen.
+  ───────────────────────────────────────────────────────────────────────── */
+  const checkStaffIntent = async () => {
+    try {
+      if (Platform.OS !== "android") return;
+      if (!IntentModule) {
+        console.log(TAG, "IntentModule not available");
+        return;
+      }
+
+      const extras = await IntentModule.getIntentExtras();
+      console.log(TAG, "checkStaffIntent → extras:", JSON.stringify(extras));
+
+      if (extras?.notification_type === "STAFF") {
+        console.log(TAG, "Staff intent detected → navigating to StaffScreen");
+
+        // Clear so it doesn't fire again on next resume
+        await IntentModule.clearIntentExtras();
+
+        // Set pending and navigate
+        pendingStaffRef.current = {
+          type: "STAFF",
+          data: {
+            id: extras.staff_id,
+            name: extras.staff_name,
+            exit: extras.staff_exit ? 1 : 0,
+          },
+        };
+
+        tryNavigateStaff();
+      }
+    } catch (e) {
+      console.log(TAG, "checkStaffIntent error:", e);
+    }
+  };
+
+  /* ── Society config init ─────────────────────────────────────────────── */
   useEffect(() => {
     const init = async () => {
       try {
@@ -130,42 +190,27 @@ export default function App() {
           const res = await complaintService.getSocietyConfigNew();
           if (res) await AsyncStorage.setItem("SOCIETY_CONFIG", JSON.stringify(res));
         }
-      } catch (e) {
-        console.log(TAG, "init error:", e);
-      }
+      } catch (e) { }
     };
     init();
   }, []);
 
+  /* ── Settings cache ──────────────────────────────────────────────────── */
   useEffect(() => {
-    const preloadSettings = async () => {
-      try {
-        fetchAndCacheSettings();
-      } catch (e) {
-        console.log("Settings preload error:", e);
-      }
-    };
-    preloadSettings();
+    fetchAndCacheSettings();
   }, []);
 
-  /* ── OneSignal init ──────────────────────────────────────────────────── */
+  /* ── OneSignal ───────────────────────────────────────────────────────── */
   useEffect(() => {
     const setup = async () => {
       await initializeOneSignal();
       setOnVisitorPending((payload) => {
-        console.log(TAG, "🔥 Notification Payload:", JSON.stringify(payload)); // ← log full payload
-
-        // ✅ STAFF FLOW
         if (payload?.type === "STAFF") {
-          console.log(TAG, "🚀 Staff notification — queuing navigation");
           pendingStaffRef.current = payload;
           tryNavigateStaff();
           return;
         }
-
-        // ✅ VISITOR FLOW
         if (payload?.id) {
-          console.log(TAG, `onVisitorPending → ${payload.id}`);
           pendingVisitorRef.current = payload;
           tryNavigate();
         }
@@ -174,7 +219,7 @@ export default function App() {
     setup();
   }, []);
 
-  /* ── Notifee FOREGROUND events ───────────────────────────────────────── */
+  /* ── Notifee foreground (visitor accept/decline) ─────────────────────── */
   useEffect(() => {
     const unsubscribe = notifee.onForegroundEvent(async ({ type, detail }) => {
       try {
@@ -187,7 +232,6 @@ export default function App() {
 
         if (type === EventType.ACTION_PRESS) {
           const isAccept = detail.pressAction.id === "accept";
-          console.log(TAG, `ACTION_PRESS → ${isAccept ? "ACCEPT" : "DECLINE"} visitor ${visitor.id}`);
           setProcessing(true);
           await Promise.all([
             isAccept
@@ -204,66 +248,73 @@ export default function App() {
         }
 
         if (type === EventType.PRESS) {
-          console.log(TAG, `PRESS → queuing visitor ${visitor.id}`);
           pendingVisitorRef.current = visitor;
           tryNavigate();
         }
       } catch (e) {
         setProcessing(false);
-        console.log(TAG, "notifee foreground error:", e);
       }
     });
     return unsubscribe;
   }, []);
 
-  /* ── Cold start ──────────────────────────────────────────────────────── */
+  /* ── Cold start: visitor ─────────────────────────────────────────────── */
   useEffect(() => {
     const checkColdStart = async () => {
       try {
         if (!VisitorModule) return;
         await new Promise(res => setTimeout(res, 300));
         const visitorStr = await VisitorModule.getPendingVisitorView();
-        console.log(TAG, `checkColdStart → getPendingVisitorView: ${visitorStr ?? "null"}`);
         if (visitorStr) {
           const visitor = typeof visitorStr === "string" ? JSON.parse(visitorStr) : visitorStr;
-          console.log(TAG, `checkColdStart → queuing visitor ${visitor.id}`);
           pendingVisitorRef.current = visitor;
           tryNavigate();
         }
-      } catch (e) {
-        console.log(TAG, "checkColdStart error:", e);
-      }
+      } catch (e) { }
     };
     checkColdStart();
   }, []);
 
-  /* ── AppState: background → active ──────────────────────────────────── */
+  /* ── Cold start: staff intent (app opened from locked screen tap) ─────── */
+  useEffect(() => {
+    // Small delay so navigation is ready
+    const timer = setTimeout(() => {
+      checkStaffIntent();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  /* ── AppState resume: visitor + staff intent ─────────────────────────── */
   useEffect(() => {
     const sub = AppState.addEventListener("change", async (state) => {
       if (state !== "active") return;
-      console.log(TAG, "AppState → active");
+
+      // ── Check visitor ──────────────────────────────────────────────────
       try {
-        if (!VisitorModule) return;
-        await new Promise(res => setTimeout(res, 800));
-        const visitorStr = await VisitorModule.getPendingVisitorView();
-        console.log(TAG, `AppState → getPendingVisitorView: ${visitorStr ?? "null"}`);
-        if (!visitorStr) return;
-        const visitor = typeof visitorStr === "string" ? JSON.parse(visitorStr) : visitorStr;
-        if (!visitor?.id) return;
-        if (handledInMemory.has(visitor.id)) {
-          console.log(TAG, `AppState → already handled: ${visitor.id}`);
-          return;
+        if (VisitorModule) {
+          await new Promise(res => setTimeout(res, 800));
+          const visitorStr = await VisitorModule.getPendingVisitorView();
+          if (visitorStr) {
+            const visitor = typeof visitorStr === "string" ? JSON.parse(visitorStr) : visitorStr;
+            if (visitor?.id && !handledInMemory.has(visitor.id)) {
+              pendingVisitorRef.current = visitor;
+              tryNavigate();
+            }
+          }
         }
-        console.log(TAG, `AppState → queuing visitor ${visitor.id}`);
-        pendingVisitorRef.current = visitor;
-        tryNavigate();
-      } catch (e) {
-        console.log(TAG, "AppState error:", e);
-      }
+      } catch (e) { }
+
+      // ── Check staff intent (user unlocked phone and tapped notification) ─
+      // Small delay lets the intent extras be readable after activity resumes
+      setTimeout(() => {
+        checkStaffIntent();
+      }, 600);
     });
+
     return () => sub.remove();
   }, []);
 
+  /* ── Render ──────────────────────────────────────────────────────────── */
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PermissionsProvider>
@@ -274,7 +325,7 @@ export default function App() {
           ]}
         >
           <StatusBar barStyle="dark-content" />
-          <NavigationPage />
+          <AppContent />
           {processing && (
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#22C55E" />

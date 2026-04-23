@@ -1,10 +1,33 @@
-// services/settingsCache.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ismServices } from './ismServices';
 import { otherServices } from './otherServices';
 
 const CACHE_KEY = 'cached_user_settings';
+const SAVE_COOLDOWN_MS = 5000;
 
+// ✅ In-memory — synchronous, no AsyncStorage delay
+let lastSavedAt = 0;
+
+export const markSettingsSaved = () => {
+  lastSavedAt = Date.now(); // synchronous, instant
+};
+
+export const wasSavedRecently = () => {
+  return Date.now() - lastSavedAt < SAVE_COOLDOWN_MS; // synchronous, instant
+};
+
+// services/settingsCache.js — add this one helper
+export const getCachedUser = async () => {
+  try {
+    const raw = await AsyncStorage.getItem('cached_user_settings');
+    const cache = raw ? JSON.parse(raw) : null;
+    return cache?.user || null;
+  } catch {
+    return null;
+  }
+};
+
+// unchanged
 export const fetchAndCacheSettings = async () => {
   try {
     const [userRes, soundRes] = await Promise.all([
@@ -38,6 +61,7 @@ export const fetchAndCacheSettings = async () => {
   }
 };
 
+// unchanged
 export const loadCachedSettings = async () => {
   try {
     const raw = await AsyncStorage.getItem(CACHE_KEY);
