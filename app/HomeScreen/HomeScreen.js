@@ -6,18 +6,20 @@ import {
 import ProfileRentCard from './RentSection';
 import VisitorSection from './VisitorSection';
 import CarouselSection from './SocietyImage';
-import ServicesSection from './ServiceSection';
+import ServicesSection from './ServiceSection.js';
 import ImportantContacts from './ContactSection';
 import Action from './Action';
 import QuickActionsScreen from './QuickActionsScreen';
 import NoticeTickerScreen from './NoticeTickerScreen';
-
+import StaffSection from './StaffSection';
+import HomeNoticeSection from './HomeNoticeSection';
 import BRAND from '../../app/config';
 import { usePermissions } from '../../Utils/ConetextApi';
 import { hasPermission } from '../../Utils/PermissionHelper';
 import { ismServices } from '../../services/ismServices';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigationRef } from '../../NavigationService';
+
 
 const theme = BRAND.COLORS;
 
@@ -28,7 +30,7 @@ const HomeScreen = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const canViewNotices  = permissions && hasPermission(permissions, 'NTC', 'R');
+  const canViewNotices = permissions && hasPermission(permissions, 'NTC', 'R');
   const canViewVisitors = permissions && hasPermission(permissions, 'VMS', 'R');
 
   /* -------------------------------------------------------
@@ -120,10 +122,12 @@ const HomeScreen = () => {
             <ProfileRentCard refreshTrigger={refreshTrigger} />
             {canViewNotices && <NoticeTickerScreen refreshTrigger={refreshTrigger} />}
             {canViewVisitors && <VisitorSection refreshTrigger={refreshTrigger} />}
-            <CarouselSection refreshTrigger={refreshTrigger} />
             <ServicesSection refreshTrigger={refreshTrigger} />
             <Action />
             <QuickActionsScreen />
+            <CarouselSection refreshTrigger={refreshTrigger} />
+            <StaffSection refreshTrigger={refreshTrigger} />
+            <HomeNoticeSection />
             <ImportantContacts refreshTrigger={refreshTrigger} />
           </View>
         }

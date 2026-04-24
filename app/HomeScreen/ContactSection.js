@@ -1,10 +1,10 @@
-// ImportantContacts.js
 import React from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Image, Linking, Alert,
 } from 'react-native';
 import { usePermissions } from '../../Utils/ConetextApi';
+import Ionicons from 'react-native-vector-icons/Ionicons'; // 👈 Added for the standard header icon
 
 const CONTACTS = [
   {
@@ -34,20 +34,21 @@ const CONTACTS = [
 ];
 
 export default function ImportantContacts() {
-
   const { nightMode } = usePermissions();
 
   const t = nightMode ? {
     bg: '#1E1E2A',
     border: '#2C2C3E',
-    header: '#60A5FA',
+    header: '#F9FAFB', // Updated to match other standard headers in dark mode
+    icon: '#D1D5DB',
     name: '#F3F4F6',
     phone: '#9CA3AF',
     itemBorder: '#333348',
   } : {
-    bg: '#FFFFFF',
-    border: '#E5E7EB',
-    header: '#074B7C',
+    bg: 'transparent', // Removed the white box so it sits cleanly on the screen background
+    border: 'transparent',
+    header: '#374151', // Standardized dark gray header
+    icon: '#374151',
     name: '#1F2937',
     phone: '#6B7280',
     itemBorder: '#E5E7EB',
@@ -62,18 +63,27 @@ export default function ImportantContacts() {
   return (
     <View style={[s.container, { backgroundColor: t.bg, borderColor: t.border }]}>
 
-      <Text style={[s.header, { color: t.header }]}>
-        Important Contacts
-      </Text>
+      {/* ── Standardized Header ── */}
+      <View style={s.sectionHeader}>
+        <Ionicons
+          name="call"
+          size={20}
+          color={t.icon}
+          style={{ marginRight: 8 }}
+        />
+        <Text style={[s.headerText, { color: t.header }]}>
+          Important Contacts
+        </Text>
+      </View>
 
       <View style={s.row}>
         {CONTACTS.map((item) => (
           <TouchableOpacity
             key={item.id}
-            style={[s.item, { borderColor: t.itemBorder }]}
+            style={[s.item, { borderColor: t.itemBorder, backgroundColor: nightMode ? '#1E1E2A' : '#fff' }]}
             onPress={() => handleCall(item.phone)}
+            activeOpacity={0.7}
           >
-
             <Image source={{ uri: item.image }} style={s.avatar} />
 
             <Text style={[s.name, { color: t.name }]} numberOfLines={1}>
@@ -83,62 +93,56 @@ export default function ImportantContacts() {
             <Text style={[s.phone, { color: t.phone }]}>
               {item.phone}
             </Text>
-
           </TouchableOpacity>
         ))}
       </View>
-
     </View>
   );
 }
 
 const s = StyleSheet.create({
-
   container: {
-    marginHorizontal: 16,
-    marginTop: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    marginBottom: 130,
+    marginHorizontal: 20, // 👈 Standardized to 20
+    marginTop: 25,        // 👈 Standardized to 25
+    marginBottom: 130,    // Keeps your bottom screen clearance
   },
 
-  header: {
-    fontSize: 13,
+  // ── New Header Styles ──
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  headerText: {
+    fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.4,
-    marginBottom: 10,
   },
 
+  // ── Existing Grid Styles ──
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // 👈 equal spacing
+    justifyContent: 'space-between', 
   },
-
   item: {
-    width: '23%', // 👈 ensures 4 items fit in any device
+    width: '23%', 
     alignItems: 'center',
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
   },
-
   avatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
     marginBottom: 6,
   },
-
   name: {
     fontSize: 11,
     fontWeight: '700',
     textAlign: 'center',
   },
-
   phone: {
     fontSize: 10,
     marginTop: 2,
   },
-
 });

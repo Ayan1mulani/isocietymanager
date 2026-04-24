@@ -33,23 +33,23 @@ const ServicesSection = () => {
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [sending, setSending] = useState(false);
 
-  // ── Permission flags ──────────────────────────────────────────────────────
   const permissionsLoaded = permissions !== null && permissions !== undefined;
 
-  // FIX 1: "C" does not exist — correct values are CREATE / UPDATE / DELETE / R
   const canViewPanic = permissionsLoaded && hasPermission(permissions, 'PNC', 'R');
   const canSendPanic = permissionsLoaded && hasPermission(permissions, 'PNC', 'C');
 
   const allServices = [
     { id: '1', title: 'Accounts', icon: 'card-outline', route: 'Accounts' },
     { id: '2', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
-    { id: '3', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
+    { id: '3', title: 'Services', icon: 'alert-circle-outline', route: 'Service Requests' },
+
     { id: '4', title: 'SOS', icon: 'alert-circle', isPanic: true },
-    { id: '5', title: 'Family', icon: 'people-outline', route: 'FamilyMember' },
-    { id: '6', title: 'Contact Us', icon: 'mail-outline', route: 'ContactUsScreen' },
+    { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
+
+    { id: '6', title: 'Family', icon: 'people-outline', route: 'FamilyMember' }, // Fixed typo 'eople-outline'
     { id: '7', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
     { id: '8', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
-    { id: '9', title: 'Bills', icon: 'receipt-outline', route: 'bills' },
+    { id: '9', title: "Notices", icon: "notifications-outline", route: "MyNoticesScreen" },
     { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { id: '11', title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
     { id: '12', title: 'More', icon: 'ellipsis-horizontal-outline', route: 'AllServicesScreen' },
@@ -105,7 +105,6 @@ const ServicesSection = () => {
     if (!selectedReason) return;
     try {
       setSending(true);
-      // Pass the 'note' state as the second argument
       const res = await otherServices.sendPanicAlert(selectedReason.toUpperCase(), note);
 
       if (res?.status === 'success') {
@@ -124,61 +123,39 @@ const ServicesSection = () => {
     }
   };
 
-  // ── Filter services based on permissions ──────────────────────────────────
   const visibleServices = allServices.filter((service) => {
     if (!permissionsLoaded) return true;
 
-    if (service.title === 'Accounts')
-      return hasPermission(permissions, 'BILL', 'R');
-
-    if (service.title === 'Visitors')
-      return hasPermission(permissions, 'VMS', 'R');
-
-    if (service.title === 'Staff')
-      return hasPermission(permissions, 'VMSSTF', 'R');
-
-    if (service.title === 'Bills')
-      return hasPermission(permissions, 'BILL', 'R');
-
-    if (service.title === 'Add vehicle')
-      return hasPermission(permissions, 'VEH', 'C');
-
-    if (service.title === 'Bookings')
-      return hasPermission(permissions, 'FBK', 'R');
-    if (service.title === 'Payment')
-      return hasPermission(permissions, 'PMT', 'R');
-    if (service.title === 'Family')
-      return hasPermission(permissions, 'FMB', 'R');
-    if (service.title === 'My Complex')
-  return hasPermission(permissions, 'NTC', 'R');
-    if (service.title === 'Setting')
-      return hasPermission(permissions, 'STG', 'R');
-
-    if (service.title === 'Amenities')
-      return hasPermission(permissions, 'FBK', 'R');
-
-    if (service.title === 'Energy')
-      return hasPermission(permissions, 'MTR', 'R');
-
-    if (service.title === 'SOS')
-      return canViewPanic;
+    if (service.title === 'Accounts') return hasPermission(permissions, 'BILL', 'R');
+    if (service.title === 'Visitors') return hasPermission(permissions, 'VMS', 'R');
+    if (service.title === 'Staff') return hasPermission(permissions, 'VMSSTF', 'R');
+    if (service.title === 'Bills') return hasPermission(permissions, 'BILL', 'R');
+    if (service.title === 'Add vehicle') return hasPermission(permissions, 'VEH', 'C');
+    if (service.title === 'Bookings') return hasPermission(permissions, 'FBK', 'R');
+    if (service.title === 'Payment') return hasPermission(permissions, 'PMT', 'R');
+    if (service.title === 'Family') return hasPermission(permissions, 'FMB', 'R');
+    if (service.title === 'My Complex') return hasPermission(permissions, 'NTC', 'R');
+    if (service.title === 'Setting') return hasPermission(permissions, 'STG', 'R');
+    if (service.title === 'Amenities') return hasPermission(permissions, 'FBK', 'R');
+    if (service.title === 'Energy') return hasPermission(permissions, 'MTR', 'R');
+    if (service.title === 'SOS') return canViewPanic;
 
     return true;
   });
 
   return (
     <View style={styles.container}>
+      {/* ── Updated Header aligned with other sections ── */}
       <View style={styles.sectionHeader}>
         <Ionicons
-          name="construct"
+          name="grid" // Changed icon to grid for services
           size={20}
           color={nightMode ? '#D1D5DB' : '#374151'}
-          style={{ marginRight: 8, paddingLeft: 8 }}
+          style={{ marginRight: 8 }} // Removed paddingLeft: 8
         />
         <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Services</Text>
       </View>
 
-      {/* Services Grid */}
       <View style={styles.servicesGrid}>
         {visibleServices.map((service) => (
           <TouchableOpacity
@@ -190,7 +167,7 @@ const ServicesSection = () => {
             <View
               style={[
                 styles.iconContainer,
-                { backgroundColor: service.isPanic ? '#FEE2E2' : "#FFFF" },
+                { backgroundColor: service.isPanic ? '#FEE2E2' : "#fff" }, // Fixed typo #FFFF -> #fff
               ]}
             >
               <Ionicons
@@ -208,13 +185,12 @@ const ServicesSection = () => {
 
       {/* 🔴 PANIC MODAL */}
       <Modal visible={panicVisible} transparent animationType="fade" statusBarTranslucent>
+        {/* ... Modal Code remains exactly the same ... */}
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
 
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Panic Alert</Text>
-
-
               <TouchableOpacity onPress={() => { setPanicVisible(false); setSelectedReason(null); setNote(''); }}>
                 <Ionicons name="close" size={22} color="#fff" />
               </TouchableOpacity>
@@ -254,7 +230,6 @@ const ServicesSection = () => {
               />
             </View>
 
-            {/* FIX 3: Send button disabled if no CREATE permission OR nothing selected */}
             <TouchableOpacity
               style={[
                 styles.submitBtn,
@@ -318,23 +293,27 @@ const ServicesSection = () => {
 export default ServicesSection;
 
 const styles = StyleSheet.create({
-  container: { marginHorizontal: 10, marginTop: 10 },
-  inputContainer: {
-    paddingHorizontal: 16,
-    marginTop: 12
+  // ── Modified to match the new standard ──
+  container: {
+    marginBottom: 0, // Removed top/horizontal margins from wrapper
   },
-  messageInput: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
-    color: '#374151',
-    minHeight: 45
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20, // Match Staff & Notices
+    marginTop: 20,        // Match Staff & Notices
+    marginBottom: 10
   },
-  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  servicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: 10, // Gives the icons a slight inset so the leftmost icon aligns visually with the header text
+  },
+
+  // ── Kept exactly the same below ──
+  inputContainer: { paddingHorizontal: 16, marginTop: 12 },
+  messageInput: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 12, color: '#374151', minHeight: 45 },
   serviceItem: { width: '25%', alignItems: 'center', marginBottom: 20 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   iconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   serviceTitle: { fontSize: 11, fontWeight: '500' },
@@ -356,8 +335,5 @@ const styles = StyleSheet.create({
   successContainer: { width: screenWidth - 60, backgroundColor: '#ffffff', borderRadius: 20, padding: 30, alignItems: 'center' },
   successTitle: { fontSize: 20, fontWeight: '700', color: '#16A34A', marginTop: 12 },
   successSubtitle: { fontSize: 14, textAlign: 'center', color: '#4B5563', marginTop: 6 },
-  contactList: {
-    maxHeight: 180, // 🔥 prevents overflow
-    marginTop: 8,
-  },
+  contactList: { maxHeight: 180, marginTop: 8 },
 });

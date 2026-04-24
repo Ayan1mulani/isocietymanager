@@ -24,12 +24,10 @@ const LOCAL_IMAGES = {
   delivery: require('../../assets/images/delivery.jpg'),
 };
 
-// --- NEW: Sub-component to handle broken S3 links automatically ---
 const AvatarImage = ({ source, role }) => {
   const [imgSource, setImgSource] = useState(source);
 
   const handleError = () => {
-    // If the AWS URL image doesn't exist, fallback to local default images based on role
     const roleLower = role?.toLowerCase();
     if (roleLower === 'cab') {
       setImgSource(LOCAL_IMAGES.cab);
@@ -40,7 +38,6 @@ const AvatarImage = ({ source, role }) => {
     }
   };
 
-  // Reset source if the original source prop changes
   useEffect(() => {
     setImgSource(source);
   }, [source]);
@@ -68,7 +65,6 @@ const VisitorSection = ({ refreshTrigger }) => {
 
   const navigation = useNavigation();
 
-  // Avatar Logic (Updated to remove "any")
   const getPassAvatar = (pass) => {
     const purpose = pass.purpose?.toLowerCase();
     const name = pass.company_name?.toLowerCase() || pass.name?.toLowerCase();
@@ -175,7 +171,7 @@ const VisitorSection = ({ refreshTrigger }) => {
     textMain: nightMode ? '#F9FAFB' : '#111827',
     textSub: nightMode ? '#9CA3AF' : '#6B7280',
     divider: nightMode ? '#374151' : '#F3F4F6',
-    iconBtnBg: nightMode ? '#374151' : '#F9FAFB',
+    iconBtnBg: nightMode ? '#374151' : '#F3F4F6',
     ringColor: nightMode ? '#374151' : '#E5E7EB',
   };
 
@@ -194,7 +190,7 @@ const VisitorSection = ({ refreshTrigger }) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <Ionicons name="people" size={20} color={theme.textMain} />
+          <Ionicons name="people" size={20} color={theme.textMain} style={{ marginRight: 8 }} />
           <Text style={[styles.title, { color: theme.textMain }]}>
             Arriving Today
           </Text>
@@ -205,7 +201,7 @@ const VisitorSection = ({ refreshTrigger }) => {
             style={[styles.addButton, { backgroundColor: theme.iconBtnBg }]}
             onPress={() => setShowPreApproveModal(true)}
           >
-            <Ionicons name="add" size={28} color={theme.textMain} />
+            <Ionicons name="add" size={24} color={theme.textMain} />
           </TouchableOpacity>
         )}
       </View>
@@ -224,6 +220,7 @@ const VisitorSection = ({ refreshTrigger }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
+          {/* 1. Map through existing visitors */}
           {visitors.map((visitor) => (
             <TouchableOpacity
               key={visitor.id}
@@ -238,7 +235,6 @@ const VisitorSection = ({ refreshTrigger }) => {
             >
               <View style={styles.avatarWrapper}>
                 <View style={[styles.avatarRing, { borderColor: theme.ringColor }]}>
-                  {/* Replaced standard Image with our fallback-enabled AvatarImage */}
                   <AvatarImage source={visitor.avatar} role={visitor.role} />
                 </View>
 
@@ -262,6 +258,41 @@ const VisitorSection = ({ refreshTrigger }) => {
               </Text>
             </TouchableOpacity>
           ))}
+
+          {/* 2. Invite Button */}
+          {canCreatePass && (
+            <TouchableOpacity
+              style={styles.visitorItem}
+              activeOpacity={0.7}
+              onPress={() => setShowPreApproveModal(true)}
+            >
+              <View style={styles.avatarWrapper}>
+                <View style={[styles.avatarRing, styles.dashedRing, { borderColor: theme.textSub }]}>
+                  <Ionicons name="person-add" size={20} color={theme.textSub} />
+                </View>
+              </View>
+              <Text style={[styles.name, { color: theme.textSub }]} numberOfLines={1}>
+                Invite
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* 3. View All Button at the very end */}
+          <TouchableOpacity
+            style={styles.visitorItem}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Visitors')} // Ensure this matches your route name for VisitorScreen
+          >
+            <View style={styles.avatarWrapper}>
+              <View style={[styles.avatarRing, { backgroundColor: theme.iconBtnBg, borderColor: 'transparent' }]}>
+                <Ionicons name="arrow-forward" size={20} color={theme.textSub} />
+              </View>
+            </View>
+            <Text style={[styles.name, { color: theme.textSub }]} numberOfLines={1}>
+              View All
+            </Text>
+          </TouchableOpacity>
+
         </ScrollView>
       )}
 
@@ -294,6 +325,10 @@ const VisitorSection = ({ refreshTrigger }) => {
             })
           );
         }}
+        onOthers={() => {
+          setShowPreApproveModal(false);
+          setTimeout(() => navigation.navigate('AddVisitor', { type: 'others' }), 200);
+        }}
       />
     </View>
   );
@@ -301,14 +336,27 @@ const VisitorSection = ({ refreshTrigger }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 20,
-    marginTop: 0,
+    marginBottom: 0,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    marginHorizontal: 20, 
+    marginTop: 25,        
+    marginBottom: 12,
+  },
+
+  scrollContent: {
+    paddingLeft: 20, 
+    paddingRight: 20,
+    paddingBottom: 8,
+  },
+  emptyContainer: {
+    marginHorizontal: 20,
+    paddingTop: 0,
+    paddingBottom: 5,
+    alignItems: 'center', 
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -317,7 +365,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-    marginLeft: 10,
   },
   addButton: {
     width: 32,
@@ -326,19 +373,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyContainer: {
-    paddingTop: 10,
-    paddingBottom: 15,
-    alignItems: 'center',
-  },
-  scrollContent: {
-    paddingBottom: 8,
-    paddingRight: 20,
-  },
   visitorItem: {
     alignItems: 'center',
     width: 60,
-    marginRight: 14,
+    marginRight: 18, 
   },
   avatarWrapper: {
     position: 'relative',
@@ -352,6 +390,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  dashedRing: {
+    borderStyle: 'dashed',
+    backgroundColor: 'transparent',
   },
   avatar: {
     width: 40,

@@ -19,13 +19,17 @@ import BRAND from "../config";
 import { useNavigation } from "@react-navigation/native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const PAGE_WIDTH = SCREEN_WIDTH - 30; // Accounts for 10px padding on left/right
+// ── Fixed Width for 20px margins ──
+const PAGE_WIDTH = SCREEN_WIDTH - 40; 
 
 const ResidentProfile = () => {
   const navigation = useNavigation();
   const { setFlatNo, permissions } = usePermissions();
-  const canViewDashboard =
-    permissions && hasPermission(permissions, "RESDSB", "R");
+  
+  const canViewDashboard = permissions && hasPermission(permissions, "RESDSB", "R");
+  
+  // ── NEW: Check Payment Permission ──
+  const canPayBill = permissions && hasPermission(permissions, "PMTREQ", "R");
 
   const COLORS = BRAND.COLORS;
 
@@ -49,20 +53,17 @@ const ResidentProfile = () => {
       const storedUser = await AsyncStorage.getItem("userInfo");
       if (!storedUser) return;
 
-      // 1. Fetch User Data, Bills, AND Bill Types all at once
       const [detailsRes, billRes, typesRes] = await Promise.all([
         ismServices.getUserProfileData(),
         otherServices.getOutStandings(),
-        ismServices.getBillTypes(), // <-- Added this API call
+        ismServices.getBillTypes(),
       ]);
 
       setUserDetails(detailsRes?.data || {});
-      console.log("User details loaded:", detailsRes?.data);
 
       if (detailsRes?.data?.flat_no) {
         setFlatNo(detailsRes?.data?.flat_no);
       }
-
 
       const data = detailsRes?.data || {};
 
@@ -75,21 +76,18 @@ const ResidentProfile = () => {
       }
 
       setUserDetails(data);
-      // 2. Map the real names from Bill Types to your Outstandings
+      
       const rawOutstandings = billRes?.data || [];
       const allTypes = Array.from((typesRes?.data ?? typesRes ?? []).values());
 
       const outstandingsWithNames = rawOutstandings.map(bill => {
-        // Find the matching bill type by ID
         const matchingType = allTypes.find(type => type.id === bill.id);
         return {
           ...bill,
-          // Attach the real name, fallback to generic if not found
           realName: matchingType ? matchingType.name : "Outstanding"
         };
       });
 
-      // 3. Save the updated list to state
       setOutstanding(outstandingsWithNames);
 
     } catch (err) {
@@ -113,45 +111,36 @@ const ResidentProfile = () => {
     return null;
   }
 
-
-
-  // ─── 1. GROUP DATA INTO "PAGES" ──────────────────────────────────────────
   const pages = [];
 
-  // PAGE 1: Profile Card + First Bill (or empty space if no bills)
   pages.push({
     id: "page_0",
     type: "first_page",
     bill: outstanding.length > 0 ? outstanding[0] : null,
   });
 
-  // SUBSEQUENT PAGES: 2 Bills per page
   for (let i = 1; i < outstanding.length; i += 2) {
     pages.push({
       id: `page_${i}`,
       type: "bill_page",
       bills: [
         outstanding[i],
-        outstanding[i + 1] || null, // null if there's an odd number of bills
+        outstanding[i + 1] || null, 
       ],
     });
   }
 
-  // ─── 2. REUSABLE BILL CARD COMPONENT ──────────────────────────────────────
   const renderBillCard = (billData, flexValue = 1) => {
-    // If no bill data exists (e.g., odd number of bills on last page), 
-    // render an invisible placeholder to keep the flex layout perfect.
     if (!billData) {
       return <View style={{ flex: flexValue }} />;
     }
 
     const rawAmount = parseFloat(billData?.data?.balance || "0");
-
     const amount = Math.abs(rawAmount).toLocaleString("en-IN");
-
     const type = rawAmount < 0 ? "DR" : "CR";
     const amountColor = rawAmount < 0 ? "#EF4444" : "#10B981";
     const label = billData?.realName || "Outstanding";
+
     return (
       <View
         style={[
@@ -173,30 +162,37 @@ const ResidentProfile = () => {
         </View>
         <Text style={[styles.billAmount, { color: colors.text }]}>
           ₹{amount}{" "}
-          <Text style={{ color: rawAmount < 0 ? "#EF4444" : "#10B981", fontSize: 14, fontWeight: "600" }}>
+          <Text style={{ color: amountColor, fontSize: 14, fontWeight: "600" }}>
             {type}
           </Text>
         </Text>
 
+        {/* ── Updated Pay Button Logic ── */}
         <TouchableOpacity
+          disabled={!canPayBill} // Disables press action if false
           onPress={() =>
             navigation.navigate("BillPaymentScreen", {
               billType: billData?.id,
               amount: parseFloat(billData?.data?.balance || "0"),
-              outstanding: outstanding, // pass only this bill
+              outstanding: outstanding, 
             })
           }
-          style={[styles.payButton, { backgroundColor: colors.primary }]}
+          style={[
+            styles.payButton, 
+            { backgroundColor: canPayBill ? colors.primary : "#9CA3AF" } // Turns grey if disabled
+          ]}
         >
-          <Text style={styles.payButtonText}>Pay/Recharge</Text>
-          <Ionicons name="arrow-forward" size={16} color="#fff" />
+          <Text style={styles.payButtonText}>
+            {canPayBill ? "Pay/Recharge" : "Not Permitted"}
+          </Text>
+          {canPayBill && <Ionicons name="arrow-forward" size={16} color="#fff" />}
         </TouchableOpacity>
       </View>
     );
   };
 
   const Dots = () => {
-    if (pages.length <= 1) return null; // Don't show dots if there's only 1 page
+    if (pages.length <= 1) return null; 
 
     return (
       <View style={styles.dotsRow}>
@@ -215,14 +211,11 @@ const ResidentProfile = () => {
       </View>
     );
   };
-  // ─── 3. RENDER EACH PAGE ──────────────────────────────────────────────────
-  const renderItem = ({ item }) => {
 
-    // RENDER PAGE 1 (Profile + 1 Bill)
+  const renderItem = ({ item }) => {
     if (item.type === "first_page") {
       return (
         <View style={[styles.pageContainer, { width: PAGE_WIDTH }]}>
-          {/* Profile Card gets flex: 2 */}
           <LinearGradient
             colors={[colors.primaryDark, colors.primary]}
             start={{ x: 0, y: 0 }}
@@ -255,9 +248,7 @@ const ResidentProfile = () => {
                 <View style={styles.badge}>
                   <Ionicons name="business" size={10} color="#fff" />
                   <Text style={styles.badgeText}>
-                    User id:  {userDetails?.id.
-                      user_id
-                      || "N/A"}
+                    User id:  {userDetails?.id?.user_id || "N/A"}
                   </Text>
                 </View>
 
@@ -271,20 +262,18 @@ const ResidentProfile = () => {
                 <View style={styles.badge}>
                   <Ionicons name="calendar" size={10} color="#fff" />
                   <Text style={styles.badgeText}>
-                    Flat: {userDetails?.id.flat_no || "N/A"}
+                    Flat: {userDetails?.id?.flat_no || "N/A"}
                   </Text>
                 </View>
               </View>
             </View>
           </LinearGradient>
 
-          {/* First Bill Card gets flex: 1 */}
           {renderBillCard(item.bill, 1)}
         </View>
       );
     }
 
-    // RENDER SUBSEQUENT PAGES (2 Bills split 50/50)
     return (
       <View style={[styles.pageContainer, { width: PAGE_WIDTH }]}>
         {renderBillCard(item.bills[0], 1)}
@@ -304,13 +293,11 @@ const ResidentProfile = () => {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           decelerationRate="fast"
-          // ADD THIS FUNCTION:
           onMomentumScrollEnd={(event) => {
             const index = Math.round(event.nativeEvent.contentOffset.x / PAGE_WIDTH);
             setActiveIndex(index);
           }}
         />
-        {/* ADD THE DOTS HERE */}
         <Dots />
       </View>
     </View>
@@ -320,24 +307,25 @@ const ResidentProfile = () => {
 export default ResidentProfile;
 
 const styles = StyleSheet.create({
+  // ── Restored Alignment ──
   safeArea: {
-    paddingHorizontal: 10,
+    marginHorizontal: 15, 
+    marginTop: 20, 
+    paddingBottom: 5,
   },
 
-  // Controls the layout of the cards within a single page
   pageContainer: {
     flexDirection: "row",
-    gap: 12, // The gap between cards on the same page
+    gap: 12, 
   },
 
-  // ── Profile Card Styles ──
   profileCard: {
     flex: 2,
     borderRadius: 20,
-    elevation: 6,
+    elevation: 4, 
     overflow: "hidden",
     paddingLeft: 10,
-    minHeight: 120, // Keeps height strictly uniform
+    minHeight: 120, 
   },
   greeting: {
     color: "#fff",
@@ -384,21 +372,20 @@ const styles = StyleSheet.create({
     paddingRight: 3,
   },
 
-  // ── Bill Card Styles ──
   billCard: {
     borderRadius: 18,
     borderWidth: 1,
     overflow: "hidden",
     justifyContent: "space-between",
-    minHeight: 120, // Keeps height strictly uniform
+    minHeight: 120, 
+    elevation: 1, 
   },
-  // ── Dot Indicators ──
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 5,
-    marginTop: 12, // Space between cards and dots
+    marginTop: 12, 
     marginBottom: -7,
   },
   dot: {

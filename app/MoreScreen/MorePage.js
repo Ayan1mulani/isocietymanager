@@ -27,6 +27,10 @@ import { RegisterAppOneSignal } from '../../services/oneSignalService';
 import * as ImagePicker from 'react-native-image-picker';
 import { otherServices } from '../../services/otherServices';
 import { NativeModules } from "react-native";
+import DeviceInfo from 'react-native-device-info'; // ✅ 1. Imported DeviceInfo
+
+const { VisitorModule } = NativeModules;
+const version = DeviceInfo.getVersion(); // ✅ 2. Extracted the version
 
 const InfoRow = ({ label, value, theme }) => (
   <View style={[styles.infoRow, { borderBottomColor: theme.divider }]}>
@@ -45,8 +49,6 @@ const InfoRow = ({ label, value, theme }) => (
   </View>
 );
 
-const { VisitorModule } = NativeModules;
-
 const ProfileScreen = () => {
   const { nightMode, loadPermissions } = usePermissions();
   const [userProfile, setUserProfile] = useState(null);
@@ -54,7 +56,6 @@ const ProfileScreen = () => {
   const [ownerOpen, setOwnerOpen] = useState(false);
   const [userDetails, setUserDetails] = useState(null);
 
-  // ✅ Separate eye toggle for each password field
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showSwitchPassword, setShowSwitchPassword] = useState(false);
@@ -66,20 +67,18 @@ const ProfileScreen = () => {
   const [accounts, setAccounts] = useState([]);
   const { showAlert, AlertComponent } = useAlert(nightMode);
 
-  // Account Selection and Switch states
   const [modalVisible, setModalVisible] = useState(false);
   const [passwordModal, setPasswordModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [password, setPassword] = useState('');
   const [isSwitching, setIsSwitching] = useState(false);
 
-  // Change Password states
   const [changePassModal, setChangePassModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
-  const [passError, setPassError] = useState('');         // ✅ change password inline error
-  const [switchPassError, setSwitchPassError] = useState(''); // ✅ switch account inline error
+  const [passError, setPassError] = useState('');         
+  const [switchPassError, setSwitchPassError] = useState(''); 
 
   const [statusModal, setStatusModal] = useState({
     visible: false, type: 'loading', title: '', subtitle: '',
@@ -106,7 +105,7 @@ const ProfileScreen = () => {
       const storedUser = await AsyncStorage.getItem('userInfo');
       if (!storedUser) { setUserProfile(null); return; }
       const userdeteails = await AsyncStorage.getItem('userDetails');
-      console.log("Cached user details:", userdeteails); // ✅ LOGGING
+      console.log("Cached user details:", userdeteails); 
       const parsedUser = JSON.parse(storedUser);
       const ALLOWED = ['member', 'resident', 'tenant'];
       const userRole = (parsedUser?.role || '').toLowerCase();
@@ -124,23 +123,20 @@ const ProfileScreen = () => {
       }
 
       const res = await ismServices.getUserProfileData();
-
       const res2 = await ismServices.getUserDetails();
-
 
       console.log("PROFILE DATA1:", res);
       console.log("PROFILE DATA2:", res2);
 
       if (res?.status === 'success') {
-        setUserProfile(res.data); // ✅ FIXED
-        await AsyncStorage.setItem('userDetails', JSON.stringify(res.data)); // ✅ FIXED
+        setUserProfile(res.data); 
+        await AsyncStorage.setItem('userDetails', JSON.stringify(res.data)); 
       } else {
         console.log("API Error:", res);
       }
 
-
       if (res2) {
-        setUserDetails(res2); // ✅ IMPORTANT
+        setUserDetails(res2); 
       }
 
     } catch (e) {
@@ -223,7 +219,6 @@ const ProfileScreen = () => {
     });
   }, [showAlert, navigation]);
 
-  // ✅ Validation errors shown inline, not via modal
   const handleChangePassword = useCallback(async () => {
     setPassError('');
 
@@ -265,10 +260,6 @@ const ProfileScreen = () => {
     }
   }, [newPassword, confirmPassword]);
 
-  // =========================================================================
-  // SWITCH ACCOUNT LOGIC
-  // =========================================================================
-
   const handleFetchAccounts = async () => {
     try {
       setIsSwitching(true);
@@ -307,13 +298,12 @@ const ProfileScreen = () => {
     setModalVisible(false);
     setSelectedUserId(selectedUser.user_id);
     setPassword('');
-    setShowSwitchPassword(false);   // ✅ always start hidden
-    setSwitchPassError('');         // ✅ clear any previous error
+    setShowSwitchPassword(false);   
+    setSwitchPassError('');         
     setTimeout(() => { setPasswordModal(true); }, 350);
   };
 
   const confirmSwitchLogin = async () => {
-    // ✅ Inline error instead of alert
     if (!password.trim()) {
       setSwitchPassError('Please enter your password.');
       return;
@@ -333,7 +323,7 @@ const ProfileScreen = () => {
       });
 
       if (response.status !== 'success') {
-        setSwitchPassError(response.message || 'Incorrect password.'); // ✅ inline instead of alert
+        setSwitchPassError(response.message || 'Incorrect password.'); 
         return;
       }
 
@@ -398,13 +388,11 @@ const ProfileScreen = () => {
 
     } catch (error) {
       console.error("❌ Switch login failed:", error);
-      setSwitchPassError('Unable to connect to server.'); // ✅ inline instead of alert
+      setSwitchPassError('Unable to connect to server.'); 
     } finally {
       setIsSwitching(false);
     }
   };
-
-  // =========================================================================
 
   const avatarSource = useMemo(() => {
     if (userProfile?.image_src) return { uri: userProfile.image_src };
@@ -508,13 +496,9 @@ const ProfileScreen = () => {
             {/* Dropdown Content */}
             {ownerOpen && (
               <View style={styles.dropdownContent}>
-
                 <InfoRow label="Owner Name" value={userDetails?.name} theme={theme} />
-
                 <InfoRow label="Phone" value={userDetails?.phone_no || userDetails?.owner_alt_phone_no} theme={theme} />
-
                 <InfoRow label="Email" value={userDetails?.email || userDetails?.owner_alt_email} theme={theme} />
-
               </View>
             )}
           </View>
@@ -570,6 +554,11 @@ const ProfileScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* ✅ 3. App Version added at the bottom of the ScrollView */}
+        <Text style={[styles.versionText, { color: theme.textSub }]}>
+          v{version}
+        </Text>
 
       </ScrollView>
 
@@ -777,7 +766,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 120 },
 
-  // ── Profile card ─────────────────────────────────────────────────────────
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -796,7 +784,6 @@ const styles = StyleSheet.create({
     color: BRAND.COLORS.primary,
   },
 
-  // ── Virtual ID ───────────────────────────────────────────────────────────
   virtualIdCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -814,7 +801,6 @@ const styles = StyleSheet.create({
   virtualIdTitle: { fontSize: 15, fontWeight: '600' },
   virtualIdSub: { fontSize: 12, marginTop: 2 },
 
-  // ── Info card ────────────────────────────────────────────────────────────
   card: { borderRadius: 18, padding: 18, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   dropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -829,11 +815,18 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 14, flex: 5, marginRight: 8 },
   infoValue: { fontSize: 14, fontWeight: '500', flex: 6, textAlign: 'right' },
 
-  // ── Settings rows ────────────────────────────────────────────────────────
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
   actionText: { fontSize: 15, flex: 1 },
 
-  // ── Modals ───────────────────────────────────────────────────────────────
+  // ✅ 4. Style for Version Text added here
+  versionText: {
+    textAlign: 'center',
+    fontSize: 13,
+    marginTop: 10,
+    marginBottom: 10,
+    fontWeight: '500'
+  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -852,7 +845,7 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     borderRadius: 10,
     padding: 12,
-    paddingRight: 45,     // ✅ space for eye icon
+    paddingRight: 45,     
     marginBottom: 14,
     fontSize: 14,
     color: '#111827',
@@ -862,7 +855,6 @@ const styles = StyleSheet.create({
     right: 15,
     top: 13,
   },
-  // ✅ Shared inline error style used by both modals
   inlineError: {
     color: '#EF4444',
     fontSize: 13,
