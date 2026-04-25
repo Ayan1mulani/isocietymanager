@@ -121,14 +121,16 @@ const s = StyleSheet.create({
   // ── Existing Grid Styles ──
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between', 
+    justifyContent: 'space-between',
   },
   item: {
-    width: '23%', 
+    width: '23%',
     alignItems: 'center',
     paddingVertical: 12,
     borderRadius: 12,
-    borderWidth: 1,
+    elevation: 0.3,
+
+    borderWidth: 0.5,
   },
   avatar: {
     width: 36,

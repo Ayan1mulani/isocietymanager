@@ -31,6 +31,7 @@ import DeviceInfo from 'react-native-device-info'; // ✅ 1. Imported DeviceInfo
 
 const { VisitorModule } = NativeModules;
 const version = DeviceInfo.getVersion(); // ✅ 2. Extracted the version
+const buildNumber = DeviceInfo.getBuildNumber();
 
 const InfoRow = ({ label, value, theme }) => (
   <View style={[styles.infoRow, { borderBottomColor: theme.divider }]}>
@@ -77,8 +78,8 @@ const ProfileScreen = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
-  const [passError, setPassError] = useState('');         
-  const [switchPassError, setSwitchPassError] = useState(''); 
+  const [passError, setPassError] = useState('');
+  const [switchPassError, setSwitchPassError] = useState('');
 
   const [statusModal, setStatusModal] = useState({
     visible: false, type: 'loading', title: '', subtitle: '',
@@ -105,7 +106,7 @@ const ProfileScreen = () => {
       const storedUser = await AsyncStorage.getItem('userInfo');
       if (!storedUser) { setUserProfile(null); return; }
       const userdeteails = await AsyncStorage.getItem('userDetails');
-      console.log("Cached user details:", userdeteails); 
+      console.log("Cached user details:", userdeteails);
       const parsedUser = JSON.parse(storedUser);
       const ALLOWED = ['member', 'resident', 'tenant'];
       const userRole = (parsedUser?.role || '').toLowerCase();
@@ -129,14 +130,14 @@ const ProfileScreen = () => {
       console.log("PROFILE DATA2:", res2);
 
       if (res?.status === 'success') {
-        setUserProfile(res.data); 
-        await AsyncStorage.setItem('userDetails', JSON.stringify(res.data)); 
+        setUserProfile(res.data);
+        await AsyncStorage.setItem('userDetails', JSON.stringify(res.data));
       } else {
         console.log("API Error:", res);
       }
 
       if (res2) {
-        setUserDetails(res2); 
+        setUserDetails(res2);
       }
 
     } catch (e) {
@@ -298,8 +299,8 @@ const ProfileScreen = () => {
     setModalVisible(false);
     setSelectedUserId(selectedUser.user_id);
     setPassword('');
-    setShowSwitchPassword(false);   
-    setSwitchPassError('');         
+    setShowSwitchPassword(false);
+    setSwitchPassError('');
     setTimeout(() => { setPasswordModal(true); }, 350);
   };
 
@@ -323,7 +324,7 @@ const ProfileScreen = () => {
       });
 
       if (response.status !== 'success') {
-        setSwitchPassError(response.message || 'Incorrect password.'); 
+        setSwitchPassError(response.message || 'Incorrect password.');
         return;
       }
 
@@ -388,7 +389,7 @@ const ProfileScreen = () => {
 
     } catch (error) {
       console.error("❌ Switch login failed:", error);
-      setSwitchPassError('Unable to connect to server.'); 
+      setSwitchPassError('Unable to connect to server.');
     } finally {
       setIsSwitching(false);
     }
@@ -557,7 +558,7 @@ const ProfileScreen = () => {
 
         {/* ✅ 3. App Version added at the bottom of the ScrollView */}
         <Text style={[styles.versionText, { color: theme.textSub }]}>
-          v{version}
+          v{version} ({buildNumber})
         </Text>
 
       </ScrollView>
@@ -845,7 +846,7 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     borderRadius: 10,
     padding: 12,
-    paddingRight: 45,     
+    paddingRight: 45,
     marginBottom: 14,
     fontSize: 14,
     color: '#111827',

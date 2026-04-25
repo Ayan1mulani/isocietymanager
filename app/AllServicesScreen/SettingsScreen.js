@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, Switch,
@@ -17,17 +16,27 @@ import StatusModal from "../../app/components/StatusModal";
 import { otherServices } from "../../services/otherServices";
 import { PERMISSIONS, check } from 'react-native-permissions';
 
+import { usePermissions } from "../../Utils/ConetextApi";
+import { hasPermission } from "../../Utils/PermissionHelper"; // ── NEW: Imported your helper ──
+
 import {
   loadCachedSettings,
   fetchAndCacheSettings,
   markSettingsSaved,
   wasSavedRecently,
-  getCachedUser          // ✅ new
-
+  getCachedUser
 } from '../../services/settingsCache';
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
+  
+  // ── NEW: Grab permissions from context ──
+  const { permissions } = usePermissions();
+  
+  // ── NEW: Check if user has permission to toggle Away status ──
+  const canToggleAway = permissions && hasPermission(permissions, 'RESHOMAWY', 'C');
+  console.log("User permissions:", permissions, "Can toggle Away:", canToggleAway);
+
   const [loading, setLoading] = useState(false);
   const [isAway, setIsAway] = useState(false);
   const [visitSound, setVisitSound] = useState(true);
@@ -139,13 +148,7 @@ const SettingsScreen = () => {
     return /^[6-9]\d{9}$/.test(num);
   };
 
-  // ✅ CHANGED: removed fetchAndCacheSettings() call, added markSettingsSaved()
-  // ✅ CHANGE 3: silentSaveUserSettings — remove markSettingsSaved (moved to toggles)
-  // ✅ Fixed silentSaveUserSettings
-  // - falls back to cache if userRef is empty
-  // - reads toggle values from overrides + cache, not stale state
   const silentSaveUserSettings = async (overrides = {}) => {
-    // ✅ fallback to cached user if ref not populated yet
     let user = userRef.current;
     if (!user?.id) {
       user = await getCachedUser();
@@ -156,8 +159,6 @@ const SettingsScreen = () => {
     }
 
     try {
-      // ✅ Read current cache for all non-overridden fields
-      // This avoids stale closure values from React state
       const raw = await AsyncStorage.getItem("cached_user_settings");
       const cache = raw ? JSON.parse(raw) : {};
 
@@ -219,7 +220,7 @@ const SettingsScreen = () => {
   };
 
   const toggleStaffSound = async (value) => {
-    markSettingsSaved();                              // ← first thing, synchronous
+    markSettingsSaved();                              
     setStaffNotification(value);
     updateCache({ staffNotification: value });
     try {
@@ -275,17 +276,29 @@ const SettingsScreen = () => {
           </View>
         )}
         <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="person-outline" size={16} color="#6B7280" />
-            <Text style={styles.sectionTitle}>Personal</Text>
-          </View>
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.label}>I am Away</Text>
-              <Switch value={isAway} onValueChange={toggleAway}
-                trackColor={{ false: "#ddd", true: "#1996D3" }} thumbColor="#fff" />
-            </View>
-          </View>
+          
+          {/* ── NEW: Hide Personal Section if no permission ── */}
+          {canToggleAway && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="person-outline" size={16} color="#6B7280" />
+                <Text style={styles.sectionTitle}>Personal</Text>
+              </View>
+              <View style={styles.card}>
+                <View style={styles.row}>
+                  <Text style={styles.label}>I am Away</Text>
+                  
+                  <Switch 
+                    value={isAway} 
+                    onValueChange={toggleAway}
+                    trackColor={{ false: "#ddd", true: "#1996D3" }} 
+                    thumbColor="#fff" 
+                  />
+                </View>
+              </View>
+            </>
+          )}
+
           <View style={styles.sectionHeader}>
             <Ionicons name="notifications-outline" size={16} color="#6B7280" />
             <Text style={styles.sectionTitle}>Notifications</Text>

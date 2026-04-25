@@ -342,13 +342,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginHorizontal: 20, 
-    marginTop: 25,        
+    marginHorizontal: 20,
+    marginTop: 25,
     marginBottom: 12,
   },
 
   scrollContent: {
-    paddingLeft: 20, 
+    paddingLeft: 20,
     paddingRight: 20,
     paddingBottom: 8,
   },
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     paddingTop: 0,
     paddingBottom: 5,
-    alignItems: 'center', 
+    alignItems: 'center',
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   visitorItem: {
     alignItems: 'center',
     width: 60,
-    marginRight: 18, 
+    marginRight: 18,
   },
   avatarWrapper: {
     position: 'relative',

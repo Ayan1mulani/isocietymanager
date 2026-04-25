@@ -48,12 +48,14 @@ const HomeNoticeSection = () => {
       return (
         <TouchableOpacity
           style={[styles.card, styles.moreCard]}
-          onPress={() => navigation.navigate("MyNoticesScreen")}
+          onPress={() => navigation.navigate("Notices")}
         >
           <Text style={styles.moreText}>More</Text>
-          <Ionicons name="arrow-forward" size={14} color="#468a3f"
+          <Ionicons name="arrow-forward" size={14} color="#0f0101"
             style={{ marginLeft: 4 }} />
         </TouchableOpacity>
+
+
       );
     }
 
@@ -64,9 +66,18 @@ const HomeNoticeSection = () => {
         style={styles.card}
         onPress={() => navigation.navigate("NoticeDetail", { notice: item })}
       >
-        <Text numberOfLines={1} style={styles.title}>
-          {item.subject}
-        </Text>
+        {/* ── ADDED: Icon before the card's title ── */}
+        <View style={styles.cardTitleRow}>
+          <Ionicons 
+            name="link-outline" 
+            size={14} 
+            color="#6782e4" 
+            style={{ marginRight: 6 }} 
+          />
+          <Text numberOfLines={1} style={styles.title}>
+            {item.subject}
+          </Text>
+        </View>
 
         <Text numberOfLines={1} style={styles.subtitle}>
           {text}
@@ -86,7 +97,7 @@ const HomeNoticeSection = () => {
 
   return (
     <View style={styles.container}>
-      {/* ── Updated Header aligned with StaffSection ── */}
+      {/* ── Reverted back to the reader icon here ── */}
       <View style={styles.sectionHeader}>
         <View style={styles.headerTitleRow}>
           <Ionicons
@@ -123,9 +134,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginHorizontal: 20, // Matched StaffSection
-    marginTop: 25,        // Matched StaffSection
-    marginBottom: 10,      // Matched StaffSection
+    marginHorizontal: 20, 
+    marginTop: 10,
+    marginBottom:15,
   },
 
   headerTitleRow: {
@@ -140,46 +151,54 @@ const styles = StyleSheet.create({
   },
 
   listContainer: {
-    paddingRight: 20, // Added right padding so the last item doesn't stick to the edge
-    paddingBottom: 5,
+    paddingLeft: 20,  
+    paddingRight: 20, 
+    paddingBottom: 10, 
   },
 
   card: {
     width: 200,
     paddingHorizontal: 15,
-    paddingVertical: 8,
-    marginLeft: 20, // Replaced padding on container with marginLeft to perfectly align with the header
+    paddingVertical: 10, 
+    marginRight: 15,     
     borderRadius: 8,
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    elevation: 0.5,
-    borderColor: "#b1d0c610",
+    elevation: 0.6,
+    borderColor: "#b1d0c610", 
     justifyContent: "center",
+  },
+
+  // ── NEW: Row to hold the icon and title together ──
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   title: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#468a3f",
+    color: "#0f0101",
+    flex: 1, // Ensures the text shrinks and shows "..." instead of pushing outside the card
   },
 
   subtitle: {
     fontSize: 11,
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 4, // Added a tiny bit more space between title and subtitle
   },
 
   moreCard: {
     flexDirection: "row",
     width: 80,
     alignItems: "center",
+    justifyContent: "center", 
     borderColor: "#b1d0c610",
-
   },
 
   moreText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#468a3f",
+    color: "#0f0101",
   },
 });

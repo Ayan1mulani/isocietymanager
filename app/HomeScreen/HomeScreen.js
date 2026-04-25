@@ -32,6 +32,7 @@ const HomeScreen = () => {
 
   const canViewNotices = permissions && hasPermission(permissions, 'NTC', 'R');
   const canViewVisitors = permissions && hasPermission(permissions, 'VMS', 'R');
+  const canViewStaff = permissions && hasPermission(permissions, 'VMSSTF', 'R');
 
   /* -------------------------------------------------------
      🔔 CHECK PENDING STAFF NAVIGATION
@@ -126,9 +127,9 @@ const HomeScreen = () => {
             <Action />
             <QuickActionsScreen />
             <CarouselSection refreshTrigger={refreshTrigger} />
-            <StaffSection refreshTrigger={refreshTrigger} />
+             {canViewStaff && <StaffSection refreshTrigger={refreshTrigger} />}
             <HomeNoticeSection />
-            <ImportantContacts refreshTrigger={refreshTrigger} />
+            <ImportantContacts />
           </View>
         }
       />
@@ -139,7 +140,7 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 5 },
+  container: { flex: 1, backgroundColor: '#ffff', padding: 5 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   bodyText: { marginTop: 10, fontSize: 16, color: theme.text ?? '#333' },
 });

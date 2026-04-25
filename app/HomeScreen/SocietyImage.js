@@ -3,54 +3,78 @@ import {
   View,
   Text,
   FlatList,
-  Image,
   StyleSheet,
   Dimensions,
-  ActivityIndicator
+  Animated,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import FastImage from "@d11/react-native-fast-image";
+import LinearGradient from "react-native-linear-gradient";
 import { visitorServices } from "../../services/visitorServices";
+import { usePermissions } from "../../Utils/ConetextApi";
 
 const { width } = Dimensions.get("window");
 
-// ── FIXED MATH TO MATCH 20px STANDARD ──
-const SIDE_PADDING = 20; // Aligns perfectly with your headers
-const SPACING = 15;      // Gap between images
-// Leaves room for the side padding, plus an extra 30px so the next image "peeks" in
-const ITEM_WIDTH = width - (SIDE_PADDING * 2) - 30; 
+const SIDE_PADDING = 20;
+const SPACING = 14;
+const ITEM_WIDTH = width - SIDE_PADDING * 2 - 40;
 const SNAP_INTERVAL = ITEM_WIDTH + SPACING;
+const CARD_HEIGHT = 120;
+
+/* ─── Shimmer Placeholder ─── */
+const ShimmerCard = () => {
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
+
+  return (
+    <Animated.View style={[styles.shimmerCard, { opacity }]}>
+      <LinearGradient
+        colors={["#E5E7EB", "#F3F4F6", "#E5E7EB"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </Animated.View>
+  );
+};
 
 const CarouselSection = () => {
-
+  const { nightMode } = usePermissions();
   const flatListRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  /* ===============================
-     FETCH SOCIETY IMAGES
-  =============================== */
+  // ── Clean Theme Palette ──
+  const theme = {
+    background: nightMode ? "#111827" : "#FFFFFF",
+    textMain: nightMode ? "#F9FAFB" : "#111827",
+    textSub: nightMode ? "#9CA3AF" : "#6B7280",
+    pillBg: nightMode ? "#374151" : "#F3F4F6",
+    iconBadgeBg: nightMode ? "#374151" : "#111827",
+  };
+
   const fetchImages = async () => {
     try {
-      const userInfo = await AsyncStorage.getItem("userInfo");
-      if (!userInfo) {
-        console.log("User not logged in yet");
-        return;
-      }
-
       const res = await visitorServices.getSocietyImages();
-      console.log("SOC IMAGE RESPONSE:", res);
-
       if (res?.status === "success" && Array.isArray(res?.data)) {
         const formatted = res.data.map((url, index) => ({
           id: index.toString(),
-          uri: url
+          uri: url,
         }));
         setImages(formatted);
+        FastImage.preload(res.data.map((url) => ({ uri: url })));
       }
-
     } catch (error) {
       console.log("Error fetching images:", error);
     } finally {
@@ -62,121 +86,115 @@ const CarouselSection = () => {
     fetchImages();
   }, []);
 
-  /* ===============================
-     AUTO SLIDE (only if >1 image)
-  =============================== */
   useEffect(() => {
     if (images.length <= 1) return;
-
     const interval = setInterval(() => {
       const nextIndex = (activeIndex + 1) % images.length;
-
-      flatListRef.current?.scrollToIndex({
-        index: nextIndex,
-        animated: true
-      });
-
+      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
       setActiveIndex(nextIndex);
-    }, 4000);
-
+    }, 4500);
     return () => clearInterval(interval);
   }, [activeIndex, images]);
 
-  /* ===============================
-     VIEW CHANGE
-  =============================== */
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      setActiveIndex(viewableItems[0].index);
-    }
+    if (viewableItems.length > 0) setActiveIndex(viewableItems[0].index);
   }).current;
 
-  const viewConfig = useRef({
-    viewAreaCoveragePercentThreshold: 50
-  }).current;
+  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  /* ===============================
-     LOADING
-  =============================== */
-  if (loading) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator size="small" color="#074B7C" />
-      </View>
-    );
-  }
+  if (images.length === 0 && !loading) return null;
 
-  if (images.length === 0) return null;
-
-  /* ===============================
-     UI
-  =============================== */
   return (
-    <View style={styles.container}>
-      
-      {/* ── Standardized Header Added ── */}
+    <View style={[styles.sectionWrapper, { backgroundColor: theme.background }]}>
+
+      {/* ── Header ── */}
       <View style={styles.sectionHeader}>
-        <Ionicons
-          name="camera"
-          size={20}
-          color="#374151"
-          style={{ marginRight: 8 }}
-        />
-        <Text style={styles.headerText}>Society Snapshot</Text>
+        <View style={styles.headerLeft}>
+          <View style={[styles.iconBadge]}>
+            <Ionicons name="albums" size={20} color="'#111827"style={{ marginRight: 8 }} />
+          </View>
+          <Text style={[styles.headerText, { color: theme.textMain }]}>
+            Society Snapshot
+          </Text>
+        </View>
+
+
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={images}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
-
-        snapToInterval={SNAP_INTERVAL}      
-        snapToAlignment="start"             
-        decelerationRate="fast"
-
-        contentContainerStyle={{ paddingHorizontal: SIDE_PADDING }} 
-
-        ItemSeparatorComponent={() => <View style={{ width: SPACING }} />}
-
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewConfig}
-
-        getItemLayout={(_, index) => ({
-          length: SNAP_INTERVAL,
-          offset: SNAP_INTERVAL * index,
-          index,
-        })}
-
-        renderItem={({ item }) => (
-          <View style={styles.imageContainer}>
-            <Image
-              source={{ uri: item.uri }}
-              style={styles.image}
-              resizeMode="cover"
-            />
-          </View>
-        )}
-      />
-
-      {/* PAGINATION DOTS */}
-      {/* {images.length > 1 && (
-        <View style={styles.pagination}>
-          {images.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                {
-                  backgroundColor: activeIndex === index ? "#074B7C" : "#E5E7EB",
-                  width: activeIndex === index ? 20 : 8
-                }
-              ]}
-            />
-          ))}
+      {/* ── Shimmer or Real List ── */}
+      {loading ? (
+        <View style={styles.shimmerRow}>
+          {[0, 1].map((i) => <ShimmerCard key={i} />)}
         </View>
-      )} */}
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={images}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          snapToInterval={SNAP_INTERVAL}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          contentContainerStyle={{ paddingHorizontal: SIDE_PADDING }}
+          ItemSeparatorComponent={() => <View style={{ width: SPACING }} />}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewConfig}
+          getItemLayout={(_, index) => ({
+            length: SNAP_INTERVAL,
+            offset: SNAP_INTERVAL * index,
+            index,
+          })}
+          renderItem={({ item, index }) => (
+            <View style={styles.card}>
+
+              {/* Image */}
+              <FastImage
+                source={{
+                  uri: item.uri,
+                  priority: FastImage.priority.high,
+                  cache: FastImage.cacheControl.immutable,
+                }}
+                style={StyleSheet.absoluteFill}
+                resizeMode={FastImage.resizeMode.cover}
+              />
+
+              {/* Bottom gradient overlay */}
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.5)"]}
+                style={styles.gradientOverlay}
+              />
+
+              {/* Index badge */}
+              <View style={styles.indexBadge}>
+                <Text style={styles.indexBadgeText}>
+                  {index + 1}/{images.length}
+                </Text>
+              </View>
+
+            </View>
+          )}
+        />
+      )}
+
+      {/* ── Pagination ── */}
+      {!loading && images.length > 1 && (
+        <View style={styles.paginationWrapper}>
+          <View style={[styles.paginationPill, { backgroundColor: theme.pillBg }]}>
+            {images.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  activeIndex === index
+                    ? [styles.dotActive, { backgroundColor: theme.textMain }]
+                    : [styles.dotInactive, { backgroundColor: theme.textSub, opacity: 0.4 }],
+                ]}
+              />
+            ))}
+          </View>
+        </View>
+      )}
 
     </View>
   );
@@ -185,49 +203,122 @@ const CarouselSection = () => {
 export default CarouselSection;
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 10,
+  sectionWrapper: {
+    paddingTop:30
   },
-  
-  // ── New Header Styles matching your app ──
+
+  /* Header */
   sectionHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginHorizontal: 20, // Matches the 20px padding of the images below it
-    marginTop: 25,        // Standardized gap between sections
-    marginBottom: 12,
+    marginHorizontal: SIDE_PADDING,
+    marginBottom: 16,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
   },
   headerText: {
     fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  headerPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  headerPillText: {
+    fontSize: 12,
     fontWeight: "700",
-    color: "#374151",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
 
-  loader: {
-    height: 120,
-    justifyContent: "center",
-    alignItems: "center"
-  },
-  imageContainer: {
-    width: ITEM_WIDTH, 
-    height: 140, // Bumped slightly to make the images look more premium
-    borderRadius: 16, // Made slightly rounder for a modern look
+  /* Card */
+  card: {
+    width: ITEM_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: 18,
     overflow: "hidden",
-    elevation: 2, // Added a tiny shadow
-    backgroundColor: "#f0f0f0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    backgroundColor: "#E5E7EB",
   },
-  image: {
-    width: "100%",
-    height: "100%"
+  gradientOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: CARD_HEIGHT * 0.9,
+    zIndex: 1,
   },
-  pagination: {
+  indexBadge: {
+    position: "absolute",
+    bottom: 12,
+    right: 12,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    zIndex: 3,
+  },
+  indexBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+
+  /* Shimmer */
+  shimmerRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 12
+    paddingHorizontal: SIDE_PADDING,
+    gap: SPACING,
+  },
+  shimmerCard: {
+    width: ITEM_WIDTH,
+    height: CARD_HEIGHT,
+    borderRadius: 22,
+    overflow: "hidden",
+    backgroundColor: "#E5E7EB",
+  },
+
+  /* Pagination */
+  paginationWrapper: {
+    alignItems: "center",
+    marginTop: 15,
+  },
+  paginationPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
   },
   dot: {
-    height: 6, // Slightly slimmer dots
+    height: 6,
     borderRadius: 3,
-    marginHorizontal: 4
-  }
+  },
+  dotActive: {
+    width: 24,
+  },
+  dotInactive: {
+    width: 6,
+  },
 });

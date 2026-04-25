@@ -20,14 +20,14 @@ import { useNavigation } from "@react-navigation/native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // ── Fixed Width for 20px margins ──
-const PAGE_WIDTH = SCREEN_WIDTH - 40; 
+const PAGE_WIDTH = SCREEN_WIDTH - 40;
 
 const ResidentProfile = () => {
   const navigation = useNavigation();
   const { setFlatNo, permissions } = usePermissions();
-  
+
   const canViewDashboard = permissions && hasPermission(permissions, "RESDSB", "R");
-  
+
   // ── NEW: Check Payment Permission ──
   const canPayBill = permissions && hasPermission(permissions, "PMTREQ", "R");
 
@@ -76,7 +76,7 @@ const ResidentProfile = () => {
       }
 
       setUserDetails(data);
-      
+
       const rawOutstandings = billRes?.data || [];
       const allTypes = Array.from((typesRes?.data ?? typesRes ?? []).values());
 
@@ -125,7 +125,7 @@ const ResidentProfile = () => {
       type: "bill_page",
       bills: [
         outstanding[i],
-        outstanding[i + 1] || null, 
+        outstanding[i + 1] || null,
       ],
     });
   }
@@ -162,24 +162,24 @@ const ResidentProfile = () => {
         </View>
         <Text style={[styles.billAmount, { color: colors.text }]}>
           ₹{amount}{" "}
-          <Text style={{ color: amountColor, fontSize: 14, fontWeight: "600" }}>
+          <Text style={{ color: amountColor, fontSize: 13, fontWeight: "600" }}>
             {type}
           </Text>
         </Text>
 
         {/* ── Updated Pay Button Logic ── */}
         <TouchableOpacity
-          disabled={!canPayBill} // Disables press action if false
+          disabled={!canPayBill}
           onPress={() =>
             navigation.navigate("BillPaymentScreen", {
               billType: billData?.id,
               amount: parseFloat(billData?.data?.balance || "0"),
-              outstanding: outstanding, 
+              outstanding: outstanding,
             })
           }
           style={[
-            styles.payButton, 
-            { backgroundColor: canPayBill ? colors.primary : "#9CA3AF" } // Turns grey if disabled
+            styles.payButton,
+            { backgroundColor: canPayBill ? colors.primary : "#9CA3AF" }
           ]}
         >
           <Text style={styles.payButtonText}>
@@ -192,7 +192,7 @@ const ResidentProfile = () => {
   };
 
   const Dots = () => {
-    if (pages.length <= 1) return null; 
+    if (pages.length <= 1) return null;
 
     return (
       <View style={styles.dotsRow}>
@@ -247,21 +247,21 @@ const ResidentProfile = () => {
               <View style={styles.profileDetails}>
                 <View style={styles.badge}>
                   <Ionicons name="business" size={10} color="#fff" />
-                  <Text style={styles.badgeText}>
-                    User id:  {userDetails?.id?.user_id || "N/A"}
+                  <Text style={styles.badgeText} numberOfLines={1}>
+                    Society:  {userDetails?.society_name || "N/A"}
                   </Text>
                 </View>
 
                 <View style={styles.badge}>
                   <Ionicons name="home" size={10} color="#fff" />
-                  <Text style={styles.badgeText}>
+                  <Text style={styles.badgeText} numberOfLines={1}>
                     Society id: {userDetails?.societyId || "N/A"}
                   </Text>
                 </View>
 
                 <View style={styles.badge}>
                   <Ionicons name="calendar" size={10} color="#fff" />
-                  <Text style={styles.badgeText}>
+                  <Text style={styles.badgeText} numberOfLines={1}>
                     Flat: {userDetails?.id?.flat_no || "N/A"}
                   </Text>
                 </View>
@@ -307,25 +307,24 @@ const ResidentProfile = () => {
 export default ResidentProfile;
 
 const styles = StyleSheet.create({
-  // ── Restored Alignment ──
   safeArea: {
-    marginHorizontal: 15, 
-    marginTop: 20, 
+    marginHorizontal: 15,
     paddingBottom: 5,
   },
 
   pageContainer: {
     flexDirection: "row",
-    gap: 12, 
+    gap: 12,
   },
 
   profileCard: {
     flex: 2,
     borderRadius: 20,
-    elevation: 4, 
+    elevation: 4,
     overflow: "hidden",
     paddingLeft: 10,
-    minHeight: 120, 
+    paddingRight: 10,
+    minHeight: 120,
   },
   greeting: {
     color: "#fff",
@@ -362,7 +361,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
-    width: "90%",
+    width: "100%", // Updated width
   },
   badgeText: {
     color: "#fff",
@@ -370,6 +369,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 6,
     paddingRight: 3,
+    flexShrink: 1, // Added flexShrink
   },
 
   billCard: {
@@ -377,15 +377,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: "hidden",
     justifyContent: "space-between",
-    minHeight: 120, 
-    elevation: 1, 
+    minHeight: 120,
+    elevation: 1,
   },
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 5,
-    marginTop: 12, 
+    marginTop: 12,
     marginBottom: -7,
   },
   dot: {

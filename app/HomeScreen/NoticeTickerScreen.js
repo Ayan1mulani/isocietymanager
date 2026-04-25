@@ -14,7 +14,7 @@ import { ismServices } from "../../services/ismServices";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const SPEED = 100; // adjust speed
+const SPEED = 70; // adjust speed
 
 const NoticeTickerScreen = () => {
   const [notices, setNotices] = useState([]);
@@ -159,7 +159,7 @@ export default NoticeTickerScreen;
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingTop: 10,
   },
   titleRow: {
     flexDirection: "row",
@@ -173,12 +173,14 @@ const styles = StyleSheet.create({
   },
   tickerBox: {
     height: 40,
-    borderRadius: 6,
-    backgroundColor: "#f1e3e3",
-    justifyContent: "center", // ✅ vertical center
+    borderRadius: 13,
+    backgroundColor: "#FCEEED",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#F8D7DA",
     overflow: "hidden",
     flexDirection: "row",
-    alignItems: "center",     // 🔥 ADD THIS (important)
+    alignItems: "center",
   },
 
   tickerText: {

@@ -21,8 +21,6 @@ import BRAND from '../config';
 import { usePermissions } from '../../Utils/ConetextApi';
 import useAlert from '../components/UseAlert';
 
-// ─── Helper: parse custom_bill_config safely ──────────────────────────────────
-// Mirrors Angular's setBillTypeAndConfig()
 const parsePmtValidations = (billTypeObj) => {
   const result = {
     pmtValidations: null,
@@ -59,16 +57,13 @@ const parsePmtValidations = (billTypeObj) => {
   return result;
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
- function BillPaymentScreen({ navigation, route }) {
+function BillPaymentScreen({ navigation, route }) {
   const { nightMode } = usePermissions();
   const { showAlert, AlertComponent } = useAlert(nightMode);
   const COLORS = BRAND.COLORS;
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  const [billTypes,     setBillTypes]     = useState([]);  // filtered by outstanding ids
-  const [outstanding,   setOutstanding]   = useState([]);  // raw outstanding list
+  const [billTypes,     setBillTypes]     = useState([]);
+  const [outstanding,   setOutstanding]   = useState([]);
   const [selectedBill,  setSelectedBill]  = useState(null);
   const [amount,        setAmount]        = useState('');
   const [payRemarks,    setPayRemarks]    = useState('');
@@ -76,7 +71,6 @@ const parsePmtValidations = (billTypeObj) => {
   const [paying,        setPaying]        = useState(false);
   const [modalVisible,  setModalVisible]  = useState(false);
 
-  // pmt_validations derived state
   const [minPayable,    setMinPayable]    = useState(null);
   const [maxPayable,    setMaxPayable]    = useState(null);
   const [fixedAmounts,  setFixedAmounts]  = useState(null);
@@ -86,24 +80,18 @@ const parsePmtValidations = (billTypeObj) => {
   const [invalidAmount, setInvalidAmount] = useState(false);
   const [amountMessage, setAmountMessage] = useState('');
 
-  // ── Init ───────────────────────────────────────────────────────────────────
+  // ✅ Change 1: Track which fixed amount is selected + error state
+  const [selectedFixedAmount, setSelectedFixedAmount] = useState(null);
+  const [fixedAmountError,    setFixedAmountError]    = useState(false);
 
   useEffect(() => {
     initData();
   }, []);
 
-  /**
-   * Mirrors Angular MakePaymentPage constructor:
-   * 1. Get outstandings (or use passed-in param)
-   * 2. Get all bill types
-   * 3. Filter bill types by outstanding plan ids  ← key Angular logic
-   * 4. If a billType was pre-selected (from AccountsScreen tab), select it
-   */
   const initData = async () => {
     try {
       setLoading(true);
 
-      // Outstanding — use passed param or fetch fresh
       let outList = route?.params?.outstanding ?? [];
       if (!outList || outList.length === 0) {
         const res = await otherServices.getOutStandings();
@@ -111,15 +99,10 @@ const parsePmtValidations = (billTypeObj) => {
       }
       setOutstanding(outList);
 
-      // All bill types
       const btRes = await ismServices.getBillTypes();
       let allTypes = Array.from((btRes?.data ?? btRes ?? []).values());
-
-      // Sort by display_order (same as RN original)
       allTypes = allTypes.sort((a, b) => a.display_order - b.display_order);
 
-      // Filter: only plans the user has in outstanding
-      // Angular: if billTypes[0].id != 0, filter by outstanding plan ids
       let filtered = allTypes;
       if (allTypes.length > 0 && allTypes[0]?.id !== 0) {
         const myPlanIds = outList.map((o) => o.id);
@@ -127,16 +110,12 @@ const parsePmtValidations = (billTypeObj) => {
       }
       setBillTypes(filtered);
 
-      // Pre-select tab that was active in AccountsScreen
       const preSelectedId = route?.params?.billType;
       if (preSelectedId) {
         const match = filtered.find((bt) => bt.id === preSelectedId);
-        if (match) {
-          applyBillTypeSelection(match, outList);
-        }
+        if (match) applyBillTypeSelection(match, outList);
       }
 
-      // Pre-fill amount if passed
       const preAmount = route?.params?.amount;
       if (preAmount && +preAmount > 0) {
         setAmount((+preAmount).toString());
@@ -149,15 +128,9 @@ const parsePmtValidations = (billTypeObj) => {
     }
   };
 
-  /**
-   * Mirrors Angular setBillTypeAndConfig() + onChange():
-   * - Parse pmt_validations from custom_bill_config
-   * - Auto-fill amount from outstanding balance for this plan
-   */
   const applyBillTypeSelection = useCallback((billTypeObj, outList = outstanding) => {
     setSelectedBill(billTypeObj);
 
-    // Parse validations
     const cfg = parsePmtValidations(billTypeObj);
     setMinPayable(cfg.minPayable);
     setMaxPayable(cfg.maxPayable);
@@ -168,7 +141,10 @@ const parsePmtValidations = (billTypeObj) => {
     setInvalidAmount(false);
     setAmountMessage('');
 
-    // Auto-fill amount from outstanding balance — mirrors Angular onChange()
+    // ✅ Change 1: Reset fixed amount selection when bill type changes
+    setSelectedFixedAmount(null);
+    setFixedAmountError(false);
+
     let newAmount = cfg.minPayable ?? 1;
     let found = false;
 
@@ -191,7 +167,6 @@ const parsePmtValidations = (billTypeObj) => {
     validateAmount(newAmount, cfg.minPayable, cfg.maxPayable);
   }, [outstanding]);
 
-  // ── Amount validation — mirrors Angular amountChange() ─────────────────────
   const validateAmount = (val, min = minPayable, max = maxPayable) => {
     const num = parseFloat(val);
     if (min != null && num < min) {
@@ -211,16 +186,25 @@ const parsePmtValidations = (billTypeObj) => {
     validateAmount(val);
   };
 
+  // ✅ Change 2: Track selected fixed amount + clear error on tap
   const onFixedAmountTap = (val) => {
     const num = +val;
     setAmount(num.toString());
+    setSelectedFixedAmount(num);
+    setFixedAmountError(false);
     validateAmount(num);
   };
 
-  // ── Payment — mirrors Angular onPay() ──────────────────────────────────────
+  // ✅ Change 3: Block payment if fixedAmounts exist but none selected
   const handlePayment = async () => {
     if (!selectedBill) {
       showAlert({ title: 'Error', message: 'Please select a bill type', buttons: [{ text: 'OK' }] });
+      return;
+    }
+
+    // ✅ If fixed amounts exist, user MUST tap one
+    if (fixedAmounts && fixedAmounts.length > 0 && selectedFixedAmount === null) {
+      setFixedAmountError(true);
       return;
     }
 
@@ -248,7 +232,6 @@ const parsePmtValidations = (billTypeObj) => {
     }
   };
 
-  // ── Bill type modal item ────────────────────────────────────────────────────
   const renderBillItem = ({ item }) => {
     const isSelected = selectedBill?.id === item.id;
     return (
@@ -270,7 +253,6 @@ const parsePmtValidations = (billTypeObj) => {
     );
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container}>
       <AppHeader title="Make Payment" nightMode={nightMode} showBack />
@@ -285,8 +267,7 @@ const parsePmtValidations = (billTypeObj) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Bill type selector ──────────────────────────────────── */}
-          {/* Hidden when only one plan with id === 0, same as Angular */}
+          {/* ── Bill type selector ── */}
           {!(billTypes.length === 1 && billTypes[0]?.id === 0) && (
             <>
               <Text style={styles.label}>Bill Type</Text>
@@ -303,7 +284,7 @@ const parsePmtValidations = (billTypeObj) => {
             </>
           )}
 
-          {/* ── Amount ─────────────────────────────────────────────── */}
+          {/* ── Amount ── */}
           <Text style={styles.label}>Amount</Text>
           <TextInput
             value={amount}
@@ -319,36 +300,50 @@ const parsePmtValidations = (billTypeObj) => {
             ]}
           />
 
-          {/* Validation error */}
           {invalidAmount && (
             <Text style={styles.errorText}>{amountMessage}</Text>
           )}
 
-          {/* Fixed amount quick-tap buttons — mirrors Angular fixed_amounts */}
+          {/* ── Fixed amount buttons ── */}
           {fixedAmounts && fixedAmounts.length > 0 && (
-            <View style={styles.fixedAmountsRow}>
-              {fixedAmounts.map((a) => (
-                <TouchableOpacity
-                  key={a}
-                  style={[
-                    styles.fixedBtn,
-                    amount === a.toString() && { backgroundColor: COLORS.primary },
-                  ]}
-                  onPress={() => onFixedAmountTap(a)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[
-                    styles.fixedBtnText,
-                    amount === a.toString() && { color: '#fff' },
-                  ]}>
-                    ₹{a}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <>
+              <View style={styles.fixedAmountsRow}>
+                {fixedAmounts.map((a) => {
+                  // ✅ Highlight based on selectedFixedAmount, not raw amount string
+                  const isActive = selectedFixedAmount === +a;
+                  return (
+                    <TouchableOpacity
+                      key={a}
+                      style={[
+                        styles.fixedBtn,
+                        isActive && { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+                        // ✅ Red border on buttons if error shown
+                        fixedAmountError && !isActive && { borderColor: '#EF4444' },
+                      ]}
+                      onPress={() => onFixedAmountTap(a)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.fixedBtnText,
+                        isActive && { color: '#fff' },
+                      ]}>
+                        ₹{a}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* ✅ Change 3: Red error text if no fixed amount selected on pay */}
+              {fixedAmountError && (
+                <Text style={styles.errorText}>
+                  Please select a fixed amount to proceed
+                </Text>
+              )}
+            </>
           )}
 
-          {/* ── Remarks (optional) ─────────────────────────────────── */}
+          {/* ── Remarks ── */}
           <Text style={styles.label}>Remark (Optional)</Text>
           <TextInput
             value={payRemarks}
@@ -359,7 +354,6 @@ const parsePmtValidations = (billTypeObj) => {
             multiline
           />
 
-          {/* Note from pmt_validations.remarks — mirrors Angular <p *ngIf="remarks"> */}
           {!!remarks && (
             <View style={styles.remarksBox}>
               <Text style={styles.remarksNote}>
@@ -369,7 +363,7 @@ const parsePmtValidations = (billTypeObj) => {
             </View>
           )}
 
-          {/* ── Pay button ─────────────────────────────────────────── */}
+          {/* ── Pay button ── */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -388,7 +382,7 @@ const parsePmtValidations = (billTypeObj) => {
         </ScrollView>
       )}
 
-      {/* ── Bill type bottom sheet modal ──────────────────────────── */}
+      {/* ── Bill type modal ── */}
       <Modal transparent visible={modalVisible} animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setModalVisible(false)}>
           <Pressable style={styles.modal}>
@@ -408,8 +402,6 @@ const parsePmtValidations = (billTypeObj) => {
     </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container:   { flex: 1, backgroundColor: '#F4F6F9' },
@@ -439,7 +431,6 @@ const styles = StyleSheet.create({
 
   errorText: { fontSize: 12, color: '#EF4444', marginTop: 4, marginLeft: 2 },
 
-  /* Fixed amount buttons */
   fixedAmountsRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10,
   },
@@ -450,14 +441,12 @@ const styles = StyleSheet.create({
   },
   fixedBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
 
-  /* Remarks note */
   remarksBox: {
     marginTop: 12, padding: 12, borderRadius: 10,
     backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA',
   },
   remarksNote: { fontSize: 12, color: '#92400E', lineHeight: 18 },
 
-  /* Pay button */
   button: {
     marginTop: 28, paddingVertical: 15,
     borderRadius: 12, alignItems: 'center',
@@ -465,7 +454,6 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   buttonText:     { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  /* Modal */
   overlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end',
   },

@@ -15,7 +15,7 @@ export const METER_URL = "https://meter-api.isocietymanager.com";
 export const APP_ENV = "development";
 
 export const APP_ID_ONE_SIGNAL = "21c23c69-e39f-476f-9c1e-a88676ede1df";
-export const APP_VERSION_CODE = "460";
+export const APP_VERSION_CODE = "461";
 export const APP_NAME = "ism_resident";
 export const ONE_SIGNAL_APP_NAME = "ism_resident";
 export const  SUB_DOMAIN = "isocietymanager"
