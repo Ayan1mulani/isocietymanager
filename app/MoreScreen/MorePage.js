@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Image,
@@ -27,10 +26,12 @@ import { RegisterAppOneSignal } from '../../services/oneSignalService';
 import * as ImagePicker from 'react-native-image-picker';
 import { otherServices } from '../../services/otherServices';
 import { NativeModules } from "react-native";
-import DeviceInfo from 'react-native-device-info'; // ✅ 1. Imported DeviceInfo
+import DeviceInfo from 'react-native-device-info';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const { VisitorModule } = NativeModules;
-const version = DeviceInfo.getVersion(); // ✅ 2. Extracted the version
+const version = DeviceInfo.getVersion();
 const buildNumber = DeviceInfo.getBuildNumber();
 
 const InfoRow = ({ label, value, theme }) => (
@@ -51,6 +52,7 @@ const InfoRow = ({ label, value, theme }) => (
 );
 
 const ProfileScreen = () => {
+  const { t } = useTranslation();
   const { nightMode, loadPermissions } = usePermissions();
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -113,9 +115,9 @@ const ProfileScreen = () => {
 
       if (!ALLOWED.includes(userRole)) {
         showAlert({
-          title: 'Access Denied',
-          message: `This app is not for ${parsedUser.role}`,
-          buttons: [{ text: 'OK' }],
+          title: t('Access Denied'),
+          message: `${t('This app is not for')} ${parsedUser.role}`,
+          buttons: [{ text: t('OK') }],
         });
 
         await AsyncStorage.clear();
@@ -126,14 +128,9 @@ const ProfileScreen = () => {
       const res = await ismServices.getUserProfileData();
       const res2 = await ismServices.getUserDetails();
 
-      console.log("PROFILE DATA1:", res);
-      console.log("PROFILE DATA2:", res2);
-
       if (res?.status === 'success') {
         setUserProfile(res.data);
         await AsyncStorage.setItem('userDetails', JSON.stringify(res.data));
-      } else {
-        console.log("API Error:", res);
       }
 
       if (res2) {
@@ -160,21 +157,36 @@ const ProfileScreen = () => {
 
           const base64 = response.assets?.[0]?.base64;
           if (!base64) {
-            showAlert({ title: "Error", message: "Unable to read image", buttons: [{ text: "OK" }] });
+            showAlert({ title: t('Error'), message: t('Unable to read image'), buttons: [{ text: t('OK') }] });
             return;
           }
 
           const imageData = `data:image/jpeg;base64,${base64}`;
 
-          setStatusModal({ visible: true, type: 'loading', title: 'Uploading Image', subtitle: 'Please wait...' });
+          setStatusModal({
+            visible: true,
+            type: 'loading',
+            title: t('Uploading Image'),
+            subtitle: t('Please wait...'),
+          });
 
           const res = await otherServices.changeProfilePicture(imageData);
 
           if (res?.status === "success") {
-            setStatusModal({ visible: true, type: 'success', title: 'Success', subtitle: 'Profile picture updated' });
+            setStatusModal({
+              visible: true,
+              type: 'success',
+              title: t('Success'),
+              subtitle: t('Profile picture updated'),
+            });
             await loadUserProfile();
           } else {
-            setStatusModal({ visible: true, type: 'error', title: 'Failed', subtitle: res?.message || 'Upload failed' });
+            setStatusModal({
+              visible: true,
+              type: 'error',
+              title: t('Failed'),
+              subtitle: t('Upload failed'),
+            });
           }
         }
       );
@@ -185,28 +197,24 @@ const ProfileScreen = () => {
 
   const handleLogout = useCallback(() => {
     showAlert({
-      title: 'Logout',
-      message: 'Are you sure you want to logout?',
+      title: t('Logout'),
+      message: t('Are you sure you want to logout?'),
       buttons: [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Logout',
+          text: t('Logout'),
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log("🚪 Logging out...");
-
               OneSignal.User.pushSubscription.optOut();
               OneSignal.logout();
               await UnRegisterOneSignal();
 
               if (VisitorModule?.clearAll) {
                 await VisitorModule.clearAll();
-                console.log("🧹 Native cleared");
               }
 
               await AsyncStorage.clear();
-              console.log("✅ Logout complete");
 
               navigation.dispatch(
                 CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
@@ -218,24 +226,30 @@ const ProfileScreen = () => {
         },
       ],
     });
-  }, [showAlert, navigation]);
+  }, [showAlert, navigation, t]);
 
   const handleChangePassword = useCallback(async () => {
     setPassError('');
 
     if (!newPassword || !confirmPassword) {
-      setPassError('Please fill all password fields.');
+      setPassError(t('Please fill all password fields.'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPassError('Passwords do not match.');
+      setPassError(t('Passwords do not match.'));
       return;
     }
 
     try {
       setChangingPassword(true);
       setChangePassModal(false);
-      setStatusModal({ visible: true, type: 'loading', title: 'Updating Password', subtitle: 'Please wait...' });
+
+      setStatusModal({
+        visible: true,
+        type: 'loading',
+        title: t('Updating Password'),
+        subtitle: t('Please wait...'),
+      });
 
       const res = await ismServices.changePassword({
         old_password: '',
@@ -245,30 +259,48 @@ const ProfileScreen = () => {
       const status = res?.status || res?.data?.status;
 
       if (status === 'success') {
-        setStatusModal({ visible: true, type: 'success', title: 'Password Updated', subtitle: 'Your password was changed successfully.' });
+        setStatusModal({
+          visible: true,
+          type: 'success',
+          title: t('Password Updated'),
+          subtitle: t('Your password was changed successfully.'),
+        });
         setNewPassword('');
         setConfirmPassword('');
         setPassError('');
         setShowNewPassword(false);
         setShowConfirmPassword(false);
       } else {
-        setStatusModal({ visible: true, type: 'error', title: 'Failed', subtitle: res?.message || 'Unable to change password.' });
+        setStatusModal({
+          visible: true,
+          type: 'error',
+          title: t('Failed'),
+          subtitle: t('Unable to change password.'),
+        });
       }
     } catch (e) {
-      setStatusModal({ visible: true, type: 'error', title: 'Error', subtitle: 'Something went wrong. Please try again.' });
+      setStatusModal({
+        visible: true,
+        type: 'error',
+        title: t('Error'),
+        subtitle: t('Something went wrong. Please try again.'),
+      });
     } finally {
       setChangingPassword(false);
     }
-  }, [newPassword, confirmPassword]);
+  }, [newPassword, confirmPassword, t]);
 
   const handleFetchAccounts = async () => {
     try {
       setIsSwitching(true);
       const identity = await AsyncStorage.getItem("loginIdentity");
-      console.log("FETCH IDENTITY:", identity);
 
       if (!identity) {
-        showAlert({ title: 'Error', message: 'Session expired. Please login again.', buttons: [{ text: 'OK' }] });
+        showAlert({
+          title: t('Error'),
+          message: t('Session expired. Please login again.'),
+          buttons: [{ text: t('OK') }],
+        });
         return;
       }
 
@@ -279,17 +311,22 @@ const ProfileScreen = () => {
         user_id: null,
       });
 
-      console.log("FETCH RESPONSE:", response);
-
       if (response.status === 'multipleLogin') {
         setAccounts(response.data);
         setModalVisible(true);
       } else {
-        showAlert({ title: 'Notice', message: 'No other accounts linked to your details.', buttons: [{ text: 'OK' }] });
+        showAlert({
+          title: t('Notice'),
+          message: t('No other accounts linked to your details.'),
+          buttons: [{ text: t('OK') }],
+        });
       }
     } catch (e) {
-      console.log(e);
-      showAlert({ title: 'Error', message: 'No accounts found!', buttons: [{ text: 'OK' }] });
+      showAlert({
+        title: t('Error'),
+        message: t('No accounts found!'),
+        buttons: [{ text: t('OK') }],
+      });
     } finally {
       setIsSwitching(false);
     }
@@ -306,7 +343,7 @@ const ProfileScreen = () => {
 
   const confirmSwitchLogin = async () => {
     if (!password.trim()) {
-      setSwitchPassError('Please enter your password.');
+      setSwitchPassError(t('Please enter your password.'));
       return;
     }
 
@@ -314,8 +351,6 @@ const ProfileScreen = () => {
       setIsSwitching(true);
 
       const identity = await AsyncStorage.getItem("loginIdentity");
-      console.log("🔄 Switching account →", selectedUserId);
-
       const response = await LoginSrv.login({
         identity: identity?.trim(),
         password: password,
@@ -324,11 +359,9 @@ const ProfileScreen = () => {
       });
 
       if (response.status !== 'success') {
-        setSwitchPassError(response.message || 'Incorrect password.');
+        setSwitchPassError(response.message || t('Incorrect password.'));
         return;
       }
-
-      console.log("🧹 Clearing old session...");
 
       try {
         OneSignal.User.pushSubscription.optOut();
@@ -337,9 +370,7 @@ const ProfileScreen = () => {
 
         if (VisitorModule?.clearAll) {
           await VisitorModule.clearAll();
-          console.log("🧹 Native cleared");
         }
-
         await AsyncStorage.multiRemove(["userInfo", "permissions", "userDetails"]);
       } catch (cleanupError) {
         console.log("⚠️ Cleanup error:", cleanupError);
@@ -362,7 +393,6 @@ const ProfileScreen = () => {
       await AsyncStorage.setItem("userInfo", JSON.stringify(user));
 
       if (VisitorModule?.saveAuthDetails) {
-        console.log("🔥 Saving switched user to native:", user.id);
         await VisitorModule.saveAuthDetails({
           apiToken: user.api_token || "",
           userId: String(user.id || ""),
@@ -371,22 +401,17 @@ const ProfileScreen = () => {
           unitId: String(user.unit_id || ""),
           flatNo: String(user.flat_no || ""),
         });
-        console.log("✅ Native updated after switch");
-      } else {
-        console.log("❌ VisitorModule not available");
       }
 
       await loadPermissions();
+      await new Promise(res => setTimeout(res, 400));
       await RegisterAppOneSignal();
-
-      console.log("✅ Switch account complete");
 
       setPasswordModal(false);
       navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "MainApp" }] }));
 
     } catch (error) {
-      console.error("❌ Switch login failed:", error);
-      setSwitchPassError('Unable to connect to server.');
+      setSwitchPassError(t('Unable to connect to server.'));
     } finally {
       setIsSwitching(false);
     }
@@ -410,14 +435,14 @@ const ProfileScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* ── Profile Header ───────────────────────────────────────────── */}
         <View style={[styles.profileCard, { backgroundColor: theme.cardBg }]}>
           <View style={{ alignItems: 'center' }}>
             <Image source={avatarSource} style={styles.avatar} />
             <TouchableOpacity onPress={handleChangeProfileImage}>
-              <Text style={styles.changeText}>Change</Text>
+              <Text style={styles.changeText}>{t("Change")}</Text>
             </TouchableOpacity>
           </View>
 
@@ -446,10 +471,10 @@ const ProfileScreen = () => {
             </View>
             <View style={styles.virtualIdText}>
               <Text style={[styles.virtualIdTitle, { color: theme.textMain }]} numberOfLines={1}>
-                Virtual ID Card
+                {t("Virtual ID Card")}
               </Text>
               <Text style={[styles.virtualIdSub, { color: theme.textSub }]} numberOfLines={1}>
-                View your resident identity card
+                {t("View your resident identity card")}
               </Text>
             </View>
           </View>
@@ -459,31 +484,28 @@ const ProfileScreen = () => {
         {/* ── Unit Details ─────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <TouchableOpacity style={styles.dropdownHeader} onPress={() => setUnitOpen(p => !p)}>
-            <Text style={[styles.sectionTitle, { color: theme.textMain }]}>Unit Details</Text>
+            <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Unit Details")}</Text>
             <Ionicons name={unitOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color={theme.textSub} />
           </TouchableOpacity>
           {unitOpen && (
             <View style={styles.dropdownContent}>
-              <InfoRow label="Tower" value={userDetails?.tower} theme={theme} />
-              <InfoRow label="Flat No" value={userDetails?.flat_no} theme={theme} />
-              <InfoRow label="Area (Sq Ft)" value={userDetails?.size_sf} theme={theme} />
-              <InfoRow label="Category" value={userDetails?.fc_name} theme={theme} />
+              <InfoRow label={t("Tower")} value={userDetails?.tower} theme={theme} />
+              <InfoRow label={t("Flat No")} value={userDetails?.flat_no} theme={theme} />
+              <InfoRow label={t("Area (Sq Ft)")} value={userDetails?.size_sf} theme={theme} />
+              <InfoRow label={t("Category")} value={userDetails?.fc_name} theme={theme} />
             </View>
           )}
         </View>
 
         {userProfile?.tenant == 1 && (
           <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
-
-            {/* Header */}
             <TouchableOpacity
               style={styles.dropdownHeader}
               onPress={() => setOwnerOpen(p => !p)}
             >
               <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
-                Owner Details
+                {t("Owner Details")}
               </Text>
-
               <Ionicons
                 name={ownerOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
                 size={20}
@@ -491,12 +513,11 @@ const ProfileScreen = () => {
               />
             </TouchableOpacity>
 
-            {/* Dropdown Content */}
             {ownerOpen && (
               <View style={styles.dropdownContent}>
-                <InfoRow label="Owner Name" value={userDetails?.name} theme={theme} />
-                <InfoRow label="Phone" value={userDetails?.phone_no || userDetails?.owner_alt_phone_no} theme={theme} />
-                <InfoRow label="Email" value={userDetails?.email || userDetails?.owner_alt_email} theme={theme} />
+                <InfoRow label={t("Owner Name")} value={userDetails?.name} theme={theme} />
+                <InfoRow label={t("Phone")} value={userDetails?.phone_no || userDetails?.owner_alt_phone_no} theme={theme} />
+                <InfoRow label={t("Email")} value={userDetails?.email || userDetails?.owner_alt_email} theme={theme} />
               </View>
             )}
           </View>
@@ -505,28 +526,39 @@ const ProfileScreen = () => {
         {/* ── Meter Details ────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <TouchableOpacity style={styles.dropdownHeader} onPress={() => setMeterOpen(p => !p)}>
-            <Text style={[styles.sectionTitle, { color: theme.textMain }]}>Meter Details</Text>
+            <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Meter Details")}</Text>
             <Ionicons name={meterOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color={theme.textSub} />
           </TouchableOpacity>
           {meterOpen && (
             <View style={styles.dropdownContent}>
-              <InfoRow label="Grid Meter No" value={userDetails?.grid_meter_no} theme={theme} />
-              <InfoRow label="Grid Demand Load" value={userDetails?.grid_demand_load} theme={theme} />
-              <InfoRow label="DG Meter No" value={userDetails?.dg_meter_no} theme={theme} />
-              <InfoRow label="DG Demand Load" value={userDetails?.dg_demand_load} theme={theme} />
-              <InfoRow label="Meter Seal No" value={userDetails?.meter_seal_no} theme={theme} />
+              <InfoRow label={t("Grid Meter No")} value={userDetails?.grid_meter_no} theme={theme} />
+              <InfoRow label={t("Grid Demand Load")} value={userDetails?.grid_demand_load} theme={theme} />
+              <InfoRow label={t("DG Meter No")} value={userDetails?.dg_meter_no} theme={theme} />
+              <InfoRow label={t("DG Demand Load")} value={userDetails?.dg_demand_load} theme={theme} />
+              <InfoRow label={t("Meter Seal No")} value={userDetails?.meter_seal_no} theme={theme} />
             </View>
           )}
         </View>
 
         {/* ── Settings ─────────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
-          <Text style={[styles.sectionTitle, { color: theme.textMain }]}>Settings</Text>
+          <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Settings")}</Text>
+
+          {/* NEW: App Settings Row */}
+          <TouchableOpacity 
+            style={styles.actionRow} 
+            onPress={() => navigation.navigate('Settings')}
+          >
+            <Ionicons name="settings-outline" size={20} color={theme.textMain} />
+            <Text style={[styles.actionText, { color: theme.textMain }]} numberOfLines={1}>
+              {t("App Settings")}
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionRow} onPress={() => setChangePassModal(true)}>
             <Ionicons name="lock-closed-outline" size={20} color={theme.textMain} />
             <Text style={[styles.actionText, { color: theme.textMain }]} numberOfLines={1}>
-              Change Password
+              {t("Change Password")}
             </Text>
           </TouchableOpacity>
 
@@ -541,19 +573,18 @@ const ProfileScreen = () => {
               <Ionicons name="swap-horizontal-outline" size={20} color={theme.textMain} />
             )}
             <Text style={[styles.actionText, { color: theme.textMain }]} numberOfLines={1}>
-              {isSwitching && !passwordModal ? 'Fetching Accounts...' : 'Switch Account'}
+              {isSwitching && !passwordModal ? t('Fetching Accounts...') : t('Switch Account')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color={theme.danger} />
             <Text style={[styles.actionText, { color: theme.danger }]} numberOfLines={1}>
-              Logout
+              {t("Logout")}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* ✅ 3. App Version added at the bottom of the ScrollView */}
         <Text style={[styles.versionText, { color: theme.textSub }]}>
           v{version} ({buildNumber})
         </Text>
@@ -569,12 +600,11 @@ const ProfileScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Change Password</Text>
+            <Text style={styles.modalTitle}>{t("Change Password")}</Text>
 
-            {/* New Password */}
             <View style={{ position: 'relative' }}>
               <TextInput
-                placeholder="New Password"
+                placeholder={t("New Password")}
                 secureTextEntry={!showNewPassword}
                 value={newPassword}
                 onChangeText={(text) => { setNewPassword(text); setPassError(''); }}
@@ -598,10 +628,9 @@ const ProfileScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Confirm Password */}
             <View style={{ position: 'relative' }}>
               <TextInput
-                placeholder="Confirm Password"
+                placeholder={t("Confirm Password")}
                 secureTextEntry={!showConfirmPassword}
                 value={confirmPassword}
                 onChangeText={(text) => { setConfirmPassword(text); setPassError(''); }}
@@ -625,7 +654,6 @@ const ProfileScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* ✅ Inline error below inputs */}
             {passError ? (
               <Text style={styles.inlineError}>{passError}</Text>
             ) : null}
@@ -639,7 +667,7 @@ const ProfileScreen = () => {
               disabled={changingPassword}
             >
               <Text style={styles.modalPrimaryBtnText}>
-                {changingPassword ? 'Updating...' : 'Update Password'}
+                {changingPassword ? t('Updating...') : t('Update Password')}
               </Text>
             </TouchableOpacity>
 
@@ -654,7 +682,7 @@ const ProfileScreen = () => {
                 setShowConfirmPassword(false);
               }}
             >
-              <Text style={styles.modalCancelText}>Cancel</Text>
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -677,15 +705,14 @@ const ProfileScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Verify Account</Text>
+            <Text style={styles.modalTitle}>{t("Verify Account")}</Text>
             <Text style={{ color: '#6B7280', fontSize: 13, marginBottom: 15 }}>
-              Please enter your password to switch to this account.
+              {t("Please enter your password to switch to this account.")}
             </Text>
 
-            {/* ✅ Switch password field — starts hidden, inline error */}
             <View style={{ position: 'relative' }}>
               <TextInput
-                placeholder="Password"
+                placeholder={t("Password")}
                 secureTextEntry={!showSwitchPassword}
                 placeholderTextColor="#9CA3AF"
                 value={password}
@@ -709,7 +736,6 @@ const ProfileScreen = () => {
               </TouchableOpacity>
             </View>
 
-            {/* ✅ Inline error below input */}
             {switchPassError ? (
               <Text style={styles.inlineError}>{switchPassError}</Text>
             ) : null}
@@ -725,7 +751,7 @@ const ProfileScreen = () => {
               {isSwitching ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.modalPrimaryBtnText}>Login</Text>
+                <Text style={styles.modalPrimaryBtnText}>{t("Login")}</Text>
               )}
             </TouchableOpacity>
 
@@ -739,7 +765,7 @@ const ProfileScreen = () => {
               }}
               disabled={isSwitching}
             >
-              <Text style={styles.modalCancelText}>Cancel</Text>
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -816,13 +842,12 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
   actionText: { fontSize: 15, flex: 1 },
 
-  // ✅ 4. Style for Version Text added here
   versionText: {
     textAlign: 'center',
     fontSize: 13,
     marginTop: 10,
     marginBottom: 10,
-    fontWeight: '500'
+    fontWeight: '500',
   },
 
   modalOverlay: {

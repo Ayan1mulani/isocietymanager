@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from "react";
 import {
-  View, Text, TouchableOpacity, Modal, FlatList,
+  View, TouchableOpacity, Modal, FlatList,
   StyleSheet, Image, TextInput, ActivityIndicator,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ismServices } from "../../../services/ismServices";
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../../components/TranslatedText'; 
 
 const ProviderSelector = ({
   visitorType,
@@ -15,14 +19,16 @@ const ProviderSelector = ({
   setSelectedProvider,
   stylesFromParent = {},
 }) => {
+  const { t } = useTranslation(); // 👈 Init translation
+  
   const [showProviderModal, setShowProviderModal] = useState(false);
   const [search, setSearch] = useState("");
-  const [allCompanies, setAllCompanies] = useState([]);  // ✅ from API
+  const [allCompanies, setAllCompanies] = useState([]);  
   const [loadingCompanies, setLoadingCompanies] = useState(true);
 
   if (visitorType !== "cab" && visitorType !== "delivery") return null;
 
-  // ✅ Fetch from API on mount
+  // ✅ Fetch from API & Cache Images
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
@@ -31,11 +37,18 @@ const ProviderSelector = ({
         const res = await ismServices.getMasterCompanies(category);
         if (res?.status === "success") {
           console.log("Fetched companies:", res.data);
-          // Normalize: API uses "icon", component uses "logo_url"
-          const normalized = (res.data || []).map((item) => ({
-            name: item.name,
-            logo_url: item.icon,
-          }));
+          
+          // Normalize and PRE-FETCH IMAGES for instant loading
+          const normalized = (res.data || []).map((item) => {
+            if (item.icon) {
+              Image.prefetch(item.icon); // 🚀 This caches the image in the background instantly!
+            }
+            return {
+              name: item.name,
+              logo_url: item.icon,
+            };
+          });
+          
           setAllCompanies(normalized);
         }
       } catch (err) {
@@ -48,7 +61,7 @@ const ProviderSelector = ({
     fetchCompanies();
   }, [visitorType]);
 
-  // ✅ Popular providers shown in quick row (first 3 from API)
+  // ✅ Popular providers shown in quick row
   const popularProviders = ["Amazon", "Dominos", "Zomato"];
 
   let quickList = [];
@@ -110,9 +123,12 @@ const ProviderSelector = ({
             : { borderColor: "transparent" },
         ]}
       >
-        <Image source={{ uri: item.logo_url }} style={styles.logo} />
+        <Image 
+          source={{ uri: item.logo_url, cache: 'force-cache' }} // 🚀 Force cache usage
+          style={styles.logo} 
+        />
       </View>
-      <Text style={{ marginTop: 6, fontSize: 11, textAlign: "center" }}>
+      <Text style={{ marginTop: 6, fontSize: 11, textAlign: "center", color: '#111827' }}>
         {item.name}
       </Text>
     </TouchableOpacity>
@@ -124,11 +140,10 @@ const ProviderSelector = ({
 
       <View style={[stylesFromParent.card, { backgroundColor: theme.cardBg }]}>
         <Text style={[stylesFromParent.label, { color: theme.text }]}>
-          {visitorType === "cab" ? "Select Cab Provider" : "Select Delivery Company"}
+          {visitorType === "cab" ? t("Select Cab Provider") : t("Select Delivery Company")}
           {required && <Text style={{ color: "#EF4444" }}> *</Text>}
         </Text>
 
-        {/* ✅ Show loader while fetching */}
         {loadingCompanies ? (
           <ActivityIndicator
             size="small"
@@ -151,9 +166,12 @@ const ProviderSelector = ({
                       : { borderColor: "transparent" },
                   ]}
                 >
-                  <Image source={{ uri: item.logo_url }} style={styles.logo} />
+                  <Image 
+                    source={{ uri: item.logo_url, cache: 'force-cache' }} // 🚀 Force cache usage
+                    style={styles.logo} 
+                  />
                 </View>
-                <Text style={styles.quickText}>{item.name}</Text>
+                <Text style={[styles.quickText, { color: theme.text }]}>{item.name}</Text>
               </TouchableOpacity>
             ))}
 
@@ -163,10 +181,10 @@ const ProviderSelector = ({
                 style={styles.quickItem}
                 onPress={() => setShowProviderModal(true)}
               >
-                <View style={[styles.logoBox, { borderColor: "transparent" }]}>
-                  <Ionicons name="ellipsis-horizontal" size={20} />
+                <View style={[styles.logoBox, { borderColor: "transparent", backgroundColor: theme.inputBg || '#F3F4F6' }]}>
+                  <Ionicons name="ellipsis-horizontal" size={20} color={theme.text} />
                 </View>
-                <Text style={styles.quickText}>More</Text>
+                <Text style={[styles.quickText, { color: theme.text }]}>{t("More")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -176,22 +194,22 @@ const ProviderSelector = ({
       {/* Modal */}
       {visitorType === "delivery" && (
         <Modal visible={showProviderModal} animationType="slide">
-          <SafeAreaView style={{ flex: 1 }}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg || '#FFFFFF' }}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Delivery Companies</Text>
+              <Text style={styles.modalTitle}>{t("Delivery Companies")}</Text>
               <TouchableOpacity onPress={handleCloseModal}>
                 <Ionicons name="close" size={26} color="#fff" />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.searchBox}>
-              <Ionicons name="search" size={18} />
+            <View style={[styles.searchBox, { backgroundColor: theme.inputBg || "#F1F3F5" }]}>
+              <Ionicons name="search" size={18} color={theme.textSecondary || '#9CA3AF'} />
               <TextInput
-                placeholder="Search..."
-                placeholderTextColor="#9CA3AF"
+                placeholder={t("Search...")}
+                placeholderTextColor={theme.textSecondary || "#9CA3AF"}
                 value={search}
                 onChangeText={setSearch}
-                style={{ flex: 1, marginLeft: 8, color: "#111827" }}
+                style={{ flex: 1, marginLeft: 8, color: theme.text || "#111827" }}
               />
             </View>
 

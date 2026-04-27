@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   FlatList,
@@ -16,6 +15,8 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 
 import BRAND from '../config';
 import EmptyState from '../components/EmptyState';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const BASE_URL = "https://ism-vms.s3.amazonaws.com/company-logo/";
 const DEFAULT_GUEST_URI = "https://app.factech.co.in/user/assets/images/visitor/default-guest.png";
@@ -76,7 +77,7 @@ const PassAvatar = memo(({ source, purpose, style }) => {
   );
 
   const prevSource = useRef(source);
-  
+
   useEffect(() => {
     if (prevSource.current === source) return;
     prevSource.current = source;
@@ -104,6 +105,7 @@ const PassAvatar = memo(({ source, purpose, style }) => {
 // PassCard — isolated memo component
 // ─────────────────────────────────────────────────────────────────────────────
 const PassCard = memo(({ pass, theme, parkingBooking, onPress }) => {
+  const { t } = useTranslation(); // Add this
 
   const formatDate = (ds) => {
     try {
@@ -139,7 +141,7 @@ const PassCard = memo(({ pass, theme, parkingBooking, onPress }) => {
           </View>
           <View style={styles.passInfo}>
             <Text style={[styles.passTitle, { color: theme.text }]} numberOfLines={1}>
-              {pass.purpose ? pass.purpose.charAt(0).toUpperCase() + pass.purpose.slice(1) : ''} Pass
+             {pass.purpose ? t(pass.purpose.charAt(0).toUpperCase() + pass.purpose.slice(1)) : ''} {t("Pass")}
             </Text>
             {!isCabOrDelivery && (
               <>
@@ -177,14 +179,14 @@ const PassCard = memo(({ pass, theme, parkingBooking, onPress }) => {
         <View>
           {smartDate && (
             <Text style={{ fontSize: 12, color: smartDate.color, fontWeight: '600' }}>
-              Visit: {smartDate.label}
+              {t("Visit")}: {t(smartDate.label)}
             </Text>
           )}
         </View>
 
         <View>
           <Text style={[styles.createdDate, { color: theme.textSecondary }]}>
-            Created: {formatDate(pass.created_at)}
+            {t("Created")}: {formatDate(pass.created_at)}
           </Text>
         </View>
       </View>
@@ -205,6 +207,7 @@ const PassCard = memo(({ pass, theme, parkingBooking, onPress }) => {
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }) => {
+  const { t } = useTranslation();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -227,8 +230,8 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
     const q = searchQuery.toLowerCase();
     return (passData || [])
       .filter(pass => {
-        const text = [pass.name, pass.mobile, pass.purpose, pass.company_name]
-          .filter(Boolean).join(' ').toLowerCase();
+      const text = [t(pass.name), pass.mobile, t(pass.purpose), t(pass.company_name)]
+       .filter(Boolean).join(' ').toLowerCase();
         const matchSearch = !q || text.includes(q);
         const matchType =
           selectedStatus === 'ALL' ||
@@ -300,7 +303,7 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
     return (
       <View style={[styles.loadingState, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>Loading passes...</Text>
+     <Text style={[styles.loadingText, { color: theme.text }]}>{t("Loading passes...")}</Text>
       </View>
     );
   }
@@ -313,7 +316,7 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
           <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Search name, purpose or phone"
+           placeholder={t("Search name, purpose or phone")}
             placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -348,7 +351,7 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
               onPress={() => setSelectedStatus(type)}
             >
               <Text style={{ color: selectedStatus === type ? '#fff' : theme.text, fontWeight: '600' }}>
-                {type === 'ALL' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}
+                {type === 'ALL' ? t('All') : t(type.charAt(0).toUpperCase() + type.slice(1))}
               </Text>
             </TouchableOpacity>
           ))}
@@ -383,8 +386,8 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
           ListEmptyComponent={
             <EmptyState
               icon="card-outline"
-              title="No Passes Found"
-              subtitle="Create a new pass to get started"
+              title={t("No Passes Found")}
+              subtitle={t("Create a new pass to get started")}
               theme={theme}
             />
           }

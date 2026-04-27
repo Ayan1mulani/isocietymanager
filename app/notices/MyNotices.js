@@ -1,20 +1,19 @@
-// NoticesScreen.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
- 
   Modal,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { WebView } from 'react-native-webview';
 import { usePermissions } from '../../Utils/ConetextApi';
 import { ismServices } from '../../services/ismServices';
-import BRAND from '../config'
+import BRAND from '../config';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const THEME = {
   primary: BRAND.COLORS.primary,
@@ -43,7 +42,10 @@ const formatDate = (d) =>
   });
 
 export default function NoticesScreen() {
+  // Initialize translation hook
+  const { t, i18n } = useTranslation();
   const { nightMode } = usePermissions();
+  
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -55,6 +57,17 @@ export default function NoticesScreen() {
     text: nightMode ? THEME.textLight : THEME.textDark,
     sub: nightMode ? '#AAAAAA' : THEME.mute,
     shadow: nightMode ? 'rgba(255,255,255,0.05)' : THEME.shadow,
+  };
+
+  const formatDate = (d) => {
+    if (!d) return "";
+    try {
+      return new Date(d).toLocaleDateString(i18n.language === 'km' ? 'km-KH' : 'en-US', {
+        month: 'short', day: 'numeric', year: 'numeric'
+      });
+    } catch {
+      return d;
+    }
   };
 
   useEffect(() => {
@@ -84,17 +97,14 @@ export default function NoticesScreen() {
     const { color, icon } = categoryInfo(item.category);
     return (
       <TouchableOpacity
-        style={[styles.card, {
-          backgroundColor: theme.card,
-          shadowColor: theme.shadow
-        }]}
+        style={[styles.card, { backgroundColor: theme.card, shadowColor: theme.shadow }]}
         activeOpacity={0.8}
         onPress={() => openModal(item)}
       >
         <View style={styles.cardHeader}>
-          < Ionicons name={icon} size={18} color={color} />
+          <Ionicons name={icon} size={18} color={color} />
           <Text style={[styles.badge, { backgroundColor: color }]}>
-            {item.category}
+            {t(item.category)}
           </Text>
         </View>
         <Text style={[styles.title, { color: theme.text }]}>
@@ -110,15 +120,14 @@ export default function NoticesScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-                   <ActivityIndicator size="large" color={theme.primary} />
-                   <Text style={styles.loadingText}>Loading Notices...</Text>
-                 </View>
+        <ActivityIndicator size="large" color={THEME.primary} />
+        <Text style={styles.loadingText}>{t("Loading Notices...")}</Text>
+      </View>
     );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-
       <FlatList
         data={notices}
         keyExtractor={i => i.id.toString()}
@@ -127,13 +136,12 @@ export default function NoticesScreen() {
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
           <View style={styles.center}>
-            <Text style={{ color: theme.sub }}>No notices available</Text>
+            <Text style={{ color: theme.sub }}>{t("No notices available")}</Text>
           </View>
         }
         showsVerticalScrollIndicator={false}
       />
 
-      {/* --- FULLSCREEN MODAL --- */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -142,15 +150,15 @@ export default function NoticesScreen() {
         <View style={[styles.modal, { backgroundColor: theme.bg }]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
-              < Ionicons name="close" size={24} color={theme.text} />
+              <Ionicons name="close" size={24} color={theme.text} />
             </TouchableOpacity>
             {selected && (() => {
               const { color, icon } = categoryInfo(selected.category);
               return (
                 <>
-                  < Ionicons name={icon} size={20} color={color} />
+                  <Ionicons name={icon} size={20} color={color} />
                   <Text style={[styles.modalBadge, { backgroundColor: color }]}>
-                    {selected.category}
+                    {t(selected.category)}
                   </Text>
                   <Text style={[styles.modalTitle, { color: theme.text }]}>
                     {selected.subject}

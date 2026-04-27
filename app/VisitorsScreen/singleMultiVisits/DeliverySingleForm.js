@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  View, StyleSheet, TouchableOpacity,
   ScrollView, TextInput
 } from "react-native";
 import ProviderSelector from "../components/ProviderSelector";
@@ -12,7 +12,12 @@ import BRAND from "../../config";
 import SubmitButton from "../../components/SubmitButton";
 import { useRoute } from "@react-navigation/native";
 
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../../components/TranslatedText';
+
 const SingleDeliveryForm = ({ theme }) => {
+  const { t } = useTranslation(); // 👈 Init translation
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [visitDate, setVisitDate] = useState(null);
   const [modalType, setModalType] = useState(null);
@@ -28,15 +33,15 @@ const SingleDeliveryForm = ({ theme }) => {
     let newErrors = {};
 
     if (!selectedProvider) {
-      newErrors.provider = "Please select delivery company";
+      newErrors.provider = t("Please select delivery company");
     }
 
     if (isCustom && !customName.trim()) {
-      newErrors.custom = "Please enter company name";
+      newErrors.custom = t("Please enter company name");
     }
 
     if (!visitDate) {
-      newErrors.date = "Please select visit date";
+      newErrors.date = t("Please select visit date");
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -54,9 +59,7 @@ const SingleDeliveryForm = ({ theme }) => {
 
       const payload = {
         date_time: formattedDate,
-        company_name:
-         isCustom ? customName :
-         selectedProvider, 
+        company_name: isCustom ? customName : selectedProvider, 
         type: "delivery",
       };
 
@@ -109,7 +112,9 @@ const SingleDeliveryForm = ({ theme }) => {
 
         {isCustom && (
           <View style={[styles.card, { backgroundColor: theme.cardBg, marginTop: 10 }]}>
-            <Text style={styles.label}>Enter Delivery Company</Text>
+            <Text style={[styles.label, { color: theme.text }]}>
+              {t("Enter Delivery Company")}
+            </Text>
             <TextInput
               value={customName}
               onChangeText={(text) => {
@@ -117,9 +122,9 @@ const SingleDeliveryForm = ({ theme }) => {
                 if (errors.custom)
                   setErrors((prev) => ({ ...prev, custom: null }));
               }}
-              placeholder="Enter company name"
+              placeholder={t("Enter company name")}
               placeholderTextColor="#9CA3AF"
-              style={styles.input}
+              style={[styles.input, { color: theme.text }]}
             />
             {errors.custom && (
               <Text style={styles.errorText}>{errors.custom}</Text>
@@ -135,7 +140,7 @@ const SingleDeliveryForm = ({ theme }) => {
               if (errors.date)
                 setErrors((prev) => ({ ...prev, date: null }));
             }}
-            label="Visit Date"
+            label={t("Visit Date")}
             required={true}
             nightMode={false}
           />
@@ -145,7 +150,7 @@ const SingleDeliveryForm = ({ theme }) => {
         </View>
 
         <SubmitButton
-          title="Schedule Delivery"
+          title={t("Schedule Delivery")}
           onPress={handleSubmit}
           loading={modalType === "loading"}
         />
@@ -156,14 +161,14 @@ const SingleDeliveryForm = ({ theme }) => {
         visible={!!modalType}
         type={modalType}
         title={
-          modalType === "loading" ? "Scheduling..."
-            : modalType === "success" ? "Delivery Scheduled"
-              : "Failed!"
+          modalType === "loading" ? t("Scheduling...")
+            : modalType === "success" ? t("Delivery Scheduled")
+              : t("Failed!")
         }
         subtitle={
-          modalType === "loading" ? "Please wait"
-            : modalType === "success" ? "Delivery pass created"
-              : "Please try again"
+          modalType === "loading" ? t("Please wait")
+            : modalType === "success" ? t("Delivery pass created")
+              : t("Please try again")
         }
       />
     </>
@@ -173,33 +178,9 @@ const SingleDeliveryForm = ({ theme }) => {
 export default SingleDeliveryForm;
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    padding: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 16,
-  },
-  phoneRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  countryCode: {
-    width: 60,
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  card: { borderRadius: 16, padding: 16 },
+  label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
+  errorText: { color: "#EF4444", fontSize: 12, marginTop: 4, marginLeft: 16 },
   input: {
     height: 48,
     borderWidth: 1,
@@ -208,44 +189,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     borderColor: "#E5E7EB",
     backgroundColor: "#fff",
-  },
-  phoneInput: {
-    flex: 1,
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    fontSize: 14,
-  },
-  counterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  counterBtn: {
-    width: 40,
-    height: 40,
-    borderWidth: 1,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  counterText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  submitButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 40,
-    marginHorizontal: "3%",
-    backgroundColor: BRAND.COLORS.button,
-  },
-  submitText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 16,
   },
 });

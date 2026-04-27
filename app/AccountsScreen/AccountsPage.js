@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -19,6 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { hasPermission } from '../../Utils/PermissionHelper';
 import BRAND from '../config';
 import useAlert from '../components/UseAlert';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 
 // ─── Theme constants ───────────────────────────────────────────────────────────
@@ -76,6 +77,7 @@ const getStatementIcon = (item) => {
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function AccountsScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const { nightMode, permissions } = usePermissions();
 
@@ -144,10 +146,10 @@ export default function AccountsScreen() {
         <View style={styles.center}>
           <Ionicons name="lock-closed-outline" size={64} color={theme.sub} />
           <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 16 }]}>
-            Access Restricted
+            {t('Access Restricted')}
           </Text>
           <Text style={{ color: theme.sub, textAlign: 'center', paddingHorizontal: 40, marginTop: 8 }}>
-            You do not have permission to view account details.
+            {t('You do not have permission to view account details.')}
           </Text>
         </View>
       </SafeAreaView>
@@ -313,7 +315,7 @@ export default function AccountsScreen() {
 
           {/* Amount — strip sign, label by transaction type */}
           <View style={styles.stmtAmountItem}>
-            <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>Amount</Text>
+            <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>{t('Amount')}</Text>
             <Text style={[styles.stmtAmountValue, { color: theme.text }]}>
               {formatCurrency(Math.abs(current))} {item.type_of_payment === 'DEBIT' ? 'Dr' : 'Cr'}
             </Text>
@@ -321,7 +323,7 @@ export default function AccountsScreen() {
 
           {/* Balance — strip sign, label by sign (negative = Dr) */}
           <View style={[styles.stmtAmountItem, { alignItems: 'center' }]}>
-            <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>Balance</Text>
+            <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>{t('Balance')}</Text>
             <Text style={[styles.stmtAmountValue, { color: BRAND.COLORS.icon }]}>
               {formatCurrency(Math.abs(balance))} {balance < 0 ? 'Dr' : 'Cr'}
             </Text>
@@ -329,7 +331,7 @@ export default function AccountsScreen() {
 
           {/* Type badge */}
           <View style={[styles.stmtAmountItem, { alignItems: 'flex-end' }]}>
-            <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>Type</Text>
+            <Text style={[styles.stmtAmountLabel, { color: theme.secondaryText }]}>{t('Type')}</Text>
             <View style={[styles.typeBadge, {
               backgroundColor: item.type === 'bill'
                 ? THEME.primary + '20'
@@ -345,10 +347,10 @@ export default function AccountsScreen() {
                     : THEME.success,
               }]}>
                 {item.type === 'bill'
-                  ? 'INVOICE'
+                  ? t('INVOICE')
                   : item.type_of_payment === 'DEBIT'
-                    ? 'DEBIT'
-                    : 'CREDIT'}
+                    ? t('DEBIT')
+                    : t('CREDIT')}
               </Text>
             </View>
           </View>
@@ -358,13 +360,13 @@ export default function AccountsScreen() {
         {(item.mode || item.o_date || item.o_bank || item.o_number || item.remarks) && (
           <View style={[styles.stmtMeta, { borderTopColor: theme.borderColor }]}>
             {!!item.mode && (
-              <MetaRow label="Transaction Type" value={item.mode} theme={theme} />
+              <MetaRow label={t('Transaction Type')} value={item.mode} theme={theme} />
             )}
             {!!item.o_date && item.o_date !== '0000-00-00 00:00:00' && (
-              <MetaRow label="Payment Date" value={formatDate(item.o_date)} theme={theme} />
+              <MetaRow label={t('Payment Date')} value={formatDate(item.o_date)} theme={theme} />
             )}
-            {!!item.o_bank && <MetaRow label="Bank" value={item.o_bank} theme={theme} />}
-            {!!item.o_number && <MetaRow label="Transaction No" value={item.o_number} theme={theme} />}
+            {!!item.o_bank && <MetaRow label={t('Bank')} value={item.o_bank} theme={theme} />}
+            {!!item.o_number && <MetaRow label={t('Transaction No')} value={item.o_number} theme={theme} />}
             {!!item.remarks && (
               <Text style={[styles.metaRemarks, { color: theme.sub }]}>{item.remarks}</Text>
             )}
@@ -386,7 +388,7 @@ export default function AccountsScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
         <AppHeader
-          title="Accounts"
+          title={t('Accounts')}
           nightMode={nightMode}
           showBack
           rightIcon={ThreeDotsButton}
@@ -394,7 +396,7 @@ export default function AccountsScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={THEME.primary} />
           <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>
-            Loading accounts...
+            {t('Loading accounts...')}
           </Text>
         </View>
       </SafeAreaView>
@@ -406,7 +408,7 @@ export default function AccountsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
 
       <AppHeader
-        title="Accounts"
+        title={t('Accounts')}
         nightMode={nightMode}
         showBack
         rightIcon={ThreeDotsButton}
@@ -429,12 +431,12 @@ export default function AccountsScreen() {
           <View style={[styles.summaryCard, { backgroundColor: THEME.primary }]}>
             <View style={styles.summaryInner}>
               <View>
-                <Text style={styles.summaryLabel}>Total Outstanding</Text>
+                <Text style={styles.summaryLabel}>{t('Total Outstanding')}</Text>
                 <Text style={styles.summaryAmount}>
                   {formatCurrency(Math.abs(totalOutstanding))} Dr
                 </Text>
                 <Text style={styles.summaryNote}>
-                  {plansWithBalance.length} plan{plansWithBalance.length !== 1 ? 's' : ''} with balance
+                  {t('{{count}} plan{plural} with balance', { count: plansWithBalance.length, plural: plansWithBalance.length !== 1 ? 's' : '' })}
                 </Text>
               </View>
               <View style={styles.summaryIcon}>
@@ -448,7 +450,7 @@ export default function AccountsScreen() {
         {canSeeOutstanding && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Outstanding</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('Outstanding')}</Text>
               <View style={[styles.badge, { backgroundColor: theme.pillBg }]}>
                 <Text style={[styles.badgeText, { color: THEME.primary }]}>
                   {plansWithBalance.length}
@@ -459,7 +461,7 @@ export default function AccountsScreen() {
             {plansWithBalance.length === 0 ? (
               <View style={styles.emptyRow}>
                 <Ionicons name="checkmark-circle-outline" size={18} color={THEME.success} />
-                <Text style={[styles.emptyText, { color: theme.sub }]}>No outstanding dues</Text>
+                <Text style={[styles.emptyText, { color: theme.sub }]}>{t('No outstanding dues')}</Text>
               </View>
             ) : (
               <View style={[styles.outstandingBlock, {
@@ -482,7 +484,7 @@ export default function AccountsScreen() {
         {canSeeBills && (
           <View style={{ marginTop: 16 }}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Account Statement</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('Account Statement')}</Text>
             </View>
 
             {/* Horizontal tabs */}
@@ -528,12 +530,12 @@ export default function AccountsScreen() {
             {tabLoading ? (
               <View style={styles.tabLoader}>
                 <ActivityIndicator size="small" color={THEME.primary} />
-                <Text style={{ color: theme.sub, marginTop: 8, fontSize: 13 }}>Loading...</Text>
+                <Text style={{ color: theme.sub, marginTop: 8, fontSize: 13 }}>{t('Loading...')}</Text>
               </View>
             ) : statements.length === 0 ? (
               <View style={styles.emptyRow}>
                 <Ionicons name="document-outline" size={18} color={theme.sub} />
-                <Text style={[styles.emptyText, { color: theme.sub }]}>No data found</Text>
+                <Text style={[styles.emptyText, { color: theme.sub }]}>{t('No data found')}</Text>
               </View>
             ) : (
               statements.map((item, index) => (
@@ -592,7 +594,7 @@ export default function AccountsScreen() {
                 <View style={[styles.navOptionIcon, { backgroundColor: theme.pillBg }]}>
                   <Ionicons name={opt.icon} size={16} color={THEME.primary} />
                 </View>
-                <Text style={[styles.navOptionText, { color: theme.text }]}>{opt.key}</Text>
+                <Text style={[styles.navOptionText, { color: theme.text }]}>{t(opt.key)}</Text>
                 <Ionicons name="chevron-forward" size={14} color={theme.sub} />
               </TouchableOpacity>
             ))}

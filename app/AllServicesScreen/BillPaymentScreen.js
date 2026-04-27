@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   TextInput,
   FlatList,
@@ -14,6 +13,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet } from 'react-native';
+
 import { ismServices } from '../../services/ismServices';
 import { otherServices } from '../../services/otherServices';
 import AppHeader from '../components/AppHeader';
@@ -21,15 +23,17 @@ import BRAND from '../config';
 import { usePermissions } from '../../Utils/ConetextApi';
 import useAlert from '../components/UseAlert';
 
+/* ---------- PARSER ---------- */
+
 const parsePmtValidations = (billTypeObj) => {
   const result = {
     pmtValidations: null,
-    minPayable:     null,
-    maxPayable:     null,
-    fixedAmounts:   null,
-    isEditable:     true,
-    remarks:        null,
-    decimalPlaces:  0,
+    minPayable: null,
+    maxPayable: null,
+    fixedAmounts: null,
+    isEditable: true,
+    remarks: null,
+    decimalPlaces: 0,
   };
 
   if (!billTypeObj?.custom_bill_config) return result;
@@ -44,45 +48,76 @@ const parsePmtValidations = (billTypeObj) => {
     if (!pv) return result;
 
     result.pmtValidations = pv;
-    result.minPayable     = pv.min     != null ? +pv.min     : null;
-    result.maxPayable     = pv.max     != null ? +pv.max     : null;
-    result.fixedAmounts   = Array.isArray(pv.fixed_amounts) ? pv.fixed_amounts : null;
-    result.isEditable     = pv.is_editable !== '0';
-    result.remarks        = pv.remarks ?? null;
-    result.decimalPlaces  = pv.decimal ? +pv.decimal : 0;
-  } catch (e) {
-    console.log('parsePmtValidations error:', e);
-  }
+    result.minPayable = pv.min != null ? +pv.min : null;
+    result.maxPayable = pv.max != null ? +pv.max : null;
+    result.fixedAmounts = Array.isArray(pv.fixed_amounts) ? pv.fixed_amounts : null;
+    result.isEditable = pv.is_editable !== '0';
+    result.remarks = pv.remarks ?? null;
+    result.decimalPlaces = pv.decimal ? +pv.decimal : 0;
+  } catch (e) {}
 
   return result;
 };
 
+/* ---------- MAIN ---------- */
+
 function BillPaymentScreen({ navigation, route }) {
+  const { t } = useTranslation();
   const { nightMode } = usePermissions();
   const { showAlert, AlertComponent } = useAlert(nightMode);
   const COLORS = BRAND.COLORS;
 
-  const [billTypes,     setBillTypes]     = useState([]);
-  const [outstanding,   setOutstanding]   = useState([]);
-  const [selectedBill,  setSelectedBill]  = useState(null);
-  const [amount,        setAmount]        = useState('');
-  const [payRemarks,    setPayRemarks]    = useState('');
-  const [loading,       setLoading]       = useState(true);
-  const [paying,        setPaying]        = useState(false);
-  const [modalVisible,  setModalVisible]  = useState(false);
+  const [billTypes, setBillTypes] = useState([]);
+  const [outstanding, setOutstanding] = useState([]);
+  const [selectedBill, setSelectedBill] = useState(null);
 
-  const [minPayable,    setMinPayable]    = useState(null);
-  const [maxPayable,    setMaxPayable]    = useState(null);
-  const [fixedAmounts,  setFixedAmounts]  = useState(null);
-  const [isEditable,    setIsEditable]    = useState(true);
-  const [remarks,       setRemarks]       = useState(null);
+  const [amount, setAmount] = useState('');
+  const [payRemarks, setPayRemarks] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const [minPayable, setMinPayable] = useState(null);
+  const [maxPayable, setMaxPayable] = useState(null);
+  const [fixedAmounts, setFixedAmounts] = useState(null);
+  const [isEditable, setIsEditable] = useState(true);
+  const [remarks, setRemarks] = useState(null);
   const [decimalPlaces, setDecimalPlaces] = useState(0);
+
   const [invalidAmount, setInvalidAmount] = useState(false);
   const [amountMessage, setAmountMessage] = useState('');
 
-  // ✅ Change 1: Track which fixed amount is selected + error state
   const [selectedFixedAmount, setSelectedFixedAmount] = useState(null);
-  const [fixedAmountError,    setFixedAmountError]    = useState(false);
+  const [fixedAmountError, setFixedAmountError] = useState(false);
+
+  /* ── applyBillTypeSelection must be defined BEFORE initData so the
+        auto-select logic inside initData can reference it ── */
+  const applyBillTypeSelection = useCallback((billTypeObj, overrideAmount = null) => {
+    setSelectedBill(billTypeObj);
+
+    const cfg = parsePmtValidations(billTypeObj);
+
+    setMinPayable(cfg.minPayable);
+    setMaxPayable(cfg.maxPayable);
+    setFixedAmounts(cfg.fixedAmounts);
+    setIsEditable(cfg.isEditable);
+    setRemarks(cfg.remarks);
+    setDecimalPlaces(cfg.decimalPlaces);
+
+    setSelectedFixedAmount(null);
+    setFixedAmountError(false);
+
+    // Use the overrideAmount (from route params) when available,
+    // otherwise fall back to the config's minimum or 1.
+    const defaultAmount =
+      overrideAmount != null
+        ? Math.abs(overrideAmount)          // strip sign coming from balance
+        : (cfg.minPayable ?? 1);
+
+    setAmount(defaultAmount.toString());
+    validateAmount(defaultAmount, cfg.minPayable, cfg.maxPayable);
+  }, []);
 
   useEffect(() => {
     initData();
@@ -92,89 +127,46 @@ function BillPaymentScreen({ navigation, route }) {
     try {
       setLoading(true);
 
+      /* outstanding list */
       let outList = route?.params?.outstanding ?? [];
-      if (!outList || outList.length === 0) {
+      if (!outList.length) {
         const res = await otherServices.getOutStandings();
         outList = res?.data ?? [];
       }
       setOutstanding(outList);
 
+      /* bill types */
       const btRes = await ismServices.getBillTypes();
       let allTypes = Array.from((btRes?.data ?? btRes ?? []).values());
       allTypes = allTypes.sort((a, b) => a.display_order - b.display_order);
+      setBillTypes(allTypes);
 
-      let filtered = allTypes;
-      if (allTypes.length > 0 && allTypes[0]?.id !== 0) {
-        const myPlanIds = outList.map((o) => o.id);
-        filtered = allTypes.filter((bt) => myPlanIds.includes(bt.id));
+      /* ── Auto-select bill type passed from the previous screen ── */
+      const paramBillTypeId = route?.params?.billType;   // id passed by ResidentProfile
+      const paramAmount     = route?.params?.amount;     // balance passed by ResidentProfile
+
+      if (paramBillTypeId != null) {
+        const matched = allTypes.find((bt) => bt.id === paramBillTypeId);
+        if (matched) {
+          applyBillTypeSelection(matched, paramAmount);
+        }
       }
-      setBillTypes(filtered);
-
-      const preSelectedId = route?.params?.billType;
-      if (preSelectedId) {
-        const match = filtered.find((bt) => bt.id === preSelectedId);
-        if (match) applyBillTypeSelection(match, outList);
-      }
-
-      const preAmount = route?.params?.amount;
-      if (preAmount && +preAmount > 0) {
-        setAmount((+preAmount).toString());
-      }
-
-    } catch (err) {
-      console.log('initData error:', err);
+    } catch (e) {
+      console.log(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const applyBillTypeSelection = useCallback((billTypeObj, outList = outstanding) => {
-    setSelectedBill(billTypeObj);
-
-    const cfg = parsePmtValidations(billTypeObj);
-    setMinPayable(cfg.minPayable);
-    setMaxPayable(cfg.maxPayable);
-    setFixedAmounts(cfg.fixedAmounts);
-    setIsEditable(cfg.isEditable);
-    setRemarks(cfg.remarks);
-    setDecimalPlaces(cfg.decimalPlaces);
-    setInvalidAmount(false);
-    setAmountMessage('');
-
-    // ✅ Change 1: Reset fixed amount selection when bill type changes
-    setSelectedFixedAmount(null);
-    setFixedAmountError(false);
-
-    let newAmount = cfg.minPayable ?? 1;
-    let found = false;
-
-    outList.forEach((o) => {
-      if (o.id === billTypeObj.id) {
-        found = true;
-        if (o.show_bal && o?.data?.balance != null) {
-          const bal = +o.data.balance;
-          newAmount = bal < 0 ? 0 : +bal.toFixed(cfg.decimalPlaces);
-        } else {
-          newAmount = cfg.minPayable ?? 1;
-        }
-      }
-    });
-
-    if (!found) newAmount = cfg.minPayable ?? 1;
-    if (newAmount < 0) newAmount = 0;
-
-    setAmount(newAmount.toString());
-    validateAmount(newAmount, cfg.minPayable, cfg.maxPayable);
-  }, [outstanding]);
-
   const validateAmount = (val, min = minPayable, max = maxPayable) => {
     const num = parseFloat(val);
+
     if (min != null && num < min) {
       setInvalidAmount(true);
-      setAmountMessage(`Min amount payable is ₹${min}`);
+      setAmountMessage(`${t('Min amount payable is')} ${min}`);
     } else if (max != null && num > max) {
       setInvalidAmount(true);
-      setAmountMessage(`Max amount payable is ₹${max}`);
+      setAmountMessage(`${t('Max amount payable is')} ${max}`);
     } else {
       setInvalidAmount(false);
       setAmountMessage('');
@@ -186,112 +178,86 @@ function BillPaymentScreen({ navigation, route }) {
     validateAmount(val);
   };
 
-  // ✅ Change 2: Track selected fixed amount + clear error on tap
   const onFixedAmountTap = (val) => {
-    const num = +val;
-    setAmount(num.toString());
-    setSelectedFixedAmount(num);
+    setAmount(val.toString());
+    setSelectedFixedAmount(val);
     setFixedAmountError(false);
-    validateAmount(num);
+    validateAmount(val);
   };
 
-  // ✅ Change 3: Block payment if fixedAmounts exist but none selected
   const handlePayment = async () => {
     if (!selectedBill) {
-      showAlert({ title: 'Error', message: 'Please select a bill type', buttons: [{ text: 'OK' }] });
+      showAlert({
+        title: t('Error'),
+        message: t('Please select a bill type'),
+        buttons: [{ text: t('OK') }],
+      });
       return;
     }
 
-    // ✅ If fixed amounts exist, user MUST tap one
-    if (fixedAmounts && fixedAmounts.length > 0 && selectedFixedAmount === null) {
+    if (fixedAmounts && selectedFixedAmount === null) {
       setFixedAmountError(true);
       return;
     }
 
     const num = parseFloat(amount);
     if (!amount || num <= 0) {
-      showAlert({ title: 'Error', message: 'Please enter a valid amount', buttons: [{ text: 'OK' }] });
-      return;
-    }
-
-    if (invalidAmount) {
-      showAlert({ title: 'Error', message: amountMessage, buttons: [{ text: 'OK' }] });
+      showAlert({
+        title: t('Error'),
+        message: t('Please enter a valid amount'),
+        buttons: [{ text: t('OK') }],
+      });
       return;
     }
 
     try {
       setPaying(true);
-      const paymentUrl = await ismServices.makePayment(num, selectedBill, payRemarks);
-      const ok = await Linking.canOpenURL(paymentUrl);
-      if (ok) Linking.openURL(paymentUrl);
-    } catch (error) {
-      console.log('Payment error:', error);
-      showAlert({ title: 'Error', message: 'Payment failed. Please try again.', buttons: [{ text: 'OK' }] });
+      const url = await ismServices.makePayment(num, selectedBill, payRemarks);
+      if (await Linking.canOpenURL(url)) Linking.openURL(url);
+    } catch {
+      showAlert({
+        title: t('Error'),
+        message: t('Payment failed. Please try again.'),
+        buttons: [{ text: t('OK') }],
+      });
     } finally {
       setPaying(false);
     }
   };
 
-  const renderBillItem = ({ item }) => {
-    const isSelected = selectedBill?.id === item.id;
-    return (
-      <TouchableOpacity
-        style={styles.modalItem}
-        onPress={() => {
-          applyBillTypeSelection(item);
-          setModalVisible(false);
-        }}
-        activeOpacity={0.7}
-      >
-        <Text style={[styles.modalText, isSelected && { color: COLORS.primary }]}>
-          {item.name}
-        </Text>
-        {isSelected && (
-          <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
-        )}
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader title="Make Payment" nightMode={nightMode} showBack />
+      <AppHeader title={t('Make Payment')} showBack />
 
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── Bill type selector ── */}
-          {!(billTypes.length === 1 && billTypes[0]?.id === 0) && (
-            <>
-              <Text style={styles.label}>Bill Type</Text>
-              <TouchableOpacity
-                style={styles.dropdown}
-                onPress={() => setModalVisible(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.dropdownText, !selectedBill && styles.placeholder]}>
-                  {selectedBill ? selectedBill.name : 'Select bill type'}
-                </Text>
-                <Ionicons name="chevron-down" size={18} color="#6B7280" />
-              </TouchableOpacity>
-            </>
-          )}
+        <ScrollView contentContainerStyle={styles.content}>
 
-          {/* ── Amount ── */}
-          <Text style={styles.label}>Amount</Text>
+          {/* Bill Type */}
+          <Text style={styles.label}>{t('Bill Type')}</Text>
+
+          <TouchableOpacity
+            style={styles.dropdown}
+            onPress={() => setModalVisible(true)}
+          >
+            <Text style={[styles.dropdownText, !selectedBill && styles.placeholder]}>
+              {selectedBill ? selectedBill.name : t('Select bill type')}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color="#6B7280" />
+          </TouchableOpacity>
+
+          {/* Amount */}
+          <Text style={styles.label}>{t('Amount')}</Text>
+
           <TextInput
             value={amount}
             onChangeText={onAmountChange}
-            keyboardType="numeric"
-            placeholder="₹ Enter amount"
+            placeholder={t('Enter amount')}
             placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
             editable={isEditable}
             style={[
               styles.input,
@@ -304,51 +270,48 @@ function BillPaymentScreen({ navigation, route }) {
             <Text style={styles.errorText}>{amountMessage}</Text>
           )}
 
-          {/* ── Fixed amount buttons ── */}
+          {/* Fixed Amounts */}
           {fixedAmounts && fixedAmounts.length > 0 && (
             <>
               <View style={styles.fixedAmountsRow}>
                 {fixedAmounts.map((a) => {
-                  // ✅ Highlight based on selectedFixedAmount, not raw amount string
                   const isActive = selectedFixedAmount === +a;
                   return (
                     <TouchableOpacity
                       key={a}
                       style={[
                         styles.fixedBtn,
-                        isActive && { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-                        // ✅ Red border on buttons if error shown
+                        isActive && {
+                          backgroundColor: COLORS.primary,
+                          borderColor: COLORS.primary,
+                        },
                         fixedAmountError && !isActive && { borderColor: '#EF4444' },
                       ]}
                       onPress={() => onFixedAmountTap(a)}
-                      activeOpacity={0.7}
                     >
-                      <Text style={[
-                        styles.fixedBtnText,
-                        isActive && { color: '#fff' },
-                      ]}>
-                        ₹{a}
+                      <Text style={[styles.fixedBtnText, isActive && { color: '#fff' }]}>
+                        {a}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* ✅ Change 3: Red error text if no fixed amount selected on pay */}
               {fixedAmountError && (
                 <Text style={styles.errorText}>
-                  Please select a fixed amount to proceed
+                  {t('Please select a fixed amount to proceed')}
                 </Text>
               )}
             </>
           )}
 
-          {/* ── Remarks ── */}
-          <Text style={styles.label}>Remark (Optional)</Text>
+          {/* Remarks */}
+          <Text style={styles.label}>{t('Remark (Optional)')}</Text>
+
           <TextInput
             value={payRemarks}
             onChangeText={setPayRemarks}
-            placeholder="Add remark..."
+            placeholder={t('Add remark...')}
             placeholderTextColor="#9CA3AF"
             style={[styles.input, { height: 50 }]}
             multiline
@@ -357,13 +320,13 @@ function BillPaymentScreen({ navigation, route }) {
           {!!remarks && (
             <View style={styles.remarksBox}>
               <Text style={styles.remarksNote}>
-                <Text style={{ fontWeight: '700' }}>Note: </Text>
+                <Text style={{ fontWeight: '700' }}>{t('Note')}: </Text>
                 {remarks}
               </Text>
             </View>
           )}
 
-          {/* ── Pay button ── */}
+          {/* Pay Button */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -372,27 +335,47 @@ function BillPaymentScreen({ navigation, route }) {
             ]}
             onPress={handlePayment}
             disabled={invalidAmount || paying}
-            activeOpacity={0.85}
           >
-            {paying
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.buttonText}>Make Payment</Text>
-            }
+            {paying ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{t('Make Payment')}</Text>
+            )}
           </TouchableOpacity>
+
         </ScrollView>
       )}
 
-      {/* ── Bill type modal ── */}
+      {/* Bill Type Modal */}
       <Modal transparent visible={modalVisible} animationType="slide">
         <Pressable style={styles.overlay} onPress={() => setModalVisible(false)}>
           <Pressable style={styles.modal}>
             <View style={styles.handle} />
-            <Text style={styles.modalTitle}>Select Bill Type</Text>
+
+            <Text style={styles.modalTitle}>{t('Select Bill Type')}</Text>
+
             <FlatList
               data={billTypes}
               keyExtractor={(item) => item.id.toString()}
-              renderItem={renderBillItem}
-              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const isSelected = selectedBill?.id === item.id;
+                return (
+                  <TouchableOpacity
+                    style={styles.modalItem}
+                    onPress={() => {
+                      applyBillTypeSelection(item);
+                      setModalVisible(false);
+                    }}
+                  >
+                    <Text style={[styles.modalText, isSelected && { color: COLORS.primary }]}>
+                      {item.name}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
             />
           </Pressable>
         </Pressable>
@@ -404,9 +387,9 @@ function BillPaymentScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: '#F4F6F9' },
-  center:      { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content:     { padding: 16, paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: '#F4F6F9' },
+  center:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  content:   { padding: 16, paddingBottom: 40 },
 
   label: {
     fontSize: 13, fontWeight: '600',

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
@@ -13,9 +12,12 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import AppHeader from "../components/AppHeader";
 import { usePermissions } from "../../Utils/ConetextApi";
 import { otherServices } from "../../services/otherServices";
-import BRAND from '../config'
+import BRAND from '../config';
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
 const MyNoticesScreen = ({ navigation }) => {
+  const { t, i18n } = useTranslation();
   const { nightMode } = usePermissions();
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,28 +35,25 @@ const MyNoticesScreen = ({ navigation }) => {
     emptyText: nightMode ? "#F1F5F9" : "#111827",
     emptySubText: nightMode ? "#CBD5E1" : "#9CA3AF",
   };
-const stripHtml = (html) => {
-  if (!html) return "";
 
-  return html
-    .replace(/<[^>]*>?/gm, "")     // remove tags
-    .replace(/&nbsp;/g, " ")       // remove &nbsp
-    .replace(/\s+/g, " ")          // remove extra spaces
-    .trim();                       // remove starting/ending spaces
-};
+  const stripHtml = (html) => {
+    if (!html) return "";
+    return html
+      .replace(/<[^>]*>?/gm, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
 
   const fetchNotices = async () => {
     try {
       const res = await otherServices.getMyNotices("");
-      console.log(res)
       if (res?.status === "success") {
         setNotices(res.data || []);
-
       } else {
         setNotices([]);
       }
     } catch (error) {
-      console.log("Fetch Notices Error:", error);
       setNotices([]);
     } finally {
       setLoading(false);
@@ -71,135 +70,66 @@ const stripHtml = (html) => {
     fetchNotices();
   }, []);
 
- const renderItem = ({ item }) => {
-  const preview = stripHtml(item.notice)?.slice(0, 100);
-
-  const dateObj = new Date(item.published_at);
-  const day = dateObj.getDate();
-  const month = dateObj.toLocaleDateString("en-US", { month: "short" });
-
-  return (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        {
-          backgroundColor: theme.card,
-          shadowColor: nightMode ? "#000" : "#999",
-        },
-      ]}
-      activeOpacity={0.9}
-      onPress={() =>
-        navigation.navigate("NoticeDetailScreen", { notice: item })
-      }
-    >
-      {/* LEFT CALENDAR */}
-      <View style={styles.calendarContainer}>
-        <View
-          style={[
-            styles.calendarHeader,
-            { backgroundColor: theme.calendarHeader },
-          ]}
-        >
-          <Text style={styles.calendarMonth}>{month}</Text>
-        </View>
-
-        <View
-          style={[
-            styles.calendarBody,
-            { backgroundColor: theme.calendarBody },
-          ]}
-        >
-          <Text style={[styles.calendarDay, { color: theme.title }]}>
-            {day}
-          </Text>
-        </View>
-      </View>
-
-      {/* RIGHT CONTENT */}
-<View style={styles.rightContent}>
-  <View style={styles.contentBlock}>    
-        {/* CATEGORY + DOT only if category exists */}
-        {item.category ? (
-          <View style={styles.topRow}>
-            <Text style={[styles.category, { color: theme.category }]}>
-              {item.category}
-            </Text>
-
-                   {/* DATE only if exists */}
-        {item.published_at ? (
-          <Text style={[styles.date, { color: theme.date }]}>
-            {dateObj.toLocaleDateString("en-GB")}
-
-          </Text>
-        ) : null}
-          </View>
-        ) : null}
-     
-
-        {/* SUBJECT always */}
-        <Text
-          style={[styles.title, { color: theme.title }]}
-          numberOfLines={2}
-        >
-          {item.subject}
-        </Text>
-
-        {/* PREVIEW only if exists */}
-        {preview ? (
-          <Text
-            style={[styles.preview, { color: theme.preview }]}
-            numberOfLines={1}
-          >
-            {preview}
-          </Text>
-        ) : null}
-        
-          </View>
-
+  const renderItem = ({ item }) => {
+    const preview = stripHtml(item.notice)?.slice(0, 100);
+    const dateObj = new Date(item.published_at);
     
-      </View>
-       {/* {!item.is_read && <View style={styles.unreadDot} />} */}
+    // Internationalize Month and Date String
+    const currentLang = i18n.language === 'km' ? 'km-KH' : 'en-US';
+    const month = dateObj.toLocaleDateString(currentLang, { month: "short" });
+    const day = dateObj.getDate();
+    const fullDateString = dateObj.toLocaleDateString(currentLang, { 
+        day: '2-digit', month: 'short', year: 'numeric' 
+    });
 
-    </TouchableOpacity>
-  );
-};
+    return (
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.card, shadowColor: nightMode ? "#000" : "#999" }]}
+        activeOpacity={0.9}
+        onPress={() => navigation.navigate("NoticeDetailScreen", { notice: item })}
+      >
+        <View style={styles.calendarContainer}>
+          <View style={[styles.calendarHeader, { backgroundColor: theme.calendarHeader }]}>
+            <Text style={styles.calendarMonth}>{month}</Text>
+          </View>
+          <View style={[styles.calendarBody, { backgroundColor: theme.calendarBody }]}>
+            <Text style={[styles.calendarDay, { color: theme.title }]}>{day}</Text>
+          </View>
+        </View>
+
+        <View style={styles.rightContent}>
+          <View style={styles.contentBlock}>
+            {item.category ? (
+              <View style={styles.topRow}>
+                <Text style={[styles.category, { color: theme.category }]}>{t(item.category)}</Text>
+                {item.published_at ? (
+                  <Text style={[styles.date, { color: theme.date }]}>{fullDateString}</Text>
+                ) : null}
+              </View>
+            ) : null}
+            <Text style={[styles.title, { color: theme.title }]} numberOfLines={2}>{item.subject}</Text>
+            {preview ? (
+              <Text style={[styles.preview, { color: theme.preview }]} numberOfLines={1}>{preview}</Text>
+            ) : null}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyComponent = () => (
     <View style={styles.emptyContainer}>
-      < Ionicons
-        name="document-outline"
-        size={56}
-        color={theme.preview}
-      />
-      <Text
-        style={[
-          styles.emptyTitle,
-          { color: theme.emptyText },
-        ]}
-      >
-        No Notices Found
-      </Text>
-      <Text
-        style={[
-          styles.emptySubtitle,
-          { color: theme.emptySubText },
-        ]}
-      >
-        You're all caught up 🎉
-      </Text>
+      <Ionicons name="document-outline" size={56} color={theme.preview} />
+      <Text style={[styles.emptyTitle, { color: theme.emptyText }]}>{t("No Notices Found")}</Text>
+      <Text style={[styles.emptySubtitle, { color: theme.emptySubText }]}>{t("You're all caught up 🎉")}</Text>
     </View>
   );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
-    >
-      <AppHeader title="My Notices" />
-
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <AppHeader title={t("My Notices")} />
       {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={theme.category} />
-        </View>
+        <View style={styles.loader}><ActivityIndicator size="large" color={theme.category} /></View>
       ) : notices.length === 0 ? (
         renderEmptyComponent()
       ) : (
@@ -208,13 +138,7 @@ const stripHtml = (html) => {
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[theme.category]}
-            />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.category]} />}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -223,7 +147,6 @@ const stripHtml = (html) => {
 };
 
 export default MyNoticesScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

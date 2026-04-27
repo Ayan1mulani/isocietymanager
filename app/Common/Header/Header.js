@@ -1,7 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Image,
@@ -12,9 +11,11 @@ import { Common } from '../../../services/Common';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import BRAND from '../../config';
 import { ismServices } from '../../../services/ismServices';
-
+import { useTranslation } from 'react-i18next';
+import Text from '../../components/TranslatedText';
 
 const ResidentHeader = () => {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const { nightMode } = usePermissions();
   const [societyName, setSocietyName] = useState('');
@@ -30,22 +31,15 @@ const ResidentHeader = () => {
     border: nightMode ? '#374151' : '#E5E7EB',
   };
 
-  /* ------------------------------
-      LOAD DATA (RUNS EVERY TIME SCREEN OPENS)
-  ------------------------------ */
   const loadHeaderData = async () => {
     try {
       const res = await ismServices.getUserProfileData();
       const details = res?.data || res;
-      console.log(details, "det")
-
       setUserDetails(details);
 
-      // ✅ FIX AWAY STATUS
       const awayValue = Number(details?.home_away) === 1;
       setIsAway(awayValue);
 
-      // ✅ FIX LOGO (RESTORE THIS)
       const user = await Common.getLoggedInUser();
       setSocietyName(user?.society_name || user?.society?.name || '');
 
@@ -59,7 +53,6 @@ const ResidentHeader = () => {
     }
   };
 
-  /* 🔥 THIS IS THE KEY FIX */
   useFocusEffect(
     useCallback(() => {
       loadHeaderData();
@@ -68,12 +61,7 @@ const ResidentHeader = () => {
 
   return (
     <View style={{ backgroundColor: theme.background }}>
-
-      {/* HEADER */}
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
-
-        {/* LEFT */}
-        {/* LEFT */}
         <View style={styles.leftSection}>
           <View style={styles.logoBox}>
             <Image
@@ -87,14 +75,13 @@ const ResidentHeader = () => {
               style={[styles.societyName, { color: theme.text }]}
               numberOfLines={1}
             >
-              {societyName}
+              {/* Wrapped in t() in case society name is a translatable key */}
+              {t(societyName)}
             </Text>
           )}
         </View>
 
-        {/* RIGHT */}
         <View style={styles.rightSection}>
-
           <TouchableOpacity
             onPress={() => navigation.navigate('AllServicesScreen')}
             style={styles.iconBtn}
@@ -108,28 +95,25 @@ const ResidentHeader = () => {
           >
             <Ionicons name="notifications-outline" size={22} color={theme.text} />
           </TouchableOpacity>
-
         </View>
       </View>
 
-      {/* 🔴 AWAY INDICATOR */}
       {isAway && (
-        <>
-          <TouchableOpacity
-            style={styles.awayBanner}
-            onPress={() => navigation.navigate("Settings")}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.awayText}>You are marked as away</Text>
-            <Ionicons name="chevron-forward" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
-          </TouchableOpacity>
-        </>
+        <TouchableOpacity
+          style={styles.awayBanner}
+          onPress={() => navigation.navigate("Settings")}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.awayText}>{t("You are marked as away")}</Text>
+          <Ionicons name="chevron-forward" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
       )}
     </View>
   );
 };
 
 export default ResidentHeader;
+
 
 const styles = StyleSheet.create({
   header: {

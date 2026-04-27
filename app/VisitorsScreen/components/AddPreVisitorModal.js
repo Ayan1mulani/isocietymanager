@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   View,
-  Text,
   Modal,
   StyleSheet,
   TouchableOpacity,
@@ -9,6 +8,9 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+
+import Text from '../../components/TranslatedText'; 
+
 const PreApproveModal = ({
   visible,
   nightMode = false,
@@ -30,6 +32,7 @@ const PreApproveModal = ({
     subText: 'rgba(255,255,255,0.8)',
   };
 
+  // 2. ── Labels match keys in your JSON files ──
   const options = [
     { key: 'delivery', label: 'Delivery', icon: 'moped', onPress: onDelivery },
     { key: 'guest', label: 'Guest', icon: 'account-group', onPress: onGuest },
@@ -50,6 +53,7 @@ const PreApproveModal = ({
   >
     <View style={styles.headerArea}>
       <View style={styles.titleRow}>
+        {/* 3. ── Automatically handled by global <Text> ── */}
         <Text style={[styles.headline, { color: theme.headlineText }]}>
           Add Visitor
         </Text>
@@ -68,7 +72,6 @@ const PreApproveModal = ({
       </Text>
     </View>
 
-    {/* Prevent outside press closing when touching sheet */}
     <TouchableOpacity
       activeOpacity={1}
       style={[

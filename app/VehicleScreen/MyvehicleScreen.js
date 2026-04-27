@@ -1,9 +1,6 @@
-// MyVehiclesScreen.js
-
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
@@ -17,14 +14,15 @@ import BRAND from '../config'
 import { usePermissions } from "../../Utils/ConetextApi";
 import { hasPermission } from "../../Utils/PermissionHelper";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
+
 const PRIMARY = BRAND.COLORS.primary;
-
-
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getVehicleIcon = (model = "") => {
-
-
   const lower = model.toLowerCase();
   if (lower.includes("bike") || lower.includes("scooter") || lower.includes("motorcycle"))
     return "bicycle-outline";
@@ -35,12 +33,15 @@ const getVehicleIcon = (model = "") => {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const StatusBadge = ({ label, color, icon }) => (
-  <View style={[badgeStyles.badge, { backgroundColor: color + "18", borderColor: color + "40" }]}>
-    {icon && < Ionicons name={icon} size={11} color={color} />}
-    <Text style={[badgeStyles.label, { color }]}>{label}</Text>
-  </View>
-);
+const StatusBadge = ({ label, color, icon }) => {
+  const { t } = useTranslation(); // 👈 Init translation for sub-component
+  return (
+    <View style={[badgeStyles.badge, { backgroundColor: color + "18", borderColor: color + "40" }]}>
+      {icon && < Ionicons name={icon} size={11} color={color} />}
+      <Text style={[badgeStyles.label, { color }]}>{t(label)}</Text>
+    </View>
+  );
+};
 
 const badgeStyles = StyleSheet.create({
   badge: {
@@ -60,13 +61,12 @@ const badgeStyles = StyleSheet.create({
 });
 
 const VehicleCard = ({ item, onPress }) => {
+  const { t } = useTranslation(); // 👈 Init translation
+  
   const isApproved = item.is_approved === 1;
   const isIn = item.status === 1;
   const isSubscribed = item.is_subscribed === 1;
   const iconName = getVehicleIcon(item.model);
-
-  
-
 
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
@@ -90,7 +90,7 @@ const VehicleCard = ({ item, onPress }) => {
           )}
         </View>
 
-        <Text style={styles.model}>{item.model || "Unknown Model"}</Text>
+        <Text style={styles.model}>{item.model || t("Unknown Model")}</Text>
 
         <View style={styles.badgeRow}>
           {isApproved ? (
@@ -113,55 +113,56 @@ const VehicleCard = ({ item, onPress }) => {
   );
 };
 
-const EmptyState = ({ onAdd }) => (
-  <View style={styles.emptyContainer}>
-    <View style={styles.emptyIconBox}>
-      < Ionicons name="car-outline" size={40} color="#9CA3AF" />
+const EmptyState = () => {
+  const { t } = useTranslation(); // 👈 Init translation
+  return (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyIconBox}>
+        < Ionicons name="car-outline" size={40} color="#9CA3AF" />
+      </View>
+      <Text style={styles.emptyTitle}>{t("No Vehicles Added")}</Text>
+      <Text style={styles.emptySubtitle}>
+        {t("Tap the + button to register your vehicle")}
+      </Text>
     </View>
-    <Text style={styles.emptyTitle}>No Vehicles Added</Text>
-    <Text style={styles.emptySubtitle}>
-      Tap the + button to register your vehicle
-    </Text>
-  </View>
-);
+  );
+};
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 const MyVehiclesScreen = ({ navigation }) => {
   const route = useRoute();
+  const { t } = useTranslation(); // 👈 Init translation
 
   const { permissions } = usePermissions();
 
-const canCreateVehicle =
-  permissions && hasPermission(permissions, "VEH", "C");
+  const canCreateVehicle = permissions && hasPermission(permissions, "VEH", "C");
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
 
-const fetchVehicles = async () => {
-  try {
-    setLoading(true);
-    const res = await otherServices.getMyVehicles();
-    setVehicles(res?.data || []);
-  } catch (e) {
-    console.log(e);
-  } finally {
-    setLoading(false);
-  }
-};
-useEffect(() => {
-  fetchVehicles();
-}, []);
-
-useFocusEffect(
-  React.useCallback(() => {
-    if (route.params?.refresh) {
-      fetchVehicles();
-
-      navigation.setParams({
-        refresh: false,
-      });
+  const fetchVehicles = async () => {
+    try {
+      setLoading(true);
+      const res = await otherServices.getMyVehicles();
+      setVehicles(res?.data || []);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setLoading(false);
     }
-  }, [route.params?.refresh])
-);
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (route.params?.refresh) {
+        fetchVehicles();
+        navigation.setParams({ refresh: false });
+      }
+    }, [route.params?.refresh])
+  );
 
   const handleCardPress = (item) => {
     const isApproved = item.is_approved === 1;
@@ -174,58 +175,56 @@ useFocusEffect(
   const approved = vehicles.filter((v) => v.is_approved === 1);
   const pending  = vehicles.filter((v) => v.is_approved !== 1);
 
-
-
   return (
-  <SafeAreaView style={styles.container}>
-    
-    <AppHeader title={"My Vehicles"} />
+    <SafeAreaView style={styles.container}>
+      
+      <AppHeader title={t("My Vehicles")} />
 
-    {loading ? (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={PRIMARY} />
-        <Text style={styles.loadingText}>Loading vehicles...</Text>
-      </View>
-    ) : (
-      <FlatList
-        data={vehicles}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <VehicleCard item={item} onPress={() => handleCardPress(item)} />
-        )}
-        contentContainerStyle={[
-          styles.list,
-          vehicles.length === 0 && { flexGrow: 1 },
-        ]}
-        ListHeaderComponent={
-          vehicles.length > 0 ? (
-            <View style={styles.summaryRow}>
-              {pending.length > 0 && (
-                <View style={styles.summaryChip}>
-                  <View style={[styles.summaryDot, { backgroundColor: "#F59E0B" }]} />
-                  <Text style={styles.summaryText}>{pending.length} Pending</Text>
-                </View>
-              )}
-            </View>
-          ) : null
-        }
-        ListEmptyComponent={<EmptyState />}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-      />
-    )}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={PRIMARY} />
+          <Text style={styles.loadingText}>{t("Loading vehicles...")}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={vehicles}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <VehicleCard item={item} onPress={() => handleCardPress(item)} />
+          )}
+          contentContainerStyle={[
+            styles.list,
+            vehicles.length === 0 && { flexGrow: 1 },
+          ]}
+          ListHeaderComponent={
+            vehicles.length > 0 ? (
+              <View style={styles.summaryRow}>
+                {pending.length > 0 && (
+                  <View style={styles.summaryChip}>
+                    <View style={[styles.summaryDot, { backgroundColor: "#F59E0B" }]} />
+                    <Text style={styles.summaryText}>{pending.length} {t("Pending")}</Text>
+                  </View>
+                )}
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={<EmptyState />}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        />
+      )}
 
-    {canCreateVehicle && (
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate("AddVehicleScreen")}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
-    )}
+      {canCreateVehicle && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => navigation.navigate("AddVehicleScreen")}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
 
-  </SafeAreaView>
-);
+    </SafeAreaView>
+  );
 };
 
 export default MyVehiclesScreen;
@@ -237,7 +236,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgb(255, 255, 255)",
   },
 
- 
   // Summary
   summaryRow: {
     flexDirection: "row",

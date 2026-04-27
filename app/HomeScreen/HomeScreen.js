@@ -94,18 +94,6 @@ const HomeScreen = () => {
   };
 
   /* -------------------------------------------------------
-     ⏳ LOADING
-  ------------------------------------------------------- */
-  if (nightMode === undefined || loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={styles.bodyText}>Loading...</Text>
-      </View>
-    );
-  }
-
-  /* -------------------------------------------------------
      UI
   ------------------------------------------------------- */
   return (

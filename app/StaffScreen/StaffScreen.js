@@ -12,10 +12,12 @@ import AppHeader from "../components/AppHeader";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { otherServices } from "../../services/otherServices";
 import { useRoute, useNavigation } from "@react-navigation/native";
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get("window");
 
 const StaffScreen = () => {
+  const { t } = useTranslation(); // Add this line
   const [activeIndex, setActiveIndex] = useState(0);
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -76,10 +78,10 @@ const loadCategories = async () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader title="Staff Management" />
+    <AppHeader title={t("Staff Management")} />
 
       <SlidingTabs
-        tabs={["Assigned", "Find Staff"]}
+       tabs={[t("Assigned"), t("Find Staff")]}
         activeIndex={activeIndex}
         onTabPress={handleTabPress}
         scrollX={scrollX} 

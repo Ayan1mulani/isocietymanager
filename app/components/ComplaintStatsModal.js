@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
+import { View, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { complaintService } from "../../services/complaintService";
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const COLOR_PALETTE = [
   "#FF8A65", // Orange
@@ -15,6 +17,7 @@ const COLOR_PALETTE = [
 ];
 
 const ComplaintStats = ({ theme, nightMode, onSegmentPress, selectedSegment }) => {
+  const { t } = useTranslation();
   const [dynamicData, setDynamicData] = useState([]);
   const animRefs = useRef({}); 
 
@@ -25,18 +28,20 @@ const ComplaintStats = ({ theme, nightMode, onSegmentPress, selectedSegment }) =
   const fetchStats = async () => {
     try {
       const res = await complaintService.getComplaintStatusCount();
-      console.log("STATS API RESPONSE:", JSON.stringify(res.data, null, 2));
       if (res?.status === "success") {
         const newData = (res.data || []).map((item, index) => {
-          const key = (item.status || "").toLowerCase().trim();
-          const name = item.status || "Unknown";
+          const rawStatus = item.status || "Unknown";
+          const key = rawStatus.toLowerCase().trim();
+          
+          // Translate the status name here so legend and internal logic use it
+          const translatedName = t(rawStatus);
           
           if (!animRefs.current[key]) {
             animRefs.current[key] = new Animated.Value(0);
           }
 
           return {
-            name: name,
+            name: translatedName,
             count: item.count,
             key: key,
             color: COLOR_PALETTE[index % COLOR_PALETTE.length],
@@ -59,19 +64,18 @@ const ComplaintStats = ({ theme, nightMode, onSegmentPress, selectedSegment }) =
     });
   }, [selectedSegment, dynamicData]);
 
-const total = dynamicData.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
+  const total = dynamicData.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
   const OUTER_R = 55;
   const INNER_R = 34;
   const GAP_DEG = 1.5;
 
   const enrichedData = dynamicData.map(item => {
-  const percentage = total > 0 ? (item.count / total) * 100 : 0;
-
-  return {
-    ...item,
-    percentage: Math.round(percentage),
-  };
-});
+    const percentage = total > 0 ? (item.count / total) * 100 : 0;
+    return {
+      ...item,
+      percentage: Math.round(percentage),
+    };
+  });
 
   const polarToCartesian = (r, angleDeg) => {
     const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -111,7 +115,8 @@ const total = dynamicData.reduce((sum, item) => sum + (Number(item.count) || 0),
   };
 
   let currentAngle = -90;
-const segments = enrichedData.map((item) => {    const percentage = total > 0 ? (item.count / total) * 100 : 0;
+  const segments = enrichedData.map((item) => {
+    const percentage = total > 0 ? (item.count / total) * 100 : 0;
     const angle = total > 0 ? (percentage / 100) * 360 : 0;
     const segment = {
       ...item,
@@ -166,12 +171,12 @@ const segments = enrichedData.map((item) => {    const percentage = total > 0 ? 
           </Svg>
           <View style={styles.centerLabel}>
             <Text style={{ fontSize: 20, fontWeight: "700", color: nightMode ? "#fff" : "#111" }}>{total}</Text>
-            <Text style={{ fontSize: 10, color: "#9CA3AF" }}>Total</Text>
+            <Text style={{ fontSize: 10, color: "#9CA3AF" }}>{t("Total")}</Text>
           </View>
         </View>
 
         <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
-{enrichedData.map(renderLegendItem)}
+          {enrichedData.map(renderLegendItem)}
         </View>
       </View>
     </View>
@@ -181,7 +186,7 @@ const segments = enrichedData.map((item) => {    const percentage = total > 0 ? 
 export default ComplaintStats;
 
 const styles = StyleSheet.create({
-  container: { margin: 3.5, padding: 16, borderRadius: 16, marginRight:18,marginLeft:18 , elevation:0.1},
+  container: { margin: 3.5, padding: 16, borderRadius: 16, marginRight:18, marginLeft:18, elevation:0.1},
   chartWrapper: { width: 120, height: 120, marginRight: 16 },
   centerLabel: { position: "absolute", width: 120, height: 120, alignItems: "center", justifyContent: "center" },
   legendItem: { flexDirection: "row", alignItems: "center", width: "48%", marginBottom: 10, marginRight: "2%" },

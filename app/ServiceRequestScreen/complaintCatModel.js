@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -19,6 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BRAND from '../config';
 import AppHeader from '../components/AppHeader';
 
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
+
 const { width } = Dimensions.get('window');
 const H_PADDING = 16;
 const GAP = 10;
@@ -27,6 +30,7 @@ const CARD_WIDTH = (width - H_PADDING * 2 - GAP * 2) / 3;
 const CategorySelectionScreen = () => {
   const { nightMode } = usePermissions();
   const navigation = useNavigation();
+  const { t } = useTranslation(); // 👈 Init translation
 
   const [search, setSearch] = useState('');
   const [categories, setCategories] = useState([]);
@@ -46,7 +50,7 @@ const CategorySelectionScreen = () => {
         surface: '#FFFFFF',
         border: '#E5E7EB',
         text: '#111827',
-        secondary: '#6B7280', // Slightly adjusted for visibility
+        secondary: '#6B7280', 
         searchBg: '#F3F4F6',
       };
 
@@ -72,7 +76,9 @@ const CategorySelectionScreen = () => {
   };
 
   const filtered = categories.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
+    // Search both the English name and the translated name just in case
+    c.name.toLowerCase().includes(search.toLowerCase()) || 
+    t(c.name).toLowerCase().includes(search.toLowerCase())
   );
 
   const rows = [];
@@ -83,14 +89,14 @@ const CategorySelectionScreen = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['bottom']}>
       {/* 1. Header fixed at top */}
-      <AppHeader title={"Select Category"} />
+      <AppHeader title={t("Select Category")} />
 
       {loading ? (
         /* 2. Loader centered in the remaining space */
         <View style={styles.loader}>
           <ActivityIndicator size="large" color={BRAND.COLORS.primary} />
           <Text style={{ marginTop: 12, color: theme.secondary, fontWeight: '500' }}>
-            Loading categories...
+            {t("Loading categories...")}
           </Text>
         </View>
       ) : (
@@ -105,7 +111,7 @@ const CategorySelectionScreen = () => {
           >
             <Ionicons name="search" size={18} color={theme.secondary} />
             <TextInput
-              placeholder="Search category..."
+              placeholder={t("Search category...")}
               placeholderTextColor={theme.secondary}
               value={search}
               onChangeText={setSearch}
@@ -127,7 +133,7 @@ const CategorySelectionScreen = () => {
               <View style={styles.emptyContainer}>
                 <MaterialIcons name="search-off" size={48} color={theme.secondary} />
                 <Text style={{ marginTop: 10, color: theme.secondary, fontSize: 15 }}>
-                  No categories found
+                  {t("No categories found")}
                 </Text>
               </View>
             ) : (
@@ -154,7 +160,8 @@ const CategorySelectionScreen = () => {
                         style={[styles.cardText, { color: theme.text }]}
                         numberOfLines={2}
                       >
-                        {item.name}
+                        {/* Wrap the category name in t() so backend categories can be translated if added to your JSON */}
+                        {t(item.name)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -177,9 +184,9 @@ export default CategorySelectionScreen;
 
 const styles = StyleSheet.create({
   loader: {
-    flex: 1, // Takes all space below header
-    justifyContent: 'center', // Centers vertically
-    alignItems: 'center', // Centers horizontally
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
   },
   searchBar: {
     flexDirection: 'row',
@@ -211,7 +218,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    // Elevation for better UI
     elevation: 0.7,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },

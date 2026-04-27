@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Dimensions,
   Animated,
@@ -20,6 +19,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import SlidingTabs from '../components/SlidingTabs';
 import MyParkingPage from './singleMultiVisits/MyParkingPage';
 import BRAND from '../config';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -40,6 +41,7 @@ const COLORS = {
 };
 
 const VisitorScreen = () => {
+  const { t } = useTranslation(); // Add this line
   const navigation = useNavigation();
   const { nightMode, permissions } = usePermissions();
   const theme = nightMode ? COLORS.dark : COLORS.light;
@@ -53,13 +55,13 @@ const VisitorScreen = () => {
 
   // ── Independent data + loading state per tab ──────────────────────────────
   const [visits, setVisits] = useState([]);
-  const [visitsLoading, setVisitsLoading] = useState(false); 
+  const [visitsLoading, setVisitsLoading] = useState(false);
 
   const [passes, setPasses] = useState([]);
-  const [passesLoading, setPassesLoading] = useState(false); 
+  const [passesLoading, setPassesLoading] = useState(false);
 
   const [parkingBookings, setParkingBookings] = useState([]);
-  const [parkingLoading, setParkingLoading] = useState(false); 
+  const [parkingLoading, setParkingLoading] = useState(false);
   // ─────────────────────────────────────────────────────────────────────────
 
   const [showPreApproveModal, setShowPreApproveModal] = useState(false);
@@ -134,8 +136,8 @@ const VisitorScreen = () => {
     const tab = TABS[activeTabIndex];
 
     if (tab === 'Visit Requests' && visits.length === 0) loadVisits();
-    if (tab === 'Entry Passes'   && passes.length === 0) loadPasses();
-    if (tab === 'Parking'        && parkingBookings.length === 0) loadParking();
+    if (tab === 'Entry Passes' && passes.length === 0) loadPasses();
+    if (tab === 'Parking' && parkingBookings.length === 0) loadParking();
 
   }, [activeTabIndex, canViewVisitors, TABS, visits.length, passes.length, parkingBookings.length, loadVisits, loadPasses, loadParking]);
 
@@ -145,8 +147,7 @@ const VisitorScreen = () => {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: theme.textSecondary, marginTop: 12 }}>Loading...</Text>
-      </View>
+        <Text style={{ color: theme.textSecondary, marginTop: 12 }}>{t("Loading...")}</Text>      </View>
     );
   }
 
@@ -155,9 +156,9 @@ const VisitorScreen = () => {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <Ionicons name="lock-closed-outline" size={64} color={theme.textSecondary} />
-        <Text style={[styles.restrictedTitle, { color: theme.text }]}>Access Restricted</Text>
+        <Text style={[styles.restrictedTitle, { color: theme.text }]}>{t("Access Restricted")}</Text>
         <Text style={[styles.restrictedSub, { color: theme.textSecondary }]}>
-          You do not have permission to view visitors.{'\n'}Please contact your administrator.
+          {t("You do not have permission to view visitors.")}{'\n'}{t("Please contact your administrator.")}
         </Text>
       </View>
     );
@@ -169,7 +170,7 @@ const VisitorScreen = () => {
         <VisitRequest
           nightMode={nightMode}
           visitorData={{ visits }}
-          loading={visitsLoading}  
+          loading={visitsLoading}
           onRefresh={loadVisits}
         />
       );
@@ -180,7 +181,7 @@ const VisitorScreen = () => {
         <SingleEntry
           nightMode={nightMode}
           passData={passes}
-          loading={passesLoading}   
+          loading={passesLoading}
           onRefresh={loadPasses}
         />
       );
@@ -190,7 +191,7 @@ const VisitorScreen = () => {
       <MyParkingPage
         nightMode={nightMode}
         parkingBookings={parkingBookings}
-        loading={parkingLoading}    
+        loading={parkingLoading}
         onRefresh={loadParking}
       />
     );

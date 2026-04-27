@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, Switch,
-  ScrollView, ActivityIndicator, Platform, TextInput
+  ScrollView, ActivityIndicator, Platform, TextInput, TouchableOpacity
 } from "react-native";
 import DefaultPreference from 'react-native-default-preference';
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -16,8 +16,11 @@ import StatusModal from "../../app/components/StatusModal";
 import { otherServices } from "../../services/otherServices";
 import { PERMISSIONS, check } from 'react-native-permissions';
 
+// ── Import useTranslation for i18n ──
+import { useTranslation } from 'react-i18next';
+
 import { usePermissions } from "../../Utils/ConetextApi";
-import { hasPermission } from "../../Utils/PermissionHelper"; // ── NEW: Imported your helper ──
+import { hasPermission } from "../../Utils/PermissionHelper";
 
 import {
   loadCachedSettings,
@@ -30,14 +33,14 @@ import {
 const SettingsScreen = () => {
   const navigation = useNavigation();
   
-  // ── NEW: Grab permissions from context ──
-  const { permissions } = usePermissions();
+  // ── Initialize i18n hooks ──
+  const { t, i18n } = useTranslation();
   
-  // ── NEW: Check if user has permission to toggle Away status ──
+  const { permissions } = usePermissions();
   const canToggleAway = permissions && hasPermission(permissions, 'RESHOMAWY', 'C');
-  console.log("User permissions:", permissions, "Can toggle Away:", canToggleAway);
 
   const [loading, setLoading] = useState(false);
+  const [changingLang, setChangingLang] = useState(null); // 👈 Added loading state for language
   const [isAway, setIsAway] = useState(false);
   const [visitSound, setVisitSound] = useState(true);
   const [staffNotification, setStaffNotification] = useState(true);
@@ -52,6 +55,14 @@ const SettingsScreen = () => {
   const [statusModal, setStatusModal] = useState({
     visible: false, type: "success", title: "", subtitle: ""
   });
+
+  // ── Available Languages List ──
+  const availableLanguages = [
+    { code: 'en', label: 'English' },
+    { code: 'km', label: 'Khmer (ភាសាខ្មែរ)' },
+    { code: 'zh', label: 'Chinese (中文)' }, 
+    { code: 'vi', label: 'Vietnamese (Tiếng Việt)' }
+  ];
 
   const applySettings = (cache) => {
     if (!cache) return;
@@ -103,13 +114,13 @@ const SettingsScreen = () => {
     const notif = await checkNotificationPermission();
     const alarm = await checkAlarmPermission();
     if (!notif && !alarm) {
-      setPermissionMessage("Notifications & alarms are OFF");
+      setPermissionMessage(t("Notifications & alarms are OFF"));
       setPermissionWarning(true);
     } else if (!notif) {
-      setPermissionMessage("Notifications are OFF");
+      setPermissionMessage(t("Notifications are OFF"));
       setPermissionWarning(true);
     } else if (!alarm) {
-      setPermissionMessage("Alarms & reminders are OFF");
+      setPermissionMessage(t("Alarms & reminders are OFF"));
       setPermissionWarning(true);
     } else {
       setPermissionWarning(false);
@@ -177,15 +188,11 @@ const SettingsScreen = () => {
         ...overrides,                           
       };
 
-      console.log("Saving payload:", payload);    
       await otherServices.updateUserSettings(payload);
-      console.log("Save success");
-
     } catch (err) {
       console.log("Silent save error:", err);
     }
   };
-
 
   const toggleAway = (value) => {
     markSettingsSaved();
@@ -238,55 +245,74 @@ const SettingsScreen = () => {
 
   const handleSave = async () => {
     if (primaryNumber && !isValidPhone(primaryNumber)) {
-      setStatusModal({ visible: true, type: "error", title: "Invalid Primary Number", subtitle: "Enter a valid 10-digit number starting with 6-9" });
+      setStatusModal({ visible: true, type: "error", title: t("Invalid Primary Number"), subtitle: t("Enter a valid 10-digit number starting with 6-9") });
       return;
     }
     if (secondaryNumber && !isValidPhone(secondaryNumber)) {
-      setStatusModal({ visible: true, type: "error", title: "Invalid Secondary Number", subtitle: "Enter a valid 10-digit number starting with 6-9" });
+      setStatusModal({ visible: true, type: "error", title: t("Invalid Secondary Number"), subtitle: t("Enter a valid 10-digit number starting with 6-9") });
       return;
     }
     try {
-      setStatusModal({ visible: true, type: "loading", title: "Saving", subtitle: "Please wait..." });
+      setStatusModal({ visible: true, type: "loading", title: t("Saving"), subtitle: t("Please wait...") });
       await silentSaveUserSettings({ ivr_p: primaryNumber, ivr_s: secondaryNumber });
-      setStatusModal({ visible: true, type: "success", title: "Saved", subtitle: "Phone numbers updated" });
+      setStatusModal({ visible: true, type: "success", title: t("Saved"), subtitle: t("Phone numbers updated") });
       setInitialPhones({ primary: primaryNumber, secondary: secondaryNumber });
     } catch (err) {
-      setStatusModal({ visible: true, type: "error", title: "Save Failed", subtitle: "Unable to update numbers" });
+      setStatusModal({ visible: true, type: "error", title: t("Save Failed"), subtitle: t("Unable to update numbers") });
     }
   };
 
   const handlePrimaryChange = (text) => setPrimaryNumber(text.replace(/[^0-9]/g, ''));
   const handleSecondaryChange = (text) => setSecondaryNumber(text.replace(/[^0-9]/g, ''));
 
+  // ── Handle Language Switch ──
+  // ── Handle Language Switch (Fixed for UI freezing) ──
+  const handleLanguageChange = (langCode) => {
+    if (i18n.language === langCode) return; 
+
+    // 1. Turn on the spinner immediately
+    setChangingLang(langCode); 
+    
+    // 2. Wait just 50ms so React has time to paint the spinner on the screen
+    setTimeout(async () => {
+      try {
+        await i18n.changeLanguage(langCode); // 3. Now do the heavy language swap
+      } catch (error) {
+        console.log("Error changing language:", error);
+      } finally {
+        setChangingLang(null); // 4. Turn off the spinner
+      }
+    }, 50);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader title="Settings" />
+      <AppHeader title={t("Settings")} />
       <View style={{ flex: 1 }}>
         {loading && (
           <View style={styles.loaderOverlay}>
             <ActivityIndicator size="large" color="#1996D3" />
-            <Text style={styles.loaderText}>Loading settings...</Text>
+            <Text style={styles.loaderText}>{t("Loading settings...")}</Text>
           </View>
         )}
         {permissionWarning && (
           <View style={styles.permissionWarning}>
             <Text style={styles.permissionText}>
-              {permissionMessage}. Please enable them from system settings 🔔
+              {permissionMessage}. {t("Please enable them from system settings")} 🔔
             </Text>
           </View>
         )}
         <ScrollView showsVerticalScrollIndicator={false}>
           
-          {/* ── NEW: Hide Personal Section if no permission ── */}
           {canToggleAway && (
             <>
               <View style={styles.sectionHeader}>
                 <Ionicons name="person-outline" size={16} color="#6B7280" />
-                <Text style={styles.sectionTitle}>Personal</Text>
+                <Text style={styles.sectionTitle}>{t("Personal")}</Text>
               </View>
               <View style={styles.card}>
                 <View style={styles.row}>
-                  <Text style={styles.label}>I am Away</Text>
+                  <Text style={styles.label}>{t("I am Away")}</Text>
                   
                   <Switch 
                     value={isAway} 
@@ -301,28 +327,30 @@ const SettingsScreen = () => {
 
           <View style={styles.sectionHeader}>
             <Ionicons name="notifications-outline" size={16} color="#6B7280" />
-            <Text style={styles.sectionTitle}>Notifications</Text>
+            <Text style={styles.sectionTitle}>{t("Notifications")}</Text>
           </View>
           <View style={styles.card}>
             <View style={styles.row}>
-              <Text style={styles.label}>Visit Sound</Text>
+              <Text style={styles.label}>{t("Visit Sound")}</Text>
               <Switch value={visitSound} onValueChange={toggleVisitSound}
                 trackColor={{ false: "#ddd", true: "#1996D3" }} />
             </View>
             <View style={styles.divider} />
             <View style={styles.row}>
-              <Text style={styles.label}>Staff</Text>
+              <Text style={styles.label}>{t("Staff")}</Text>
               <Switch value={staffNotification} onValueChange={toggleStaffSound}
                 trackColor={{ false: "#ddd", true: "#1996D3" }} />
             </View>
           </View>
           <View style={styles.sectionHeader}>
             <Ionicons name="call-outline" size={16} color="#6B7280" />
-            <Text style={styles.sectionTitle}>IVR Settings</Text>
+            <Text style={styles.sectionTitle}>{t("IVR Settings")}</Text>
           </View>
-          <View style={styles.card}>
+          
+          {/* Added a custom bottom margin to reduce space when IVR is enabled */}
+          <View style={[styles.card, { marginBottom: ivrEnabled ? 4 : 10 }]}>
             <View style={styles.row}>
-              <Text style={styles.label}>Enable IVR</Text>
+              <Text style={styles.label}>{t("Enable IVR")}</Text>
               <Switch value={ivrEnabled} onValueChange={toggleIvr}
                 trackColor={{ false: "#ddd", true: "#1996D3" }} />
             </View>
@@ -330,30 +358,30 @@ const SettingsScreen = () => {
               <>
                 <View style={styles.divider} />
                 <View style={styles.inputSection}>
-                  <Text style={styles.inputLabel}>Primary Number</Text>
+                  <Text style={styles.inputLabel}>{t("Primary Number")}</Text>
                   <TextInput
                     style={[styles.phoneInput, primaryNumber && !isValidPhone(primaryNumber) && styles.phoneInputError]}
-                    placeholder="Enter 10-digit number" keyboardType="phone-pad"
+                    placeholder={t("Enter 10-digit number")} keyboardType="phone-pad"
                     maxLength={10} placeholderTextColor="#9CA3AF"
                     value={primaryNumber} onChangeText={handlePrimaryChange} />
                   {primaryNumber && !isValidPhone(primaryNumber) && (
-                    <Text style={styles.errorText}>Must be 10 digits starting with 6-9</Text>
+                    <Text style={styles.errorText}>{t("Must be 10 digits starting with 6-9")}</Text>
                   )}
                 </View>
                 <View style={styles.inputSection}>
-                  <Text style={styles.inputLabel}>Secondary Number</Text>
+                  <Text style={styles.inputLabel}>{t("Secondary Number")}</Text>
                   <TextInput
                     style={[styles.phoneInput, secondaryNumber && !isValidPhone(secondaryNumber) && styles.phoneInputError]}
-                    placeholder="Enter 10-digit number (optional)" maxLength={10}
+                    placeholder={t("Enter 10-digit number (optional)")} maxLength={10}
                     keyboardType="phone-pad" placeholderTextColor="#9CA3AF"
                     value={secondaryNumber} onChangeText={handleSecondaryChange} />
                   {secondaryNumber && !isValidPhone(secondaryNumber) && (
-                    <Text style={styles.errorText}>Must be 10 digits starting with 6-9</Text>
+                    <Text style={styles.errorText}>{t("Must be 10 digits starting with 6-9")}</Text>
                   )}
                 </View>
                 {phoneChanged && (
                   <View style={styles.saveButtonContainer}>
-                    <SubmitButton title="Save Numbers" onPress={handleSave}
+                    <SubmitButton title={t("Save Numbers")} onPress={handleSave}
                       disabled={
                         (primaryNumber && !isValidPhone(primaryNumber)) ||
                         (secondaryNumber && !isValidPhone(secondaryNumber))
@@ -363,19 +391,49 @@ const SettingsScreen = () => {
               </>
             )}
           </View>
+          
           {ivrEnabled && (
             <View style={styles.noteOuterContainer}>
-              <Text style={styles.noteTitle}>Important Note</Text>
+              <Text style={styles.noteTitle}>{t("Important Note")}</Text>
               <Text style={styles.noteSubtitle}>
-                You will receive a call for confirmation on arrival of your visitor/guest.
+                {t("You will receive a call for confirmation on arrival of your visitor/guest.")}
               </Text>
               <Text style={styles.noteText}>
-                By providing your contact details you have authorized Factech Automation Solutions
-                Private Limited to contact you in future through calls/Email/SMS to share
-                information from iSocietyManager.
+                {t("By providing your contact details you have authorized iSocietyManager to contact you in future through calls/Email/SMS to share information from iSocietyManager.")}
               </Text>
             </View>
           )}
+
+          {/* ── Language Preferences Section ── */}
+          <View style={styles.sectionHeader}>
+            <Ionicons name="language-outline" size={16} color="#6B7280" />
+            <Text style={styles.sectionTitle}>{t("Language")}</Text>
+          </View>
+          <View style={[styles.card, { marginBottom: 20 }]}>
+            {availableLanguages.map((lang, index) => (
+              <View key={lang.code}>
+                <TouchableOpacity
+                  style={styles.languageRow}
+                  onPress={() => handleLanguageChange(lang.code)}
+                  disabled={changingLang !== null} // Disable while changing
+                >
+                  <Text style={[styles.label, i18n.language === lang.code && styles.activeLanguageText]}>
+                    {lang.label}
+                  </Text>
+                  
+                  {/* Show loader if switching to this language, otherwise checkmark if active */}
+                  {changingLang === lang.code ? (
+                    <ActivityIndicator size="small" color="#1996D3" />
+                  ) : i18n.language === lang.code ? (
+                    <Ionicons name="checkmark" size={20} color="#1996D3" />
+                  ) : null}
+
+                </TouchableOpacity>
+                {index < availableLanguages.length - 1 && <View style={styles.divider} />}
+              </View>
+            ))}
+          </View>
+
           <View style={{ height: 40 }} />
         </ScrollView>
       </View>
@@ -407,8 +465,22 @@ const styles = StyleSheet.create({
   loaderText: { marginTop: 10, color: "#6B7280", fontSize: 14 },
   permissionWarning: { margin: 15, padding: 12, borderRadius: 10, backgroundColor: "#FEF3C7", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   permissionText: { color: "#92400E", flex: 1 },
-  noteOuterContainer: { paddingHorizontal: 20, paddingVertical: 15, marginTop: 15 },
+  
+  // ── FIX: Adjusted Spacing to pull the Note up tightly under the IVR box ──
+  noteOuterContainer: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 15, marginTop: 0 },
   noteTitle: { fontSize: 14, fontWeight: "600", color: "#111827", lineHeight: 20, textAlign: "center" },
   noteSubtitle: { fontSize: 13, fontWeight: "500", color: "#4B5563", lineHeight: 18, textAlign: "center", marginTop: 6 },
   noteText: { marginTop: 8, fontSize: 13, color: "#9CA3AF", lineHeight: 18, textAlign: "center" },
+  
+  languageRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  activeLanguageText: {
+    color: "#1996D3",
+    fontWeight: "700",
+  }
 });

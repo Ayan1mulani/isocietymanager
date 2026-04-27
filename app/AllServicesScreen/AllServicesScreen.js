@@ -2,26 +2,32 @@ import React, { useState, useRef, useEffect } from "react";
 import { hasPermission } from "../../Utils/PermissionHelper";
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   TextInput,
   Keyboard,
-
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import AppHeader from "../components/AppHeader";
 import { usePermissions } from "../../Utils/ConetextApi";
 import { SafeAreaView } from "react-native-safe-area-context";
-import BRAND from '../config'
+import BRAND from '../config';
 
+// 1. ── Import your global Text component ──
+import Text from '../components/TranslatedText';
+
+// 2. ── Import translation hook ──
+import { useTranslation } from "react-i18next";
 
 const AllServicesScreen = () => {
   const navigation = useNavigation();
   const { nightMode, permissions } = usePermissions();
   const searchInputRef = useRef(null);
+
+  // Initialize translation
+  const { t } = useTranslation();
 
   const [search, setSearch] = useState("");
 
@@ -36,12 +42,11 @@ const AllServicesScreen = () => {
   };
 
   const services = [
-    // { title: "Payment", icon: "card-outline" },
     { title: "Notices", icon: "notifications-outline", route: "MyNoticesScreen" },
-    { title: "Book Ameneties", icon: "bookmarks-outline", route: "AmenitiesListScreen" },
+    { title: "Book Amenities", icon: "bookmarks-outline", route: "AmenitiesListScreen" },
     { title: "My Complex", icon: "notifications-outline", route: "Notices" },
     { title: "Settings", icon: "settings-outline", route: 'Settings' },
-    { title: "My vehicles", icon: "car-outline", route: "MyVehiclesScreen" },
+    { title: "My Vehicles", icon: "car-outline", route: "MyVehiclesScreen" },
     { title: "Staff", icon: "checkmark-circle-outline", route: "StaffScreen" },
     { title: "Family members", icon: "person-add-outline", route: "FamilyMember" },
     { title: "Add vehicle", icon: "car-outline", route: "AddVehicleScreen" },
@@ -53,14 +58,11 @@ const AllServicesScreen = () => {
     { title: 'Debit Credit Note', icon: 'time-outline', route: 'PaymentHistory' },
   ];
 
-  // Auto focus when screen is focused
   useFocusEffect(
     React.useCallback(() => {
-      // Small delay to ensure component is mounted
       const timer = setTimeout(() => {
         if (searchInputRef.current) {
           searchInputRef.current.focus();
-          // Keyboard.show() is not needed - focus() automatically shows it
         }
       }, 300);
 
@@ -72,57 +74,31 @@ const AllServicesScreen = () => {
     .filter((item) => {
       if (!permissions) return false;
 
-      if (item.title === "Add vehicle") {
-        return hasPermission(permissions, "VEH", "C");
-      }
-
-      if (item.title === "My vehicles") {
-        return hasPermission(permissions, "VEH", "R");
-      }
-
-      if (item.title === "Bills") {
-        return hasPermission(permissions, "BILL", "R");
-      }
-
-      if (item.title === "Staff") {
-        return hasPermission(permissions, "VMSSTF", "R");
-      }
-
-      if (item.title === "Book Ameneties") {
-        return hasPermission(permissions, "FBK", "R");
-      }
-      if (item.title === "My Bookings") {
-        return hasPermission(permissions, "FBK", "R");
-      }
-      if (item.title === "Energy") {
-        return hasPermission(permissions, "MTR", "R");
-      }
-      if (item.title === "Payment") {
-        return hasPermission(permissions, "PMT", "R");
-      }
-      if (item.title === "Bounced Cheque") {
-        return hasPermission(permissions, "CHKBNC", "R");
-      }
-      if (item.title === "Debit Credit Note") {
-        return hasPermission(permissions, "PMT", "R");
-      }
-      if (item.title === "Family members") {
-        return hasPermission(permissions, "FMB", "R");
-      }
-      if (item.title === "Settings") {
-        return hasPermission(permissions, "STG", "R");
-      }
-
-      if (item.title === "Notices") {
-        return hasPermission(permissions, "NTC", "R");
-      }
-
+      if (item.title === "Add vehicle") return hasPermission(permissions, "VEH", "C");
+      if (item.title === "My vehicles") return hasPermission(permissions, "VEH", "R");
+      if (item.title === "Bills") return hasPermission(permissions, "BILL", "R");
+      if (item.title === "Staff") return hasPermission(permissions, "VMSSTF", "R");
+      if (item.title === "Book Amenities") return hasPermission(permissions, "FBK", "R");
+      if (item.title === "My Bookings") return hasPermission(permissions, "FBK", "R");
+      if (item.title === "Energy") return hasPermission(permissions, "MTR", "R");
+      if (item.title === "Payment") return hasPermission(permissions, "PMT", "R");
+      if (item.title === "Bounced Cheque") return hasPermission(permissions, "CHKBNC", "R");
+      if (item.title === "Debit Credit Note") return hasPermission(permissions, "PMT", "R");
+      if (item.title === "Family members") return hasPermission(permissions, "FMB", "R");
+      if (item.title === "Settings") return hasPermission(permissions, "STG", "R");
+      if (item.title === "Notices") return hasPermission(permissions, "NTC", "R");
 
       return true;
     })
-    .filter((item) =>
-      item.title.toLowerCase().includes(search.toLowerCase())
-    );
+    .filter((item) => {
+      // 🚀 THE FIX IS HERE 🚀
+      // Check if the search term matches EITHER the English title OR the translated title
+      const searchTerm = search.toLowerCase();
+      const englishTitle = item.title.toLowerCase();
+      const translatedTitle = t(item.title).toLowerCase();
+
+      return englishTitle.includes(searchTerm) || translatedTitle.includes(searchTerm);
+    });
 
   const clearSearch = () => {
     setSearch("");
@@ -131,9 +107,8 @@ const AllServicesScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.containerBg }]}>
-      <AppHeader title="All Services" />
+      <AppHeader title={t("All Services")} />
 
-      {/* SEARCH BAR */}
       <View style={[styles.searchContainer, { backgroundColor: theme.containerBg }]}>
         <View
           style={[
@@ -148,7 +123,7 @@ const AllServicesScreen = () => {
           <TextInput
             ref={searchInputRef}
             style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Search services..."
+            placeholder={t("Search services...")}
             placeholderTextColor={theme.textSecondary}
             value={search}
             onChangeText={setSearch}
@@ -162,16 +137,15 @@ const AllServicesScreen = () => {
         </View>
       </View>
 
-      {/* SERVICES LIST */}
       <ScrollView showsVerticalScrollIndicator={false}>
         {filteredServices.length === 0 ? (
-          <View style={styles.emptyContainer}>
+          <View style={[styles.emptyContainer, { backgroundColor: theme.containerBg }]}>
             < Ionicons name="search-outline" size={48} color={BRAND.COLORS.icon} />
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              No services found
+              {t("No services found")}
             </Text>
             <Text style={[styles.emptySubText, { color: theme.textSecondary }]}>
-              Try a different search term
+              {t("Try a different search term")}
             </Text>
           </View>
         ) : (
@@ -221,71 +195,15 @@ const AllServicesScreen = () => {
 export default AllServicesScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: "500",
-    paddingVertical: 4,
-    letterSpacing: 1
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-  },
-  leftSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  text: {
-    fontSize: 15,
-    fontWeight: "500",
-    textTransform: "capitalize",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 60,
-    backgroundColor: "#ffff"
-  },
-  emptyText: {
-    textAlign: "center",
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  emptySubText: {
-    textAlign: "center",
-    marginTop: 8,
-    fontSize: 14,
-  },
+  container: { flex: 1 },
+  searchContainer: { paddingHorizontal: 16, paddingVertical: 12 },
+  searchBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, gap: 10 },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: "500", paddingVertical: 4, letterSpacing: 1 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1 },
+  leftSection: { flexDirection: "row", alignItems: "center", flex: 1 },
+  iconCircle: { width: 40, height: 40, borderRadius: 10, justifyContent: "center", alignItems: "center", marginRight: 12 },
+  text: { fontSize: 15, fontWeight: "500", textTransform: "capitalize" },
+  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 },
+  emptyText: { textAlign: "center", marginTop: 16, fontSize: 16, fontWeight: "600" },
+  emptySubText: { textAlign: "center", marginTop: 8, fontSize: 14 },
 });

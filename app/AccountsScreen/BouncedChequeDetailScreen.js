@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   ActivityIndicator,
   StyleSheet,
@@ -14,6 +13,10 @@ import { usePermissions } from '../../Utils/ConetextApi';
 import { otherServices } from '../../services/otherServices';
 import AppHeader from '../components/AppHeader';
 import BRAND from '../config';
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const PRIMARY = BRAND.COLORS.primary;
 const DANGER = '#EF4444';
@@ -61,6 +64,7 @@ const SectionCard = ({ title, icon, iconColor, iconBg, children, theme }) => (
 export default function BouncedChequeDetailScreen({ route }) {
   const { id } = route.params;
   const { nightMode } = usePermissions();
+  const { t } = useTranslation(); // 👈 Init translation
 
   const theme = {
     bg: nightMode ? '#0F1117' : '#F0F4F8',
@@ -106,7 +110,7 @@ export default function BouncedChequeDetailScreen({ route }) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
         <AppHeader
-          title="Cheque Details"
+          title={t("Cheque Details")}
           nightMode={nightMode}
           showBack
           rightIcon={
@@ -126,7 +130,7 @@ export default function BouncedChequeDetailScreen({ route }) {
         />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={DANGER} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>Loading details...</Text>
+          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>{t("Loading details...")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -135,10 +139,10 @@ export default function BouncedChequeDetailScreen({ route }) {
   if (!data) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-        <AppHeader title="Cheque Details" nightMode={nightMode} showBack />
+        <AppHeader title={t("Cheque Details")} nightMode={nightMode} showBack />
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={52} color={theme.sub} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 15 }}>No data found</Text>
+          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 15 }}>{t("No data found")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -147,13 +151,10 @@ export default function BouncedChequeDetailScreen({ route }) {
   const bounce = data?.parsedData?.bounce_datails;
   const paymentData = data?.parsedData;
 
-  // Download button for header
-
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppHeader
-        title="Cheque Details"
+        title={t("Cheque Details")}
         nightMode={nightMode}
         showBack
         rightIcon={
@@ -181,9 +182,9 @@ export default function BouncedChequeDetailScreen({ route }) {
           <View style={styles.heroLeft}>
             <View style={styles.bouncedBadge}>
               <View style={styles.bouncedBadgeDot} />
-              <Text style={styles.bouncedBadgeText}>BOUNCED</Text>
+              <Text style={styles.bouncedBadgeText}>{t("BOUNCED")}</Text>
             </View>
-            <Text style={[styles.heroLabel, { color: theme.sub }]}>Cheque Amount</Text>
+            <Text style={[styles.heroLabel, { color: theme.sub }]}>{t("Cheque Amount")}</Text>
             <Text style={[styles.heroAmount, { color: DANGER }]}>
               {formatCurrency(data.amount)}
             </Text>
@@ -200,44 +201,44 @@ export default function BouncedChequeDetailScreen({ route }) {
 
         {/* ── Cheque Details ──────────────────────────────────────────────── */}
         <SectionCard
-          title="Cheque Details"
+          title={t("Cheque Details")}
           icon="document-text-outline"
           iconColor={PRIMARY}
           iconBg={nightMode ? '#1A2940' : '#EFF6FF'}
           theme={theme}
         >
-          <DetailRow label="Cheque / DD No." value={data.o_number} theme={theme} />
-          <DetailRow label="Bank" value={data.o_bank} theme={theme} />
-          <DetailRow label="Cheque Date" value={formatDate(data.o_date)} theme={theme} />
-          <DetailRow label="Transaction Date" value={formatDate(data.transaction_date_time ?? data.date)} theme={theme} />
+          <DetailRow label={t("Cheque / DD No.")} value={data.o_number} theme={theme} />
+          <DetailRow label={t("Bank")} value={data.o_bank} theme={theme} />
+          <DetailRow label={t("Cheque Date")} value={formatDate(data.o_date)} theme={theme} />
+          <DetailRow label={t("Transaction Date")} value={formatDate(data.transaction_date_time ?? data.date)} theme={theme} />
           {!!data.mode && (
-            <DetailRow label="Payment Mode" value={data.mode} theme={theme} />
+            <DetailRow label={t("Payment Mode")} value={data.mode} theme={theme} />
           )}
           {!!data.remarks && (
-            <DetailRow label="Remarks" value={data.remarks} isLast theme={theme} />
+            <DetailRow label={t("Remarks")} value={data.remarks} isLast theme={theme} />
           )}
         </SectionCard>
 
         {/* ── Payment / Plan Info ─────────────────────────────────────────── */}
         {(paymentData?.society_name || paymentData?.plan_name || data.bill_type_name) && (
           <SectionCard
-            title="Payment Info"
+            title={t("Payment Info")}
             icon="card-outline"
             iconColor={PRIMARY}
             iconBg={nightMode ? '#1A2940' : '#EFF6FF'}
             theme={theme}
           >
             {!!paymentData?.society_name && (
-              <DetailRow label="Society" value={paymentData.society_name} theme={theme} />
+              <DetailRow label={t("Society")} value={paymentData.society_name} theme={theme} />
             )}
             {!!paymentData?.plan_name && (
-              <DetailRow label="Plan" value={paymentData.plan_name} theme={theme} />
+              <DetailRow label={t("Plan")} value={paymentData.plan_name} theme={theme} />
             )}
             {!!data.bill_type_name && (
-              <DetailRow label="Bill Type" value={data.bill_type_name} theme={theme} />
+              <DetailRow label={t("Bill Type")} value={data.bill_type_name} theme={theme} />
             )}
             <DetailRow
-              label="Amount"
+              label={t("Amount")}
               value={formatCurrency(data.amount)}
               isLast
               theme={theme}
@@ -249,21 +250,21 @@ export default function BouncedChequeDetailScreen({ route }) {
         {/* ── Bounce Details ──────────────────────────────────────────────── */}
         {bounce && (
           <SectionCard
-            title="Bounce Details"
+            title={t("Bounce Details")}
             icon="alert-circle-outline"
             iconColor={DANGER}
             iconBg={nightMode ? '#2D1515' : '#FEF2F2'}
             theme={theme}
           >
             {!!bounce.remarks && (
-              <DetailRow label="Bounce Reason" value={bounce.remarks} theme={theme} />
+              <DetailRow label={t("Bounce Reason")} value={bounce.remarks} theme={theme} />
             )}
             {!!bounce.bounced_date && (
-              <DetailRow label="Bounced On" value={formatDate(bounce.bounced_date)} theme={theme} />
+              <DetailRow label={t("Bounced On")} value={formatDate(bounce.bounced_date)} theme={theme} />
             )}
             {!!bounce.charges && (
               <DetailRow
-                label="Bounce Charges"
+                label={t("Bounce Charges")}
                 value={formatCurrency(bounce.charges)}
                 isLast
                 theme={theme}
@@ -276,18 +277,18 @@ export default function BouncedChequeDetailScreen({ route }) {
         {/* ── Customer Details ────────────────────────────────────────────── */}
         {(paymentData?.customer_name || paymentData?.phone || paymentData?.email || data.member_name) && (
           <SectionCard
-            title="Customer Details"
+            title={t("Customer Details")}
             icon="person-outline"
             iconColor={PRIMARY}
             iconBg={nightMode ? '#1A2940' : '#EFF6FF'}
             theme={theme}
           >
-            <DetailRow label="Name" value={paymentData?.customer_name ?? data.member_name} theme={theme} />
+            <DetailRow label={t("Name")} value={paymentData?.customer_name ?? data.member_name} theme={theme} />
             {!!paymentData?.phone && (
-              <DetailRow label="Phone" value={paymentData.phone} theme={theme} />
+              <DetailRow label={t("Phone")} value={paymentData.phone} theme={theme} />
             )}
             {!!paymentData?.email && (
-              <DetailRow label="Email" value={paymentData.email} isLast theme={theme} />
+              <DetailRow label={t("Email")} value={paymentData.email} isLast theme={theme} />
             )}
           </SectionCard>
         )}
@@ -296,7 +297,7 @@ export default function BouncedChequeDetailScreen({ route }) {
         <View style={[styles.noteBox, { backgroundColor: theme.warningBg, borderColor: WARNING + '40' }]}>
           <Ionicons name="information-circle-outline" size={16} color={WARNING} style={{ marginTop: 1 }} />
           <Text style={[styles.noteText, { color: theme.sub }]}>
-            Bounced cheques may incur additional bank charges. Please contact your bank for resolution.
+            {t("Bounced cheques may incur additional bank charges. Please contact your bank for resolution.")}
           </Text>
         </View>
       </ScrollView>

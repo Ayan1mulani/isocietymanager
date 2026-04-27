@@ -16,7 +16,6 @@ const formatDate = () => {
 
 const complaintService = {
 
-
   getMyComplaints: async ({
     status = null,
     page = 1,
@@ -44,9 +43,10 @@ const complaintService = {
       return response;
     } catch (error) {
       console.log("❌ getMyComplaints Error:", error);
-      return { status: "error", data: [], metadata: {} }; // ✅ SAFE fallback
+      return { status: "error", data: [], metadata: {} };
     }
   },
+
   getSocietyConfigNew: async () => {
     try {
       const user = await Common.getLoggedInUser();
@@ -60,21 +60,18 @@ const complaintService = {
       };
 
       const encodedUser = encodeURIComponent(JSON.stringify(userObj));
-
       const url = `${API_URL2}/my/societyconfig?api-token=${user.api_token}&user-id=${encodedUser}`;
-
       const headers = await Util.getCommonAuth();
-
       const response = await ApiCommon.getReq(url, headers);
 
       console.log("✅ New Society Config:", response);
-
-      return response; // ⚠️ returns DIRECT object
+      return response;
     } catch (error) {
       console.log("❌ New Config API Error:", error);
       throw error;
     }
   },
+
   updateComplaintStatus: async (complaint) => {
     try {
       const user = await Common.getLoggedInUser();
@@ -88,16 +85,12 @@ const complaintService = {
       };
 
       const encodedUser = JSON.stringify(userObj);
-
       const url = `${API_URL2}/updateComplaint?api-token=${user.api_token}&user-id=${encodedUser}`;
-
       const headers = await Util.getCommonAuth();
 
-      // 🔥 SEND FULL DATA (VERY IMPORTANT)
       const payload = {
         id: complaint.id,
         status: complaint.status,
-
         description: complaint.description,
         complaint_type: complaint.complaint_type,
         sub_category: complaint.sub_category,
@@ -105,7 +98,6 @@ const complaintService = {
         severity: complaint.severity,
       };
 
-      // ✅ Add only if valid
       if (
         complaint.rating !== undefined &&
         complaint.rating !== null &&
@@ -115,24 +107,17 @@ const complaintService = {
         payload.rating = String(complaint.rating);
       }
 
-      if (
-        complaint.resident_remarks &&
-        complaint.resident_remarks.trim().length > 0
-      ) {
+      if (complaint.resident_remarks && complaint.resident_remarks.trim().length > 0) {
         payload.resident_remarks = complaint.resident_remarks;
       }
 
-      // ✅ Only for closing
       if (complaint.status === "Closed") {
         payload.closed_at = formatDate();
       }
 
       console.log("📤 FINAL PAYLOAD:", payload);
-
       const response = await ApiCommon.putReq(url, payload, headers);
-
       console.log("✅ Update Complaint Response:", response);
-
       return response;
 
     } catch (error) {
@@ -140,7 +125,6 @@ const complaintService = {
       throw error;
     }
   },
-
 
   getSocietyConfiguration: async () => {
     try {
@@ -155,19 +139,12 @@ const complaintService = {
       };
 
       const encodedUser = encodeURIComponent(JSON.stringify(userObj));
-
       const url = `${API_URL2}/getSocietyConfigurationToResident/${user.societyId}?api-token=${user.api_token}&user-id=${encodedUser}`;
-
       const headers = await Util.getCommonAuth();
-
       const response = await ApiCommon.getReq(url, headers);
 
       console.log("🏢 Society Config:", response);
-
-      if (response?.status === "success") {
-        return response; // or response.data (your choice)
-      }
-
+      if (response?.status === "success") return response;
       return null;
 
     } catch (error) {
@@ -175,7 +152,6 @@ const complaintService = {
       throw error;
     }
   },
-
 
   addComment: async (complaintId, message) => {
     try {
@@ -190,20 +166,13 @@ const complaintService = {
       };
 
       const encodedUser = encodeURIComponent(JSON.stringify(userObj));
-
       const url = `${API_URL2}/addComment?api-token=${user.api_token}&user-id=${encodedUser}`;
-
       const headers = await Util.getCommonAuth();
 
-      const payload = {
-        comp_id: complaintId,
-        remarks: message
-      };
-
+      const payload = { comp_id: complaintId, remarks: message };
       const response = await ApiCommon.postReq(url, payload, headers);
 
       console.log("Add Comment Response:", response);
-
       return response;
 
     } catch (error) {
@@ -211,6 +180,7 @@ const complaintService = {
       throw error;
     }
   },
+
   getComplaintComments: async (complaintId) => {
     try {
       const user = await Common.getLoggedInUser();
@@ -224,15 +194,11 @@ const complaintService = {
       };
 
       const encodedUser = encodeURIComponent(JSON.stringify(userObj));
-
       const url = `${API_URL2}/comment/${complaintId}?api-token=${user.api_token}&user-id=${encodedUser}`;
-
       const headers = await Util.getCommonAuth();
-
       const response = await ApiCommon.getReq(url, headers);
 
       console.log("Complaint Comments:", response);
-
       return response;
 
     } catch (error) {
@@ -254,15 +220,11 @@ const complaintService = {
       };
 
       const encodedUser = encodeURIComponent(JSON.stringify(userObj));
-
       const url = `${API_URL2}/my/complaintstatuscount?api-token=${user.api_token}&user-id=${encodedUser}`;
-
       const headers = await Util.getCommonAuth();
-
       const response = await ApiCommon.getReq(url, headers);
 
       console.log("Complaint Status Count:", response);
-
       return response;
 
     } catch (error) {
@@ -271,26 +233,22 @@ const complaintService = {
     }
   },
 
-
   getCategories: async () => {
-    const user = await Common.getLoggedInUser()
+    const user = await Common.getLoggedInUser();
     const params = {
       "api-token": user.api_token,
       "user-id": user.id,
     };
 
-
-
     const url = complaintService.appendParamsInUrl(`${API_URL2}/getcomplaintcategory`, params);
-    const headers = await Util.getCommonAuth()
+    const headers = await Util.getCommonAuth();
     const response = await ApiCommon.getReq(url, headers);
-    console.log(
-      "complaint category response:\n",
-      JSON.stringify(response, null, 2)
-    ); return response
+
+    console.log("complaint category response:\n", JSON.stringify(response, null, 2));
+    return response;
   },
 
-
+  // ─── FIX: Added `constant_society_id` to destructuring so it's no longer silently dropped ───
   addComplaint: async ({
     sub_category,
     complaint_type,
@@ -298,13 +256,15 @@ const complaintService = {
     severity = "normal",
     sub_category_id,
     schedule_date = null,
-    probable_date = null,   // ✅ ADD THIS
+    probable_date = null,
     probable_time = null,
     location_id = null,
-     file = null
+    constant_society_id = null,   // ✅ FIX: was missing — caused it to be silently dropped
+    file = null,
   }) => {
     try {
       const user = await Common.getLoggedInUser();
+
       const userObj = {
         user_id: user.id,
         group_id: user.role_id,
@@ -312,6 +272,7 @@ const complaintService = {
         unit_id: user.unit_id,
         society_id: user.societyId,
       };
+
       const encodedUser = encodeURIComponent(JSON.stringify(userObj));
       const url = `${API_URL2}/addComplaint?api-token=${user.api_token}&user-id=${encodedUser}`;
       const headers = await Util.getCommonAuth();
@@ -323,11 +284,14 @@ const complaintService = {
         severity,
         sub_category_id,
         schedule_date,
-        probable_date,  
+        probable_date,
         probable_time,
         location_id,
-        file
+        constant_society_id,    // ✅ FIX: now included in the request body
+        file,
       };
+
+      console.log("📤 Add Complaint Payload:", payload);
 
       const response = await ApiCommon.postReq(url, payload, headers);
       console.log("Add Complaint Response:", response);
@@ -338,9 +302,6 @@ const complaintService = {
       throw error;
     }
   },
-
-
-
 
   appendParamsInUrl: (url, params) => {
     if (params && typeof params === "object") {
@@ -354,10 +315,9 @@ const complaintService = {
         url += queryParams;
       }
     }
-
     return url;
-  }
+  },
 
-}
+};
 
-export { complaintService }
+export { complaintService };

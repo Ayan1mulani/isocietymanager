@@ -24,18 +24,21 @@ import { visitorServices } from "../../services/visitorServices";
 import BRAND from '../config';
 import SubmitButton from "../components/SubmitButton";
 import StatusModal from "../components/StatusModal";
-
-const RELATION_OPTIONS = [
-  "Mother",
-  "Father",
-  "Son",
-  "Daughter",
-  "Husband",
-  "Wife",
-  "Other",
-];
+import { useTranslation } from 'react-i18next';
 
 const AddMemberScreen = ({ route, navigation }) => {
+  const { t } = useTranslation();
+
+  const RELATION_OPTIONS = [
+    t("Mother"),
+    t("Father"),
+    t("Son"),
+    t("Daughter"),
+    t("Husband"),
+    t("Wife"),
+    t("Other"),
+  ];
+
   const member = route?.params?.member;
   const isEdit = !!member;
 
@@ -44,7 +47,7 @@ const AddMemberScreen = ({ route, navigation }) => {
   const [email, setEmail] = useState(member?.email || "");
   const [relation, setRelation] = useState(member?.relation || "");
   const [vehicleNumber, setVehicleNumber] = useState(member?.vehicle_no || "");
-  
+
   const [statusModal, setStatusModal] = useState({
     visible: false,
     type: "loading",
@@ -92,14 +95,14 @@ const AddMemberScreen = ({ route, navigation }) => {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
           {
-            title: "Contacts Permission",
-            message: "Allow access to contacts to fill member details?",
-            buttonPositive: "Allow",
-            buttonNegative: "Deny",
+            title: t("Contacts Permission"),
+            message: t("Allow access to contacts to fill member details?"),
+            buttonPositive: t("Allow"),
+            buttonNegative: t("Deny"),
           }
         );
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          Alert.alert("Permission Denied", "Contacts permission is required.");
+          Alert.alert(t("Permission Denied"), t("Contacts permission is required."));
           return;
         }
       }
@@ -109,8 +112,8 @@ const AddMemberScreen = ({ route, navigation }) => {
         const permission = await Contacts.requestPermission();
         if (permission !== "authorized") {
           Alert.alert(
-            "Permission Denied",
-            "Please allow contacts access in Settings."
+            t("Permission Denied"),
+            t("Please allow contacts access in Settings.")
           );
           return;
         }
@@ -123,7 +126,6 @@ const AddMemberScreen = ({ route, navigation }) => {
 
       const contacts = await Contacts.getAll();
 
-      // Keep only contacts that have at least one phone number
       const withPhone = contacts
         .filter((c) => c.phoneNumbers && c.phoneNumbers.length > 0)
         .sort((a, b) => {
@@ -139,7 +141,7 @@ const AddMemberScreen = ({ route, navigation }) => {
       setLoadingContacts(false);
       setContactModalVisible(false);
       console.log("Contact load error:", err);
-      Alert.alert("Error", "Could not load contacts. Please try again.");
+      Alert.alert(t("Error"), t("Could not load contacts. Please try again."));
     }
   };
 
@@ -165,7 +167,7 @@ const AddMemberScreen = ({ route, navigation }) => {
     rawPhone = rawPhone.replace(/\D/g, "").slice(-10);
 
     if (!rawPhone) {
-      Alert.alert("Invalid Number", "Could not extract a valid phone number.");
+      Alert.alert(t("Invalid Number"), t("Could not extract a valid phone number."));
       return;
     }
 
@@ -192,12 +194,12 @@ const AddMemberScreen = ({ route, navigation }) => {
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert("Validation", "Please enter name");
+      Alert.alert(t("Validation"), t("Please enter name"));
       return;
     }
 
     if (!relation) {
-      Alert.alert("Validation", "Please select relation");
+      Alert.alert(t("Validation"), t("Please select relation"));
       return;
     }
 
@@ -207,8 +209,8 @@ const AddMemberScreen = ({ route, navigation }) => {
       setStatusModal({
         visible: true,
         type: "loading",
-        title: isEdit ? "Updating Member" : "Adding Member",
-        subtitle: "Please wait...",
+        title: isEdit ? t("Updating Member") : t("Adding Member"),
+        subtitle: t("Please wait..."),
       });
 
       let res;
@@ -221,7 +223,7 @@ const AddMemberScreen = ({ route, navigation }) => {
           email: email,
           relation: relation,
           vehicle_no: vehicleNumber,
-          image_src: null
+          image_src: null,
         });
       } else {
         res = await visitorServices.addFamilyMember({
@@ -230,7 +232,7 @@ const AddMemberScreen = ({ route, navigation }) => {
           email: email,
           relation: relation,
           vehicle_no: vehicleNumber,
-          image_src: null
+          image_src: null,
         });
       }
 
@@ -238,10 +240,10 @@ const AddMemberScreen = ({ route, navigation }) => {
         setStatusModal({
           visible: true,
           type: "success",
-          title: "Success",
+          title: t("Success"),
           subtitle: isEdit
-            ? "Member updated successfully"
-            : "Member added successfully",
+            ? t("Member updated successfully")
+            : t("Member added successfully"),
         });
 
         setTimeout(() => {
@@ -251,8 +253,8 @@ const AddMemberScreen = ({ route, navigation }) => {
         setStatusModal({
           visible: true,
           type: "error",
-          title: "Error",
-          subtitle: res?.message || "Operation failed",
+          title: t("Error"),
+          subtitle: res?.message || t("Operation failed"),
         });
       }
     } catch (error) {
@@ -260,8 +262,8 @@ const AddMemberScreen = ({ route, navigation }) => {
       setStatusModal({
         visible: true,
         type: "error",
-        title: "Error",
-        subtitle: "Something went wrong",
+        title: t("Error"),
+        subtitle: t("Something went wrong"),
       });
     } finally {
       setIsSubmitting(false);
@@ -287,7 +289,7 @@ const AddMemberScreen = ({ route, navigation }) => {
     const cName =
       [item.givenName, item.familyName].filter(Boolean).join(" ").trim() ||
       item.displayName ||
-      "Unknown";
+      t("Unknown");
     const phone = item.phoneNumbers?.[0]?.number || "";
     const initials = cName
       .split(" ")
@@ -316,7 +318,7 @@ const AddMemberScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader title={isEdit ? "Edit Member" : "Add Member"} />
+      <AppHeader title={isEdit ? t("Edit Member") : t("Add Member")} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -330,16 +332,17 @@ const AddMemberScreen = ({ route, navigation }) => {
           >
             {/* Form */}
             <View style={styles.formCard}>
+
               {/* Name */}
               <View style={styles.inputWrapper}>
                 <View style={styles.labelRow}>
                   <Text style={styles.label}>
-                    Name <Text style={styles.required}>*</Text>
+                    {t("Name")} <Text style={styles.required}>*</Text>
                   </Text>
                   {contactFilled && (
                     <View style={styles.filledBadge}>
                       <Ionicons name="checkmark-circle" size={13} color="#10B981" />
-                      <Text style={styles.filledBadgeText}>Filled from contacts</Text>
+                      <Text style={styles.filledBadgeText}>{t("Filled from contacts")}</Text>
                     </View>
                   )}
                 </View>
@@ -352,7 +355,7 @@ const AddMemberScreen = ({ route, navigation }) => {
                   ]}
                 >
                   <TextInput
-                    placeholder="Enter full name"
+                    placeholder={t("Enter full name")}
                     value={name}
                     placeholderTextColor="#9CA3AF"
                     onChangeText={handleNameChange}
@@ -365,7 +368,7 @@ const AddMemberScreen = ({ route, navigation }) => {
 
               {/* Contact */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.label}>Contact Number</Text>
+                <Text style={styles.label}>{t("Contact Number")}</Text>
 
                 <View
                   style={[
@@ -375,7 +378,7 @@ const AddMemberScreen = ({ route, navigation }) => {
                   ]}
                 >
                   <TextInput
-                    placeholder="Enter mobile number"
+                    placeholder={t("Enter mobile number")}
                     value={contact}
                     keyboardType="phone-pad"
                     maxLength={10}
@@ -393,7 +396,7 @@ const AddMemberScreen = ({ route, navigation }) => {
 
               {/* Email */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>{t("Email")}</Text>
 
                 <View
                   style={[
@@ -402,7 +405,7 @@ const AddMemberScreen = ({ route, navigation }) => {
                   ]}
                 >
                   <TextInput
-                    placeholder="Enter email"
+                    placeholder={t("Enter email")}
                     value={email}
                     keyboardType="email-address"
                     onChangeText={setEmail}
@@ -417,7 +420,7 @@ const AddMemberScreen = ({ route, navigation }) => {
               {/* Relation */}
               <View style={styles.inputWrapper}>
                 <Text style={styles.label}>
-                  Relation <Text style={styles.required}>*</Text>
+                  {t("Relation")} <Text style={styles.required}>*</Text>
                 </Text>
 
                 <TouchableOpacity
@@ -431,7 +434,7 @@ const AddMemberScreen = ({ route, navigation }) => {
                         !relation && styles.dropdownPlaceholder,
                       ]}
                     >
-                      {relation || "Select relation"}
+                      {relation || t("Select relation")}
                     </Text>
                   </View>
                   <Ionicons name="chevron-down" size={18} color={BRAND.COLORS.primary} />
@@ -440,11 +443,11 @@ const AddMemberScreen = ({ route, navigation }) => {
 
               {/* Vehicle */}
               <View style={styles.inputWrapper}>
-                <Text style={styles.label}>Vehicle Number</Text>
+                <Text style={styles.label}>{t("Vehicle Number")}</Text>
 
                 <View style={styles.inputContainer}>
                   <TextInput
-                    placeholder="Enter vehicle number"
+                    placeholder={t("Enter vehicle number")}
                     value={vehicleNumber}
                     onChangeText={setVehicleNumber}
                     style={styles.input}
@@ -456,7 +459,7 @@ const AddMemberScreen = ({ route, navigation }) => {
 
             {/* Submit */}
             <SubmitButton
-              title={isEdit ? "UPDATE MEMBER" : "ADD NEW MEMBER"}
+              title={isEdit ? t("UPDATE MEMBER") : t("ADD NEW MEMBER")}
               onPress={handleSubmit}
               loading={isSubmitting}
               icon={<Ionicons name="add-circle" size={18} color="#fff" />}
@@ -477,7 +480,7 @@ const AddMemberScreen = ({ route, navigation }) => {
             <TouchableWithoutFeedback>
               <View style={styles.modalContent}>
                 <View style={styles.modalHeaderRelation}>
-                  <Text style={styles.modalTitle}>Select Relation</Text>
+                  <Text style={styles.modalTitle}>{t("Select Relation")}</Text>
                   <TouchableOpacity onPress={() => setShowRelationModal(false)}>
                     <Ionicons name="close" size={22} />
                   </TouchableOpacity>
@@ -503,7 +506,7 @@ const AddMemberScreen = ({ route, navigation }) => {
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Contact</Text>
+            <Text style={styles.modalTitle}>{t("Select Contact")}</Text>
             <TouchableOpacity onPress={() => setContactModalVisible(false)}>
               <Ionicons name="close" size={24} color="#1F2937" />
             </TouchableOpacity>
@@ -515,7 +518,7 @@ const AddMemberScreen = ({ route, navigation }) => {
             <TextInput
               value={contactSearch}
               onChangeText={setContactSearch}
-              placeholder="Search by name or number..."
+              placeholder={t("Search by name or number...")}
               placeholderTextColor="#9CA3AF"
               style={styles.searchInput}
               autoFocus
@@ -530,7 +533,8 @@ const AddMemberScreen = ({ route, navigation }) => {
           {/* Contact count */}
           {!loadingContacts && (
             <Text style={styles.contactCount}>
-              {filteredContacts.length} contact{filteredContacts.length !== 1 ? "s" : ""}
+              {filteredContacts.length}{" "}
+              {filteredContacts.length !== 1 ? t("contacts") : t("contact")}
             </Text>
           )}
 
@@ -538,7 +542,7 @@ const AddMemberScreen = ({ route, navigation }) => {
           {loadingContacts ? (
             <View style={styles.loaderBox}>
               <ActivityIndicator size="large" color={BRAND.COLORS.primary || "#1996D3"} />
-              <Text style={styles.loaderText}>Loading contacts...</Text>
+              <Text style={styles.loaderText}>{t("Loading contacts...")}</Text>
             </View>
           ) : (
             <FlatList
@@ -550,7 +554,7 @@ const AddMemberScreen = ({ route, navigation }) => {
               ListEmptyComponent={
                 <View style={styles.emptyBox}>
                   <Ionicons name="person-outline" size={40} color="#D1D5DB" />
-                  <Text style={styles.emptyText}>No contacts found</Text>
+                  <Text style={styles.emptyText}>{t("No contacts found")}</Text>
                 </View>
               }
             />
@@ -776,7 +780,7 @@ const styles = StyleSheet.create({
   contactAvatarText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#1996D3", // or use BRAND.COLORS.primary
+    color: "#1996D3",
   },
   contactInfo: {
     flex: 1,

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
@@ -17,10 +16,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RefreshControl } from 'react-native';
 import BRAND from '../config';
 import EmptyState from '../components/EmptyState';
-import useAlert from '../components/UseAlert'; // ← import your alert hook
+import useAlert from '../components/UseAlert'; 
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const BillsPage = () => {
   const { nightMode, permissions } = usePermissions();
+  const { t } = useTranslation(); // 👈 Init translation
 
   const permissionsLoaded =
     permissions !== null && permissions !== undefined;
@@ -61,7 +65,6 @@ const BillsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-
   const fetchBills = async () => {
     try {
       const response = await otherServices.getBillsByFlat();
@@ -91,14 +94,14 @@ const BillsPage = () => {
     await fetchBills();
   }, []);
 
-  // ← Show confirmation popup before downloading
   const handleDownload = (bill) => {
-  if (bill?.url) {
-    Linking.openURL(bill.url);
-  } else {
-    console.log('No URL found for this bill');
-  }
-};
+    if (bill?.url) {
+      Linking.openURL(bill.url);
+    } else {
+      console.log('No URL found for this bill');
+    }
+  };
+  
   const formatDate = (date) => {
     if (!date) return '-';
     const d = new Date(date);
@@ -160,14 +163,13 @@ const BillsPage = () => {
                   <Text
                     style={[styles.dueBadgeText, { color: currentTheme.danger }]}
                   >
-                    Due: {formatDate(item.bill_due_date)}
+                    {t('Due')}: {formatDate(item.bill_due_date)}
                   </Text>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* ← Direct Download Button (replaces three dots) */}
           <TouchableOpacity
             onPress={() => handleDownload(item)}
             style={[
@@ -178,7 +180,7 @@ const BillsPage = () => {
           >
             <Ionicons name="download-outline" size={14} color={currentTheme.downloadText} />
             <Text style={[styles.downloadBtnText, { color: currentTheme.downloadText }]}>
-              Download
+              {t('Download')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -193,7 +195,7 @@ const BillsPage = () => {
             <Text
               style={[styles.balanceLabelInline, { color: currentTheme.secondaryText }]}
             >
-              Balance:
+              {t('Balance')}:
             </Text>
             <Text
               style={[styles.balanceValueInline, { color: BRAND.COLORS.icon }]}
@@ -207,9 +209,9 @@ const BillsPage = () => {
 
         {/* AMOUNT GRID */}
         <View style={styles.amountGrid}>
-          <AmountItem label="Current" value={current} />
-          <AmountItem label="Tax" value={tax} />
-          <AmountItem label="Arrear" value={arrear} />
+          <AmountItem label={t("Current")} value={current} />
+          <AmountItem label={t("Tax")} value={tax} />
+          <AmountItem label={t("Arrear")} value={arrear} />
         </View>
       </View>
     );
@@ -222,7 +224,7 @@ const BillsPage = () => {
       <View style={[styles.centerContainer, { backgroundColor: currentTheme.containerBg }]}>
         <ActivityIndicator size="large" color={currentTheme.accent} />
         <Text style={{ marginTop: 10, color: currentTheme.secondaryText }}>
-          Loading...
+          {t('Loading...')}
         </Text>
       </View>
     );
@@ -233,10 +235,10 @@ const BillsPage = () => {
       <View style={[styles.centerContainer, { backgroundColor: currentTheme.containerBg }]}>
         <Ionicons name="lock-closed-outline" size={60} color={currentTheme.secondaryText} />
         <Text style={{ marginTop: 12, fontSize: 16, color: currentTheme.textColor, fontWeight: '600' }}>
-          Access Restricted
+          {t('Access Restricted')}
         </Text>
         <Text style={{ marginTop: 6, fontSize: 13, color: currentTheme.secondaryText, textAlign: 'center', paddingHorizontal: 40 }}>
-          You do not have permission to view bills.
+          {t('You do not have permission to view bills.')}
         </Text>
       </View>
     );
@@ -254,9 +256,8 @@ const BillsPage = () => {
     <SafeAreaView
       style={[styles.container, { backgroundColor: currentTheme.containerBg }]}
     >
-      <AppHeader title="Bills" />
+      <AppHeader title={t("Bills")} />
 
-      {/* ← FlatList handles scrolling natively */}
       <FlatList
         data={bills}
         keyExtractor={(item, index) =>
@@ -271,7 +272,7 @@ const BillsPage = () => {
         ListEmptyComponent={() => (
           <EmptyState
             icon="document-outline"
-            title="No Bills Available"
+            title={t("No Bills Available")}
             subtitle=""
             theme={{
               text: currentTheme.textColor,
@@ -295,6 +296,7 @@ const BillsPage = () => {
 };
 
 export default BillsPage;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -374,7 +376,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  /* ← DOWNLOAD BUTTON (replaces three-dot menu) */
+  /* DOWNLOAD BUTTON */
   downloadBtn: {
     flexDirection: 'row',
     alignItems: 'center',

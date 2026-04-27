@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
     View,
-    Text,
     FlatList,
     ActivityIndicator,
     StyleSheet,
@@ -11,10 +10,14 @@ import {
     TouchableOpacity
 } from "react-native";
 import moment from "moment";
+import "moment/locale/km"; // Import Khmer locale for moment
 import { ismServices } from "../../services/ismServices";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
 const MeterReadingTab = () => {
+    const { t, i18n } = useTranslation();
     const [data, setData] = useState([]);
     const [pageNo, setPageNo] = useState(1);
     const [loading, setLoading] = useState(true);
@@ -28,6 +31,11 @@ const MeterReadingTab = () => {
 
     const onEndReachedCalledDuringMomentum = useRef(false);
 
+    // Sync moment locale with app language
+    useEffect(() => {
+        moment.locale(i18n.language === 'km' ? 'km' : 'en');
+    }, [i18n.language]);
+
     useEffect(() => {
         loadData(1);
     }, []);
@@ -35,14 +43,13 @@ const MeterReadingTab = () => {
     const loadData = async (page = 1) => {
         try {
             if (page === 1) setLoading(true);
-
             const res = await ismServices.getMeterReadings(page);
 
             if (res?.status === "success") {
                 const newData = res.data || [];
-
                 const formatted = newData.map((item) => ({
                     ...item,
+                    // 🔥 Fixed to "en-IN" to keep numbers in English digits
                     grid: Number(item.grid).toLocaleString("en-IN"),
                     dg: Number(item.dg).toLocaleString("en-IN"),
                     time: moment(item.date_time).format("D MMM YY, h:mm A"),
@@ -54,9 +61,7 @@ const MeterReadingTab = () => {
                     setData((prev) => [...prev, ...formatted]);
                 }
 
-                if (newData.length < 20) {
-                    setHasMore(false);
-                }
+                if (newData.length < 20) setHasMore(false);
 
                 if (newData.length > 0 && page === 1) {
                     const latest = newData[0]?.updated_at || newData[0]?.date_time;
@@ -74,12 +79,9 @@ const MeterReadingTab = () => {
     const handleInfoPress = async () => {
         setShowInfo(true);
         setLoadingLive(true);
-
         try {
             const res = await ismServices.getLiveMeterReading();
-            if (res?.status === "success") {
-                setSelectedItem(res.data);
-            }
+            if (res?.status === "success") setSelectedItem(res.data);
         } catch (e) {
             console.log("Live API error", e);
         } finally {
@@ -107,53 +109,39 @@ const MeterReadingTab = () => {
         return (
             <View style={styles.loader}>
                 <Ionicons name="document-text-outline" size={48} color="#9CA3AF" />
-                <Text style={styles.emptyText}>No meter readings available</Text>
+                <Text style={styles.emptyText}>{t("No meter readings available")}</Text>
             </View>
         );
     }
 
     const renderHeader = () => (
         <View style={styles.headerContainer}>
-            {/* Sync Status Card */}
             <View style={styles.syncCard}>
                 <View style={styles.syncLeft}>
                     <Text style={styles.syncText}>
-                        Last Sync: {lastSync || "--"}
+                        {t("Last Sync")}: {lastSync || "--"}
                     </Text>
                 </View>
 
-                <TouchableOpacity 
-                    style={styles.liveButton} 
-                    onPress={handleInfoPress}
-                    activeOpacity={0.7}
-                >
+                <TouchableOpacity style={styles.liveButton} onPress={handleInfoPress}>
                     <Ionicons name="pulse" size={16} color="#FFF" />
-                    <Text style={styles.liveButtonText}>Live</Text>
+                    <Text style={styles.liveButtonText}>{t("Live")}</Text>
                 </TouchableOpacity>
             </View>
 
-            {/* Table Header */}
             <View style={styles.tableHeaderRow}>
-                <Text style={[styles.headerText, { flex: 2, paddingLeft: 16, textAlign: 'left' }]}>Date & Time</Text>
-                <Text style={[styles.headerText, { flex: 1 }]}>Grid (kW)</Text>
-                <Text style={[styles.headerText, { flex: 1 }]}>DG (kW)</Text>
+                <Text style={[styles.headerText, { flex: 2, paddingLeft: 16, textAlign: 'left' }]}>{t("Date & Time")}</Text>
+                <Text style={[styles.headerText, { flex: 1 }]}>{t("Grid (kW)")}</Text>
+                <Text style={[styles.headerText, { flex: 1 }]}>{t("DG (kW)")}</Text>
             </View>
         </View>
     );
 
     const renderItem = ({ item, index }) => (
         <View style={[styles.row, index % 2 === 0 ? styles.rowLight : styles.rowDark]}>
-            <Text style={[styles.cell, styles.timeCell, { flex: 2 }]}>
-                {item.time}
-            </Text>
-            
-            <View style={[styles.valueCellWrapper, { flex: 1 }]}>
-                <Text style={[styles.cell, styles.gridText]}>{item.grid}</Text>
-            </View>
-
-            <View style={[styles.valueCellWrapper, { flex: 1 }]}>
-                <Text style={[styles.cell, styles.dgText]}>{item.dg}</Text>
-            </View>
+            <Text style={[styles.cell, styles.timeCell, { flex: 2 }]}>{item.time}</Text>
+            <View style={[styles.valueCellWrapper, { flex: 1 }]}><Text style={[styles.cell, styles.gridText]}>{item.grid}</Text></View>
+            <View style={[styles.valueCellWrapper, { flex: 1 }]}><Text style={[styles.cell, styles.dgText]}>{item.dg}</Text></View>
         </View>
     );
 
@@ -161,7 +149,7 @@ const MeterReadingTab = () => {
         return (
             <View style={styles.loader}>
                 <ActivityIndicator size="large" color="#2E8BC0" />
-                <Text style={styles.loadingText}>Fetching readings...</Text>
+                <Text style={styles.loadingText}>{t("Fetching readings...")}</Text>
             </View>
         );
     }
@@ -173,105 +161,58 @@ const MeterReadingTab = () => {
                 keyExtractor={(item, index) => index.toString()}
                 renderItem={renderItem}
                 ListHeaderComponent={renderHeader}
-                // index 0 is the ListHeaderComponent. Setting it to 0 makes the header sticky.
-                stickyHeaderIndices={[0]} 
+                stickyHeaderIndices={[0]}
                 onEndReached={() => {
                     if (!onEndReachedCalledDuringMomentum.current) {
                         loadMore();
                         onEndReachedCalledDuringMomentum.current = true;
                     }
                 }}
-                onMomentumScrollBegin={() => {
-                    onEndReachedCalledDuringMomentum.current = false;
-                }}
+                onMomentumScrollBegin={() => { onEndReachedCalledDuringMomentum.current = false; }}
                 onEndReachedThreshold={0.3}
-                ListFooterComponent={
-                    loadingMore ? (
-                        <View style={styles.footerLoader}>
-                            <ActivityIndicator size="small" color="#2E8BC0" />
-                        </View>
-                    ) : null
-                }
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={["#2E8BC0"]}
-                    />
-                }
+                ListFooterComponent={loadingMore ? <View style={styles.footerLoader}><ActivityIndicator size="small" color="#2E8BC0" /></View> : null}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#2E8BC0"]} />}
                 contentContainerStyle={styles.listContent}
             />
 
-            {/* LIVE RESPONSE MODAL */}
             <Modal visible={showInfo} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalBox}>
-                        
-                        {/* Modal Header */}
                         <View style={styles.modalHeader}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <View style={styles.pulseDot} />
-                                <Text style={styles.modalTitle}>Live Meter Status</Text>
+                                <Text style={styles.modalTitle}>{t("Live Meter Status")}</Text>
                             </View>
-                            <TouchableOpacity onPress={() => setShowInfo(false)}>
-                                <Ionicons name="close" size={24} color="#6B7280" />
-                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => setShowInfo(false)}><Ionicons name="close" size={24} color="#6B7280" /></TouchableOpacity>
                         </View>
 
-                        {/* Modal Content */}
                         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
                             {loadingLive ? (
                                 <View style={styles.modalLoader}>
                                     <ActivityIndicator size="large" color="#2E8BC0" />
-                                    <Text style={styles.modalLoaderText}>Contacting meter...</Text>
+                                    <Text style={styles.modalLoaderText}>{t("Contacting meter...")}</Text>
                                 </View>
                             ) : selectedItem ? (
                                 <View style={styles.modalDataContainer}>
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.label}>Meter ID</Text>
-                                        <Text style={styles.value}>{selectedItem.id}</Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.label}>Unit Number</Text>
-                                        <Text style={styles.value}>{selectedItem.unit_no}</Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.label}>Grid Reading</Text>
-                                        <Text style={[styles.value, { color: '#059669' }]}>{selectedItem.grid} kW</Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.label}>DG Reading</Text>
-                                        <Text style={[styles.value, { color: '#D97706' }]}>{selectedItem.dg} kW</Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.label}>AHU</Text>
-                                        <Text style={styles.value}>{selectedItem.ahu}</Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.label}>Date Time</Text>
-                                        <Text style={styles.value}>{selectedItem.date_time}</Text>
-                                    </View>
-                                    <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                                        <Text style={styles.label}>Last Updated</Text>
-                                        <Text style={styles.value}>{selectedItem.updated_at}</Text>
-                                    </View>
+                                    <View style={styles.infoRow}><Text style={styles.label}>{t("Meter ID")}</Text><Text style={styles.value}>{selectedItem.id}</Text></View>
+                                    <View style={styles.infoRow}><Text style={styles.label}>{t("Unit Number")}</Text><Text style={styles.value}>{selectedItem.unit_no}</Text></View>
+                                    <View style={styles.infoRow}><Text style={styles.label}>{t("Grid Reading")}</Text><Text style={[styles.value, { color: '#059669' }]}>{selectedItem.grid} kW</Text></View>
+                                    <View style={styles.infoRow}><Text style={styles.label}>{t("DG Reading")}</Text><Text style={[styles.value, { color: '#D97706' }]}>{selectedItem.dg} kW</Text></View>
+                                    <View style={styles.infoRow}><Text style={styles.label}>{t("AHU")}</Text><Text style={styles.value}>{selectedItem.ahu}</Text></View>
+                                    <View style={styles.infoRow}><Text style={styles.label}>{t("Date Time")}</Text><Text style={styles.value}>{moment(selectedItem.date_time).format("D MMM YY, h:mm A")}</Text></View>
+                                    <View style={[styles.infoRow, { borderBottomWidth: 0 }]}><Text style={styles.label}>{t("Last Updated")}</Text><Text style={styles.value}>{moment(selectedItem.updated_at).format("D MMM YY, h:mm A")}</Text></View>
                                 </View>
                             ) : (
                                 <View style={styles.modalLoader}>
                                     <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
-                                    <Text style={styles.modalLoaderText}>No live data available</Text>
+                                    <Text style={styles.modalLoaderText}>{t("No live data available")}</Text>
                                 </View>
                             )}
                         </ScrollView>
 
-                        {/* Modal Footer */}
                         {!loadingLive && (
-                            <TouchableOpacity
-                                style={styles.okButton}
-                                onPress={() => setShowInfo(false)}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.okText}>Done</Text>
+                            <TouchableOpacity style={styles.okButton} onPress={() => setShowInfo(false)}>
+                                <Text style={styles.okText}>{t("Done")}</Text>
                             </TouchableOpacity>
                         )}
                     </View>

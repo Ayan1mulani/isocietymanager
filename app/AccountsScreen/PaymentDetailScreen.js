@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   ActivityIndicator,
   StyleSheet,
@@ -14,27 +13,13 @@ import { usePermissions } from '../../Utils/ConetextApi';
 import { ismServices } from '../../services/ismServices';
 import AppHeader from '../components/AppHeader';
 import BRAND from '../config';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const PRIMARY = BRAND.COLORS.primary;
 const SUCCESS = '#10B981';
 const DANGER = '#EF4444';
 const WARNING = '#F59E0B';
-
-// --- Helpers ---
-const formatCurrency = (amount) => {
-  const num = parseFloat(amount);
-  return `₹${(isNaN(num) ? 0 : Math.abs(num)).toLocaleString('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
-
-const formatDate = (dateStr) => {
-  if (!dateStr || dateStr === '0000-00-00 00:00:00') return '-';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-};
 
 // --- Reusable Components ---
 const DetailRow = ({ label, value, isLast, theme, valueStyle }) => (
@@ -59,10 +44,10 @@ const SectionCard = ({ title, icon, iconColor, iconBg, children, theme }) => (
   </View>
 );
 
-// --- Main Screen ---
 export default function PaymentDetailScreen({ route }) {
   const { paymentId } = route.params;
   const { nightMode } = usePermissions();
+  const { t, i18n } = useTranslation();
 
   const theme = {
     bg: nightMode ? '#0F1117' : '#F0F4F8',
@@ -76,61 +61,71 @@ export default function PaymentDetailScreen({ route }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // --- Localization Helpers ---
+  const formatCurrency = (amount) => {
+    const num = parseFloat(amount);
+    const isKhmer = i18n.language === 'km';
+    const symbol = isKhmer ? '៛' : '₹';
+    const locale = isKhmer ? 'km-KH' : 'en-IN';
+    return `${symbol}${(isNaN(num) ? 0 : Math.abs(num)).toLocaleString(locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr || dateStr === '0000-00-00 00:00:00') return '-';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString(i18n.language === 'km' ? 'km-KH' : 'en-GB', { 
+      day: '2-digit', month: 'short', year: 'numeric' 
+    });
+  };
+
   const fetchDetail = async () => {
     try {
       const res = await ismServices.getPaymentById(paymentId);
       const item = res?.data?.[0];
-      
-      // Parse nested stringified JSON if available
       if (item?.data) {
-        try { 
-          item.parsedData = JSON.parse(item.data); 
-        } catch { }
+        try { item.parsedData = JSON.parse(item.data); } catch { }
       }
-      
       setData(item);
     } catch (e) {
-      console.log('Error fetching payment detail:', e);
+      console.log('Error:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { 
-    fetchDetail(); 
-  }, [paymentId]);
+  useEffect(() => { fetchDetail(); }, [paymentId]);
 
   const handleDownload = async (url) => {
     try {
       if (!url) return;
       const supported = await Linking.canOpenURL(url);
       if (supported) await Linking.openURL(url);
-    } catch (e) {
-      console.log('Download error:', e);
-    }
+    } catch (e) { console.log(e); }
   };
 
-  // --- Loading State ---
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-        <AppHeader title="Payment Details" nightMode={nightMode} showBack />
+        <AppHeader title={t("Payment Details")} nightMode={nightMode} showBack />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={PRIMARY} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>Loading details...</Text>
+          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>{t("Loading details...")}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // --- No Data State ---
   if (!data) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-        <AppHeader title="Payment Details" nightMode={nightMode} showBack />
+        <AppHeader title={t("Payment Details")} nightMode={nightMode} showBack />
         <View style={styles.center}>
           <Ionicons name="document-outline" size={52} color={theme.sub} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 15 }}>No data found</Text>
+          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 15 }}>{t("No data found")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -139,144 +134,77 @@ export default function PaymentDetailScreen({ route }) {
   const isCredit = data.type === 'CREDIT';
   const typeColor = isCredit ? SUCCESS : DANGER;
   const heroBgColor = isCredit 
-    ? (nightMode ? '#132C21' : '#ECFDF5') // Success soft background
-    : (nightMode ? '#2D1515' : '#FEF2F2'); // Danger soft background
+    ? (nightMode ? '#132C21' : '#ECFDF5') 
+    : (nightMode ? '#2D1515' : '#FEF2F2');
 
   const extraData = data?.parsedData;
-  const customerName = extraData?.user?.name || extraData?.billdata?.[0]?.bill_data?.user?.name || 'Customer';
+  const customerName = extraData?.user?.name || extraData?.billdata?.[0]?.bill_data?.user?.name || t('Customer');
   const charges = extraData?.pay_charges || [];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppHeader
-        title="Payment Details"
+        title={t("Payment Details")}
         nightMode={nightMode}
         showBack
         rightIcon={
           data?.url ? (
-            <TouchableOpacity
-              onPress={() => handleDownload(data.url)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              {/* NOTE: Color changed to handle Light/Dark mode instead of fixed #fff */}
-              <Ionicons
-                name="download-outline"
-                size={22}
-                color={nightMode ? '#94A3B8' : '#111827'}
-              />
+            <TouchableOpacity onPress={() => handleDownload(data.url)}>
+              <Ionicons name="download-outline" size={22} color={nightMode ? '#94A3B8' : '#111827'} />
             </TouchableOpacity>
           ) : null
         }
       />
 
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Hero Amount Banner ──────────────────────────────────────────── */}
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {/* Hero Banner */}
         <View style={[styles.heroBanner, { backgroundColor: heroBgColor }]}>
           <View style={styles.heroLeft}>
             <View style={[styles.typeBadge, { backgroundColor: typeColor + '20' }]}>
               <View style={[styles.typeBadgeDot, { backgroundColor: typeColor }]} />
               <Text style={[styles.typeBadgeText, { color: typeColor }]}>
-                {isCredit ? 'CREDIT' : 'DEBIT'}
+                {isCredit ? t('CREDIT') : t('DEBIT')}
               </Text>
             </View>
-            <Text style={[styles.heroLabel, { color: theme.sub }]}>Total Amount</Text>
-            <Text style={[styles.heroAmount, { color: typeColor }]}>
-              {formatCurrency(data.amount)}
-            </Text>
-            <Text style={[styles.heroSubtext, { color: theme.sub }]}>
-              {data.status || 'PROCESSED'}
-            </Text>
+            <Text style={[styles.heroLabel, { color: theme.sub }]}>{t("Total Amount")}</Text>
+            <Text style={[styles.heroAmount, { color: typeColor }]}>{formatCurrency(data.amount)}</Text>
+            <Text style={[styles.heroSubtext, { color: theme.sub }]}>{t(data.status || 'PROCESSED')}</Text>
           </View>
           <View style={[styles.heroIconCircle, { backgroundColor: typeColor + '15' }]}>
-            <Ionicons 
-              name={isCredit ? "arrow-down-circle" : "arrow-up-circle"} 
-              size={38} 
-              color={typeColor} 
-              opacity={0.9} 
-            />
+            <Ionicons name={isCredit ? "arrow-down-circle" : "arrow-up-circle"} size={38} color={typeColor} opacity={0.9} />
           </View>
         </View>
 
-        {/* ── Transaction Details ──────────────────────────────────────────────── */}
-        <SectionCard
-          title="Transaction Details"
-          icon="document-text-outline"
-          iconColor={PRIMARY}
-          iconBg={nightMode ? '#1A2940' : '#EFF6FF'}
-          theme={theme}
-        >
-          <DetailRow label="Sequence No." value={data.sequence_no} theme={theme} />
-          <DetailRow label="Date" value={formatDate(data.transaction_date_time)} theme={theme} />
-          <DetailRow label="Flat No." value={data.flat_no} theme={theme} />
-          {!!data.o_bank && (
-            <DetailRow label="Bank Name" value={data.o_bank} theme={theme} />
-          )}
-          {!!data.remarks && (
-            <DetailRow label="Remarks" value={data.remarks} isLast theme={theme} />
-          )}
+        <SectionCard title={t("Transaction Details")} icon="document-text-outline" iconColor={PRIMARY} iconBg={nightMode ? '#1A2940' : '#EFF6FF'} theme={theme}>
+          <DetailRow label={t("Sequence No.")} value={data.sequence_no} theme={theme} />
+          <DetailRow label={t("Date")} value={formatDate(data.transaction_date_time)} theme={theme} />
+          <DetailRow label={t("Flat No.")} value={data.flat_no} theme={theme} />
+          {!!data.o_bank && <DetailRow label={t("Bank Name")} value={data.o_bank} theme={theme} />}
+          {!!data.remarks && <DetailRow label={t("Remarks")} value={data.remarks} isLast theme={theme} />}
         </SectionCard>
 
-        {/* ── Payment Breakdown ─────────────────────────────────────────── */}
-        <SectionCard
-          title="Payment Breakdown"
-          icon="pie-chart-outline"
-          iconColor={PRIMARY}
-          iconBg={nightMode ? '#1A2940' : '#EFF6FF'}
-          theme={theme}
-        >
-          <DetailRow label="Tax" value={formatCurrency(data.tax)} theme={theme} />
-          {extraData?.TDS != null && (
-            <DetailRow label="TDS" value={formatCurrency(extraData.TDS)} theme={theme} />
-          )}
-          <DetailRow
-            label="Total Amount"
-            value={formatCurrency(data.amount)}
-            isLast={charges.length === 0}
-            theme={theme}
-            valueStyle={{ color: typeColor, fontWeight: '700' }}
-          />
+        <SectionCard title={t("Payment Breakdown")} icon="pie-chart-outline" iconColor={PRIMARY} iconBg={nightMode ? '#1A2940' : '#EFF6FF'} theme={theme}>
+          <DetailRow label={t("Tax")} value={formatCurrency(data.tax)} theme={theme} />
+          {extraData?.TDS != null && <DetailRow label={t("TDS")} value={formatCurrency(extraData.TDS)} theme={theme} />}
+          <DetailRow label={t("Total Amount")} value={formatCurrency(data.amount)} isLast={charges.length === 0} theme={theme} valueStyle={{ color: typeColor, fontWeight: '700' }} />
         </SectionCard>
 
-        {/* ── Charge Breakdown List (If Multiple Charges Exist) ──────────────── */}
         {charges.length > 0 && charges[0]?.name && (
-          <SectionCard
-            title="Charges Included"
-            icon="list-outline"
-            iconColor={WARNING}
-            iconBg={nightMode ? '#2D2415' : '#FFFBEB'}
-            theme={theme}
-          >
+          <SectionCard title={t("Charges Included")} icon="list-outline" iconColor={WARNING} iconBg={nightMode ? '#2D2415' : '#FFFBEB'} theme={theme}>
             {charges.map((charge, index) => (
-              <DetailRow 
-                key={index} 
-                label={charge.name} 
-                value={formatCurrency(charge.total || charge.amount)} 
-                isLast={index === charges.length - 1} 
-                theme={theme} 
-              />
+              <DetailRow key={index} label={t(charge.name)} value={formatCurrency(charge.total || charge.amount)} isLast={index === charges.length - 1} theme={theme} />
             ))}
           </SectionCard>
         )}
 
-        {/* ── Customer Details ────────────────────────────────────────────── */}
-        <SectionCard
-          title="Customer Details"
-          icon="person-outline"
-          iconColor={PRIMARY}
-          iconBg={nightMode ? '#1A2940' : '#EFF6FF'}
-          theme={theme}
-        >
-          <DetailRow label="Name" value={customerName} isLast theme={theme} />
+        <SectionCard title={t("Customer Details")} icon="person-outline" iconColor={PRIMARY} iconBg={nightMode ? '#1A2940' : '#EFF6FF'} theme={theme}>
+          <DetailRow label={t("Name")} value={customerName} isLast theme={theme} />
         </SectionCard>
 
-        {/* ── Note ───────────────────────────────────────────────────────── */}
         <View style={[styles.noteBox, { backgroundColor: theme.warningBg, borderColor: WARNING + '40' }]}>
           <Ionicons name="information-circle-outline" size={16} color={WARNING} style={{ marginTop: 1 }} />
           <Text style={[styles.noteText, { color: theme.sub }]}>
-            Payments made through cheques or DDs are subject to realization by the bank. Keep your transaction ID safe.
+            {t("Payments made through cheques or DDs are subject to realization by the bank. Keep your transaction ID safe.")}
           </Text>
         </View>
       </ScrollView>

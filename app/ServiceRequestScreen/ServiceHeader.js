@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   Dimensions,
@@ -17,6 +17,7 @@ import ComplaintListScreen from './ServiceRequestPage';
 import { complaintService } from '../../services/complaintService';
 import SlidingTabs from '../components/SlidingTabs';
 import BRAND from '../config';
+import Text from '../components/TranslatedText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -47,6 +48,7 @@ const LazyTabPage = React.memo(({ tabIndex, activeIndex, backgroundColor, childr
 });
 
 const ServiceRequestTabs = () => {
+  const { t } = useTranslation();
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [allComplaints, setAllComplaints] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -188,7 +190,7 @@ const handleTabPress = useCallback((index) => {
   if (!canViewComplaints) {
     return (
       <View style={styles.centered}>
-        <Text>No Permission</Text>
+      <Text>{t("No Permission")}</Text>
       </View>
     );
   }
@@ -197,7 +199,7 @@ const handleTabPress = useCallback((index) => {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text>Loading requests...</Text>
+       <Text>{t("Loading requests...")}</Text>
       </View>
     );
   }

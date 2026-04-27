@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
@@ -13,12 +12,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 import AppHeader from "../components/AppHeader";
 import { visitorServices } from "../../services/visitorServices";
 
 const MembersScreen = ({ navigation }) => {
-
+  const { t } = useTranslation();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,13 +37,10 @@ const MembersScreen = ({ navigation }) => {
 
   const loadMembers = async () => {
     try {
-
       const res = await visitorServices.getFamilyMembers();
-
       if (res?.status === "success") {
         setMembers(res.data || []);
       }
-
     } catch (error) {
       console.log("Members error:", error);
     } finally {
@@ -52,35 +50,26 @@ const MembersScreen = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-
     await loadMembers();
-
     setRefreshing(false);
   };
 
   const handleDelete = (memberId) => {
-
-    console.log(memberId)
     Alert.alert(
-      "Delete Member",
-      "Are you sure you want to delete this member?",
+      t("Delete Member"),
+      t("Are you sure you want to delete this member?"),
       [
-        { text: "Cancel" },
+        { text: t("Cancel") },
         {
-          text: "Delete",
+          text: t("Delete"),
           style: "destructive",
           onPress: async () => {
-
             try {
-
               await visitorServices.deleteFamilyMember(memberId);
-
               setMembers(prev => prev.filter(m => m.id !== memberId));
-
             } catch (error) {
               console.log(error);
             }
-
           }
         }
       ]
@@ -89,38 +78,30 @@ const MembersScreen = ({ navigation }) => {
 
   const renderItem = ({ item, index }) => (
     <View style={[styles.card, { zIndex: menuIndex === index ? 100 : 1 }]}>
+      <View style={styles.avatar}>
+        {item.image_src ? (
+          <Image
+            source={{ uri: item.image_src }}
+            style={styles.avatarImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Ionicons name="person" size={22} color="#6B7280" />
+        )}
+      </View>
 
-      {/* Avatar */}
-    <View style={styles.avatar}>
-  {item.image_src ? (
-    <Image
-      source={{ uri: item.image_src }}
-      style={styles.avatarImage}
-      resizeMode="cover"
-    />
-  ) : (
-    <Ionicons name="person" size={22} color="#6B7280" />
-  )}
-</View>
-
-      {/* Info */}
       <View style={{ flex: 1 }}>
         <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.sub}>{item.relation}</Text>
+        <Text style={styles.sub}>{t(item.relation)}</Text>
         <Text style={styles.sub}>{item.phone_no}</Text>
       </View>
 
-      {/* 3 dots */}
-      <TouchableOpacity
-        onPress={() => setMenuIndex(menuIndex === index ? null : index)}
-      >
-        < Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+      <TouchableOpacity onPress={() => setMenuIndex(menuIndex === index ? null : index)}>
+        <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
       </TouchableOpacity>
 
-      {/* Menu */}
       {menuIndex === index && (
         <View style={styles.menu}>
-
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
@@ -128,8 +109,8 @@ const MembersScreen = ({ navigation }) => {
               navigation.navigate("AddMember", { member: item });
             }}
           >
-            < Ionicons name="create-outline" size={18} color="#111" />
-            <Text style={styles.menuText}>Edit</Text>
+            <Ionicons name="create-outline" size={18} color="#111" />
+            <Text style={styles.menuText}>{t("Edit")}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -139,74 +120,64 @@ const MembersScreen = ({ navigation }) => {
               handleDelete(item.id);
             }}
           >
-            < Ionicons name="trash-outline" size={18} color="red" />
-            <Text style={[styles.menuText, { color: "red" }]}>
-              Delete
-            </Text>
+            <Ionicons name="trash-outline" size={18} color="red" />
+            <Text style={[styles.menuText, { color: "red" }]}>{t("Delete")}</Text>
           </TouchableOpacity>
-
         </View>
       )}
-
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-
-      <AppHeader title="Family Members" />
+      <AppHeader title={t("Family Members")} />
 
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
-  data={members}
-  renderItem={renderItem}
-  keyExtractor={(item) => item.id.toString()}
-  contentContainerStyle={{
-  padding: 16,
-  flexGrow: members.length === 0 ? 1 : 0
-}}
-  
-  ListEmptyComponent={
-    <View style={styles.emptyContainer}>
-      <Ionicons name="people-outline" size={60} color="#9CA3AF" />
-      <Text style={styles.emptyTitle}>No Family Members</Text>
-      <Text style={styles.emptySub}>
-        Add your family members so security can allow them easily.
-      </Text>
+          data={members}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={{
+            padding: 16,
+            flexGrow: members.length === 0 ? 1 : 0
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={60} color="#9CA3AF" />
+              <Text style={styles.emptyTitle}>{t("No Family Members")}</Text>
+              <Text style={styles.emptySub}>
+                {t("Add your family members so security can allow them easily.")}
+              </Text>
 
-      <TouchableOpacity
-        style={styles.emptyBtn}
-        onPress={() => navigation.navigate("AddMember")}
-      >
-        <Text style={styles.emptyBtnText}>Add Member</Text>
-      </TouchableOpacity>
-    </View>
-  }
-
-  refreshControl={
-    <RefreshControl
-      refreshing={refreshing}
-      onRefresh={onRefresh}
-      colors={["#1565A9"]}
-      tintColor="#1565A9"
-    />
-  }
-/>
-
+              <TouchableOpacity
+                style={styles.emptyBtn}
+                onPress={() => navigation.navigate("AddMember")}
+              >
+                <Text style={styles.emptyBtnText}>{t("Add Member")}</Text>
+              </TouchableOpacity>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#1565A9"]}
+              tintColor="#1565A9"
+            />
+          }
+        />
       )}
 
-      {/* Floating Button */}
-   {members.length > 0 && (
-  <TouchableOpacity
-    style={styles.fab}
-    onPress={() => navigation.navigate("AddMember")}
-  >
-    <Ionicons name="add" size={28} color="#fff" />
-  </TouchableOpacity>
-)}
-
+      {members.length > 0 && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => navigation.navigate("AddMember")}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 };

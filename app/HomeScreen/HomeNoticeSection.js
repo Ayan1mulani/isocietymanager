@@ -1,22 +1,23 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
-
 import { useNavigation } from "@react-navigation/native";
 import { ismServices } from "../../services/ismServices";
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
 /* ─── helpers ─── */
 const stripHtml = (html = "") =>
   html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
 
 const HomeNoticeSection = () => {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +25,6 @@ const HomeNoticeSection = () => {
   const fetchNotices = async () => {
     try {
       const res = await ismServices.getMyNotices("COMMON");
-
       if (res?.status === "success") {
         setNotices(res.data || []);
       }
@@ -39,7 +39,6 @@ const HomeNoticeSection = () => {
     fetchNotices();
   }, []);
 
-  // Only show "More" button if there are actually notices
   const dataToShow = notices.slice(0, 3);
   const listData = dataToShow.length > 0 ? [...dataToShow, { id: "more" }] : [];
 
@@ -50,12 +49,10 @@ const HomeNoticeSection = () => {
           style={[styles.card, styles.moreCard]}
           onPress={() => navigation.navigate("Notices")}
         >
-          <Text style={styles.moreText}>More</Text>
+          <Text style={styles.moreText}>{t("More")}</Text>
           <Ionicons name="arrow-forward" size={14} color="#0f0101"
             style={{ marginLeft: 4 }} />
         </TouchableOpacity>
-
-
       );
     }
 
@@ -66,7 +63,6 @@ const HomeNoticeSection = () => {
         style={styles.card}
         onPress={() => navigation.navigate("NoticeDetail", { notice: item })}
       >
-        {/* ── ADDED: Icon before the card's title ── */}
         <View style={styles.cardTitleRow}>
           <Ionicons 
             name="link-outline" 
@@ -90,14 +86,12 @@ const HomeNoticeSection = () => {
     return <ActivityIndicator style={{ margin: 10 }} />;
   }
 
-  // Don't render the section at all if there are no notices to show
   if (notices.length === 0) {
     return null;
   }
 
   return (
     <View style={styles.container}>
-      {/* ── Reverted back to the reader icon here ── */}
       <View style={styles.sectionHeader}>
         <View style={styles.headerTitleRow}>
           <Ionicons
@@ -106,7 +100,7 @@ const HomeNoticeSection = () => {
             color="#374151"
             style={{ marginRight: 8 }}
           />
-          <Text style={styles.headerText}>Important Information</Text>
+          <Text style={styles.headerText}>{t("Important Information")}</Text>
         </View>
       </View>
 
@@ -123,6 +117,7 @@ const HomeNoticeSection = () => {
 };
 
 export default HomeNoticeSection;
+
 
 /* ─── styles ─── */
 const styles = StyleSheet.create({

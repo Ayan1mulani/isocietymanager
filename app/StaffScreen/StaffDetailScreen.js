@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Image, Linking
+  Image, 
+  Linking
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,6 +14,10 @@ import { otherServices } from "../../services/otherServices";
 import AppHeader from "../components/AppHeader";
 import StatusModal from "../components/StatusModal";
 import BRAND from "../config";
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
@@ -42,6 +46,7 @@ const parseWorkLocations = (raw) => {
 
 const StaffDetailScreen = ({ route, navigation }) => {
   const { staff } = route.params;
+  const { t } = useTranslation(); // 👈 Init translation
 
   // FIX (Issue 1): use staff_id || id consistently
   const staffId = staff.staff_id || staff.id;
@@ -104,32 +109,31 @@ const StaffDetailScreen = ({ route, navigation }) => {
   const handleAssociate = useCallback(async () => {
     try {
       setAssigning(true);
-      showModal("loading", "Associating", "Please wait...");
-
+      showModal("loading", t("Associating"), t("Please wait..."));
 
       // FIX (Issue 1): use staffId
       const res = await otherServices.assignStaff(staffId);
 
       if (res?.status === "success") {
-        showModal("success", "Associated!", `${String(staff.name || "")} has been added`);
+        showModal("success", t("Associated!"), `${String(staff.name || "")} ${t("has been added")}`);
 
         setTimeout(() => {
           closeModal();
           navigation.navigate("StaffScreen", { tabIndex: 0 });
         }, 2000);
       } else {
-        showModal("error", "Failed", res?.message || "Something went wrong");
+        showModal("error", t("Failed"), res?.message || t("Something went wrong"));
         // FIX (Issue 3): functional updater — no stale statusModal reference
         setTimeout(() => closeModal(), 2000);
       }
     } catch (error) {
       console.error("[StaffDetailScreen] associate error:", error);
-      showModal("error", "Error", "Association failed");
+      showModal("error", t("Error"), t("Association failed"));
       setTimeout(() => closeModal(), 2000);
     } finally {
       setAssigning(false);
     }
-  }, [staffId, staff.name, navigation, showModal, closeModal]);
+  }, [staffId, staff.name, navigation, showModal, closeModal, t]);
 
   const workLocations = parseWorkLocations(staff.work_location);
 
@@ -149,7 +153,7 @@ const StaffDetailScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <AppHeader title="Staff Detail" onBack={() => navigation.goBack()} />
+      <AppHeader title={t("Staff Detail")} onBack={() => navigation.goBack()} />
 
       <ScrollView showsVerticalScrollIndicator={false}>
 
@@ -184,7 +188,7 @@ const StaffDetailScreen = ({ route, navigation }) => {
           )}
 
           <Text style={styles.subInfo}>
-            {staff.address || "—"} · {staff.category || "—"} · {staff.mobile || "N/A"}
+            {t(staff.address || "—")} · {t(staff.category || "—")} · {staff.mobile || "N/A"}
           </Text>
         </View>
 
@@ -194,14 +198,14 @@ const StaffDetailScreen = ({ route, navigation }) => {
             <Text style={styles.infoNumber} numberOfLines={1}>
               {staffId || "—"}
             </Text>
-            <Text style={styles.infoLabel}>ID</Text>
+            <Text style={styles.infoLabel}>{t("ID")}</Text>
           </View>
 
           <View style={styles.infoDivider} />
 
           <View style={styles.infoItem}>
             <Text style={styles.infoNumber}>{workLocations.length}</Text>
-            <Text style={styles.infoLabel}>Houses</Text>
+            <Text style={styles.infoLabel}>{t("Houses")}</Text>
           </View>
 
           <View style={styles.infoDivider} />
@@ -210,7 +214,7 @@ const StaffDetailScreen = ({ route, navigation }) => {
             <Text style={styles.infoNumber} numberOfLines={1}>
               {staff.access_card_number || "—"}
             </Text>
-            <Text style={styles.infoLabel}>Access No.</Text>
+            <Text style={styles.infoLabel}>{t("Access No.")}</Text>
           </View>
         </View>
 
@@ -227,21 +231,21 @@ const StaffDetailScreen = ({ route, navigation }) => {
             {assigning ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.associateText}>Associate</Text>
+              <Text style={styles.associateText}>{t("Associate")}</Text>
             )}
           </TouchableOpacity>
 
           {assigning && (
-            <Text style={styles.loadingLabel}>Associating...</Text>
+            <Text style={styles.loadingLabel}>{t("Associating...")}</Text>
           )}
         </View>
 
         {/* ── Reviews Section ── */}
         <View style={styles.reviewCard}>
           <View style={styles.reviewHeader}>
-            <Text style={styles.reviewTitle}>Reviews</Text>
+            <Text style={styles.reviewTitle}>{t("Reviews")}</Text>
             {reviews.length > 0 && (
-              <Text style={styles.reviewCount}>{reviews.length} review{reviews.length > 1 ? "s" : ""}</Text>
+              <Text style={styles.reviewCount}>{reviews.length} {t("reviews")}</Text>
             )}
           </View>
 
@@ -269,7 +273,7 @@ const StaffDetailScreen = ({ route, navigation }) => {
                 {/* Reviewer + date */}
                 <View style={styles.reviewMeta}>
                   <Text style={styles.reviewerName}>
-                    {item.display_name || "Anonymous"}
+                    {item.display_name || t("Anonymous")}
                   </Text>
                   {item.created_at && (
                     <Text style={styles.reviewDate}>
@@ -287,7 +291,7 @@ const StaffDetailScreen = ({ route, navigation }) => {
           ) : (
             <View style={styles.noReviewContainer}>
               < Ionicons name="chatbubble-outline" size={32} color={COLORS.border} />
-              <Text style={styles.noReviewText}>No reviews yet</Text>
+              <Text style={styles.noReviewText}>{t("No reviews yet")}</Text>
             </View>
           )}
         </View>

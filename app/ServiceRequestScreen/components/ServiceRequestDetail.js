@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -21,6 +20,8 @@ import AppHeader from "../../components/AppHeader";
 import StatusModal from "../../components/StatusModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { otherServices } from "../../../services/otherServices";
+import { useTranslation } from "react-i18next";
+import Text from "../../components/TranslatedText";
 
 const BRAND_BLUE = "#1996D3";
 const KAV_OFFSET = Platform.OS === "ios" ? 90 : 30;
@@ -30,7 +31,7 @@ const TERMINAL_STATUSES = ["closed", "resolved", "completed", "cancelled", "reje
 const REOPEN_STATUSES = ["reopen", "reopened"];
 
 // 2. Dynamic Status Configurator
-const getStatusConfig = (rawStatus) => {
+const getStatusConfig = (rawStatus, t) => {
   const status = (rawStatus || "Unknown").trim();
   const key = status.toLowerCase();
 
@@ -47,10 +48,9 @@ const getStatusConfig = (rawStatus) => {
     reopened: { color: "#9333EA", bg: "#F3E8FF", icon: "refresh-circle" },
   };
 
-  const formattedLabel = status.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-
+  const formattedLabel = t(status.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
   if (predefined[key]) {
-    return { label: formattedLabel, ...predefined[key] };
+   return { label: formattedLabel, ...predefined[key] };
   }
 
   // Dynamic colors for ANY custom backend status (Hold, Review, etc.)
@@ -129,6 +129,7 @@ const InfoRow = ({ label, value, theme }) => {
 };
 
 const ServiceRequestDetailScreen = () => {
+  const { t } = useTranslation(); // Add this line
   const route = useRoute();
   const navigation = useNavigation();
   const onGoBack = route.params?.onGoBack;
@@ -164,7 +165,7 @@ const ServiceRequestDetailScreen = () => {
 
   const canReopen = isClosed && societySettings?.data?.reopen_complaint === "1";
   const hasRating = complaint.rating !== null && complaint.rating !== undefined && parseFloat(complaint.rating) > 0;
-  const statusConfig = getStatusConfig(normalizedStatus);
+  const statusConfig = getStatusConfig(normalizedStatus, t);
 
   const parsedData = (() => {
     try { return JSON.parse(complaint.data || "{}"); } catch { return {}; }
@@ -348,7 +349,7 @@ const ServiceRequestDetailScreen = () => {
             {!!complaint.remarks && (
               <>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Text style={[styles.remarksLabel, { color: theme.sub }]}>Staff Remarks</Text>
+                <Text style={[styles.remarksLabel, { color: theme.sub }]}>{t("Staff Remarks")}</Text>
                 <Text style={[styles.remarksText, { color: theme.text }]}>{complaint.remarks}</Text>
               </>
             )}
@@ -356,7 +357,7 @@ const ServiceRequestDetailScreen = () => {
 
           {isClosed && hasRating && (
             <View style={[styles.card, { backgroundColor: theme.card }]}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Your Rating</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t("Your Rating")}</Text>
               <View style={{ flexDirection: "row", marginBottom: 8 }}>
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Ionicons key={s} name={s <= parseFloat(complaint.rating) ? "star" : "star-outline"} size={24} color="#F59E0B" style={{ marginRight: 4 }} />
@@ -369,7 +370,7 @@ const ServiceRequestDetailScreen = () => {
           {(isOpen || isReopen) && (
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: "#22C55E" }]} onPress={() => setRatingModal(true)}>
               <Ionicons name="checkmark-circle-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.actionBtnText}>Mark as Closed</Text>
+              <Text style={styles.actionBtnText}>{t("Mark as Closed")}</Text>
             </TouchableOpacity>
           )}
 
@@ -378,13 +379,13 @@ const ServiceRequestDetailScreen = () => {
               {canReopen && (
                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: "#9333EA" }]} onPress={handleReopenRequest}>
                   <Ionicons name="refresh-circle-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.actionBtnText}>Reopen Request</Text>
+                  <Text style={styles.actionBtnText}>{t("Reopen Request")}</Text>
                 </TouchableOpacity>
               )}
               {!hasRating && (
                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: "#F59E0B" }]} onPress={() => setRatingModal(true)}>
                   <Ionicons name="star-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.actionBtnText}>Rate this Service</Text>
+                  <Text style={styles.actionBtnText}>{t("Rate this Service")}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -392,9 +393,9 @@ const ServiceRequestDetailScreen = () => {
 
           {statusHistory.length > 0 && (
             <View style={[styles.card, { backgroundColor: theme.card }]}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Status History</Text>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t("Status History")}</Text>
               {statusHistory.map((item, index) => {
-                const sc = getStatusConfig(item.status);
+               const sc = getStatusConfig(item.status, t);
                 return (
                   <View key={index} style={styles.historyRow}>
                     <View style={[styles.historyDot, { backgroundColor: sc.color }]} />
@@ -407,9 +408,9 @@ const ServiceRequestDetailScreen = () => {
           )}
 
           <View style={[styles.card, { backgroundColor: theme.card }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Activities {comments.length > 0 ? `(${comments.length})` : ""}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t("Activities")} {comments.length > 0 ? `(${comments.length})` : ""}</Text>
             {comments.length === 0 ? (
-              <Text style={[styles.emptyText, { color: theme.sub }]}>No comments yet.</Text>
+              <Text style={[styles.emptyText, { color: theme.sub }]}>{t("No comments yet.")}</Text>
             ) : (
               comments.map((item) => (
                 <View key={item.id} style={styles.commentRow}>
@@ -428,7 +429,7 @@ const ServiceRequestDetailScreen = () => {
 
         <View style={[styles.commentBox, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
           <TextInput
-            placeholder="Add a comment..." placeholderTextColor={theme.sub} value={message} onChangeText={setMessage}
+            placeholder= {t("Add a comment...")} placeholderTextColor={theme.sub} value={message} onChangeText={setMessage}
             style={[styles.input, { backgroundColor: theme.inputBg, color: theme.text }]} onSubmitEditing={sendComment} blurOnSubmit={false}
           />
           <TouchableOpacity style={[styles.sendBtn, { backgroundColor: message.trim() ? BRAND_BLUE : theme.border }]} onPress={sendComment} disabled={!message.trim()}>
@@ -440,8 +441,8 @@ const ServiceRequestDetailScreen = () => {
       <Modal visible={ratingModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{isClosed ? "Rate the Service" : "Close & Rate"}</Text>
-            <Text style={styles.modalSubtitle}>Please provide your feedback.</Text>
+            <Text style={styles.modalTitle}>{isClosed ? t("Rate the Service") : t("Close & Rate")}</Text>
+            <Text style={styles.modalSubtitle}>{t("Please provide your feedback.")}</Text>
             <View style={{ flexDirection: "row", justifyContent: "center", marginVertical: 16 }}>
               {[1, 2, 3, 4, 5].map((s) => (
                 <TouchableOpacity key={s} onPress={() => setRating(s)} style={{ padding: 4 }}>
@@ -450,15 +451,15 @@ const ServiceRequestDetailScreen = () => {
               ))}
             </View>
             <TextInput
-              placeholder="Write your feedback..." value={feedback} onChangeText={setFeedback}
+              placeholder={t("Write your feedback...")} value={feedback} onChangeText={setFeedback}
               placeholderTextColor="#afbdda" style={[styles.feedbackInput, { borderColor: "#E5E7EB" }]} multiline numberOfLines={3}
             />
             <View style={styles.modalBtns}>
               <TouchableOpacity style={[styles.modalBtn, { backgroundColor: "#E5E7EB" }]} onPress={() => setRatingModal(false)}>
-                <Text style={{ color: "#374151" }}>Cancel</Text>
+                <Text style={{ color: "#374151" }}>{t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, { backgroundColor: "#22C55E" }]} onPress={submitRating}>
-                <Text style={{ color: "#fff", fontWeight: "600" }}>Submit</Text>
+                <Text style={{ color: "#fff", fontWeight: "600" }}>{t("Submit")}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
@@ -13,7 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ismServices } from '../../services/ismServices';
 import AppHeader from '../components/AppHeader';
 import { usePermissions } from '../../Utils/ConetextApi';
-import BRAND from '../config'; // Make sure the path is correct for your project
+import BRAND from '../config'; 
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const PRIMARY = BRAND.COLORS.primary || '#0A5EB0';
 const SUCCESS = '#10B981';
@@ -29,6 +32,8 @@ const formatCurrency = (amount) => {
 
 const PaymentHistoryScreen = ({ navigation }) => {
   const { nightMode } = usePermissions();
+  const { t } = useTranslation(); // 👈 Init translation
+
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,11 +57,11 @@ const PaymentHistoryScreen = ({ navigation }) => {
       if (response && response.status === 'success') {
         setPayments(response.data);
       } else {
-        Alert.alert('Error', 'Failed to fetch payments.');
+        Alert.alert(t('Error'), t('Failed to fetch payments.'));
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
-      Alert.alert('Error', 'Something went wrong.');
+      Alert.alert(t('Error'), t('Something went wrong.'));
     } finally {
       setLoading(false);
     }
@@ -93,7 +98,7 @@ const PaymentHistoryScreen = ({ navigation }) => {
           {/* MIDDLE CONTENT */}
           <View style={styles.middle}>
             <Text style={[styles.title, { color: theme.text }]}>
-              {isCredit ? 'Credit Note' : 'Debit Note'}
+              {isCredit ? t('Credit Note') : t('Debit Note')}
             </Text>
             <Text style={[styles.date, { color: theme.sub }]}>
               {new Date(item.transaction_date_time).toLocaleDateString('en-GB', {
@@ -101,7 +106,7 @@ const PaymentHistoryScreen = ({ navigation }) => {
               })}
             </Text>
             <Text style={[styles.remarks, { color: theme.sub }]} numberOfLines={1}>
-              {item.remarks || 'No remarks provided'}
+              {item.remarks || t('No remarks provided')}
             </Text>
           </View>
 
@@ -110,9 +115,6 @@ const PaymentHistoryScreen = ({ navigation }) => {
             <Text style={[styles.amount, { color: typeColor }]}>
               {isCredit ? '+' : '-'}{formatCurrency(item.amount)}
             </Text>
-            {/* <View style={[styles.badge, { backgroundColor: theme.border }]}>
-             
-            </View> */}
           </View>
         </View>
       </TouchableOpacity>
@@ -123,10 +125,12 @@ const PaymentHistoryScreen = ({ navigation }) => {
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-        <AppHeader title="Debit Credit Note" nightMode={nightMode} showBack />
+        <AppHeader title={t("Debit Credit Note")} nightMode={nightMode} showBack />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={PRIMARY} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>Loading records...</Text>
+          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>
+            {t("Loading records...")}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -136,7 +140,7 @@ const PaymentHistoryScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <AppHeader
-        title="Debit Credit Note"
+        title={t("Debit Credit Note")}
         nightMode={nightMode}
         showBack
       />
@@ -150,7 +154,9 @@ const PaymentHistoryScreen = ({ navigation }) => {
         ListEmptyComponent={
           <View style={[styles.center, { marginTop: 80 }]}>
              <Ionicons name="receipt-outline" size={52} color={theme.sub} />
-             <Text style={{ color: theme.sub, marginTop: 12, fontSize: 15 }}>No transactions found</Text>
+             <Text style={{ color: theme.sub, marginTop: 12, fontSize: 15 }}>
+               {t("No transactions found")}
+             </Text>
           </View>
         }
       />

@@ -1,8 +1,6 @@
-// components/AccountSelectorModal.js
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   Modal,
   TouchableOpacity,
   FlatList,
@@ -11,10 +9,13 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import BRAND from '../config';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const { height } = Dimensions.get('window');
 
 const AccountSelectorModal = ({ visible, onClose, accounts, onSelect }) => {
+  const { t } = useTranslation();
   const [selectedAccount, setSelectedAccount] = useState(null);
 
   const handleSelect = (account) => {
@@ -40,9 +41,10 @@ const AccountSelectorModal = ({ visible, onClose, accounts, onSelect }) => {
         </View>
 
         <View style={styles.accountInfo}>
+          {/* Typically user/society names from API are kept as-is, but you can wrap in t() if they are static keys */}
           <Text style={styles.accountName}>{item.name}</Text>
           <Text style={styles.accountDetail}>
-            {item.society_name} {item.flat_no && `• Flat ${item.flat_no}`}
+            {item.society_name} {item.flat_no && `• ${t('Flat')} ${item.flat_no}`}
           </Text>
         </View>
 
@@ -69,7 +71,7 @@ const AccountSelectorModal = ({ visible, onClose, accounts, onSelect }) => {
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>Select Account</Text>
+            <Text style={styles.title}>{t("Select Account")}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Icon name="close" size={20} color="#666" />
             </TouchableOpacity>
@@ -155,7 +157,6 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: BRAND.COLORS.iconbg,
-
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

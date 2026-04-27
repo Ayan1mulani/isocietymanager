@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   StyleSheet,
-  Text,
   ActivityIndicator,
   Linking,
 } from "react-native";
@@ -10,6 +9,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import sanitizeHtml from "sanitize-html";
 import AppHeader from "../components/AppHeader";
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ALLOWED_TAGS
@@ -327,21 +328,22 @@ const prepareNoticeHtml = (raw = "") => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NoticeDetailScreen = ({ route }) => {
+  const { t, i18n } = useTranslation(); // Add this
   const { notice } = route.params;
   const [loading, setLoading] = useState(true);
 
   const fullHtml = prepareNoticeHtml(notice?.notice);
 
-  const formattedDate = notice.published_at
-    ? new Date(notice.published_at).toLocaleDateString("en-IN", {
-        day: "numeric", month: "long", year: "numeric",
-      })
+const formattedDate = notice.published_at
+    ? new Date(notice.published_at).toLocaleDateString(
+        i18n.language === 'km' ? "km-KH" : "en-IN", 
+        { day: "numeric", month: "long", year: "numeric" }
+      )
     : "";
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader title="Notice Details" showBack />
-
+<AppHeader title={t("Notice Details")} showBack />
       <View style={styles.header}>
         <Text style={styles.title}>{notice.subject}</Text>
         <Text style={styles.meta}>

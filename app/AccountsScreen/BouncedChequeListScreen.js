@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -15,6 +14,10 @@ import { usePermissions } from '../../Utils/ConetextApi';
 import { otherServices } from '../../services/otherServices';
 import AppHeader from '../components/AppHeader';
 import BRAND from '../config';
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const PRIMARY = BRAND.COLORS.primary;
 const DANGER = '#EF4444';
@@ -35,6 +38,7 @@ const formatDate = (dateStr) => {
 export default function BouncedChequeListScreen() {
   const navigation = useNavigation();
   const { nightMode } = usePermissions();
+  const { t } = useTranslation(); // 👈 Init translation
 
   const theme = {
     bg: nightMode ? '#0F1117' : '#F0F4F8',
@@ -80,10 +84,10 @@ export default function BouncedChequeListScreen() {
     <View style={[styles.summaryCard, { backgroundColor: DANGER }]}>
       <View style={styles.summaryInner}>
         <View>
-          <Text style={styles.summaryLabel}>Total Bounced Amount</Text>
+          <Text style={styles.summaryLabel}>{t("Total Bounced Amount")}</Text>
           <Text style={styles.summaryAmount}>{formatCurrency(summary.total)}</Text>
           <Text style={styles.summaryNote}>
-            {summary.count} bounced cheque{summary.count !== 1 ? 's' : ''}
+            {t("{{count}} bounced cheque(s)", { count: summary.count })}
           </Text>
         </View>
         <View style={styles.summaryIconBox}>
@@ -98,9 +102,9 @@ export default function BouncedChequeListScreen() {
       <View style={[styles.emptyIconCircle, { backgroundColor: theme.tagBg }]}>
         <Ionicons name="checkmark-circle-outline" size={40} color={SUCCESS} />
       </View>
-      <Text style={[styles.emptyTitle, { color: theme.text }]}>No Bounced Cheques</Text>
+      <Text style={[styles.emptyTitle, { color: theme.text }]}>{t("No Bounced Cheques")}</Text>
       <Text style={[styles.emptySub, { color: theme.sub }]}>
-        All your cheques are clear. Great job!
+        {t("All your cheques are clear. Great job!")}
       </Text>
     </View>
   );
@@ -120,7 +124,7 @@ export default function BouncedChequeListScreen() {
       <View style={styles.cardContent}>
         <View style={styles.cardTopRow}>
           <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
-            {item.p_type ? `Cheque #${item.p_type}` : 'Bounced Cheque'}
+            {item.p_type ? `${t("Cheque #")}${item.p_type}` : t("Bounced Cheque")}
           </Text>
           <Text style={[styles.cardAmount, { color: DANGER }]}>
             {formatCurrency(item.amount)}
@@ -147,10 +151,10 @@ export default function BouncedChequeListScreen() {
         <View style={styles.cardBottomRow}>
           <View style={[styles.bouncedTag, { backgroundColor: theme.tagBg }]}>
             <View style={styles.bouncedDot} />
-            <Text style={styles.bouncedTagText}>BOUNCED</Text>
+            <Text style={styles.bouncedTagText}>{t("BOUNCED")}</Text>
           </View>
           <View style={styles.viewDetail}>
-            <Text style={[styles.viewDetailText, { color: PRIMARY }]}>View Details</Text>
+            <Text style={[styles.viewDetailText, { color: PRIMARY }]}>{t("View Details")}</Text>
             <Ionicons name="chevron-forward" size={13} color={PRIMARY} />
           </View>
         </View>
@@ -161,10 +165,10 @@ export default function BouncedChequeListScreen() {
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-        <AppHeader title="Bounced Cheques" nightMode={nightMode} showBack />
+        <AppHeader title={t("Bounced Cheques")} nightMode={nightMode} showBack />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={DANGER} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>Loading...</Text>
+          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>{t("Loading...")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -172,7 +176,7 @@ export default function BouncedChequeListScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppHeader title="Bounced Cheques" nightMode={nightMode} showBack />
+      <AppHeader title={t("Bounced Cheques")} nightMode={nightMode} showBack />
 
       <FlatList
         data={data}

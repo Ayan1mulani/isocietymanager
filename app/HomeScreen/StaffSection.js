@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
@@ -13,13 +12,15 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { usePermissions } from "../../Utils/ConetextApi";
 import { otherServices } from "../../services/otherServices";
 
+// 1. ── NEW: Import your global Text component ──
+import Text from '../components/TranslatedText'; 
+
 const StaffSection = ({ refreshTrigger }) => {
   const navigation = useNavigation();
   const { nightMode } = usePermissions();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // ── Professional Theme Palette ──
   const theme = {
     background: nightMode ? "#111827" : "#FFFFFF",
     cardBg: nightMode ? "#1F2937" : "#FFFFFF",
@@ -27,17 +28,14 @@ const StaffSection = ({ refreshTrigger }) => {
     textMain: nightMode ? "#F9FAFB" : "#1F2937",
     textSub: nightMode ? "#9CA3AF" : "#6B7280",
     iconBtnBg: nightMode ? "#374151" : "#F3F4F6",
-
-    // Classic Enterprise Colors: Blue and Grey
-  inColor: "#10B981" ,  // Green (IN)
-  outColor: "#8B5CF6"  // Purple (OUT)
+    inColor: "#10B981" ,  
+    outColor: "#8B5CF6"  
   };
 
   const loadStaff = async () => {
     try {
       setLoading(true);
       const res = await otherServices.getAllStaffs();
-
       if (res?.data) {
         setStaff(res.data);
       }
@@ -54,6 +52,8 @@ const StaffSection = ({ refreshTrigger }) => {
 
   const renderItem = ({ item }) => {
     const isPresent = item.status?.toUpperCase() === "PRESENT" || item.status?.toUpperCase() !== "ABSENT";
+    
+    // 2. ── These strings will be translated automatically by the global <Text> ──
     const statusText = isPresent ? "IN" : "OUT";
     const statusColor = isPresent ? theme.inColor : theme.outColor;
 
@@ -81,7 +81,6 @@ const StaffSection = ({ refreshTrigger }) => {
             )}
           </View>
 
-          {/* Professional Cutout Badge */}
           <View
             style={[
               styles.badge,
@@ -163,7 +162,7 @@ export default StaffSection;
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 10,
+    paddingTop: 15,
   },
   sectionHeader: {
     flexDirection: "row",

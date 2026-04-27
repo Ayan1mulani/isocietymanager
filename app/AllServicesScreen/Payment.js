@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
-  ActivityIndicator,
-  TouchableOpacity,
   StyleSheet,
-  Linking,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -15,6 +13,8 @@ import { usePermissions } from '../../Utils/ConetextApi';
 import { ismServices } from '../../services/ismServices';
 import AppHeader from '../components/AppHeader';
 import BRAND from '../config';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const THEME = {
   primary:      BRAND.COLORS.primary,
@@ -27,19 +27,8 @@ const THEME = {
   darkCard:     '#1A1D27',
 };
 
-const formatCurrency = (amount) => {
-  const num = parseFloat(amount);
-  return `₹${(isNaN(num) ? 0 : num).toLocaleString('en-IN')}`;
-};
-
-const formatDate = (raw) => {
-  if (!raw) return '-';
-  const d = new Date(raw);
-  if (isNaN(d.getTime())) return raw;
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-
 const Payment = () => {
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation();
   const { nightMode } = usePermissions();
 
@@ -70,15 +59,35 @@ const Payment = () => {
     }
   };
 
+  const formatCurrency = (amount) => {
+    const num = parseFloat(amount);
+    const isKhmer = i18n.language === 'km';
+    // Use Riel for Khmer, Rupee for English
+    const symbol = isKhmer ? '៛' : '₹';
+    const locale = isKhmer ? 'km-KH' : 'en-IN';
+    return `${symbol}${(isNaN(num) ? 0 : num).toLocaleString(locale)}`;
+  };
+
+  const formatDate = (raw) => {
+    if (!raw) return '-';
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return raw;
+    return d.toLocaleDateString(i18n.language === 'km' ? 'km-KH' : 'en-GB', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+  };
+
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-        <AppHeader title="Payments" nightMode={nightMode} showBack />
+        <AppHeader title={t("Payments")} nightMode={nightMode} showBack />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={THEME.primary} />
           <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>
-            Loading payments...
+            {t("Loading payments...")}
           </Text>
         </View>
       </SafeAreaView>
@@ -89,21 +98,20 @@ const Payment = () => {
   if (data.length === 0) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-        <AppHeader title="Payments" nightMode={nightMode} showBack />
+        <AppHeader title={t("Payments")} nightMode={nightMode} showBack />
         <View style={styles.center}>
           <Ionicons name="wallet-outline" size={64} color={theme.sub} />
           <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 16 }]}>
-            No Payments Found
+            {t("No Payments Found")}
           </Text>
           <Text style={{ color: theme.sub, textAlign: 'center', paddingHorizontal: 40, marginTop: 8, fontSize: 13 }}>
-            Your payment history will appear here.
+            {t("Your payment history will appear here.")}
           </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ── Totals for banner ──────────────────────────────────────────────────────
   const totalCredit = data
     .filter((i) => i.type === 'CREDIT' || i.p_type === 'CR')
     .reduce((s, i) => s + parseFloat(i.amount || 0), 0);
@@ -112,12 +120,10 @@ const Payment = () => {
     .filter((i) => i.type !== 'CREDIT' && i.p_type !== 'CR')
     .reduce((s, i) => s + parseFloat(i.amount || 0), 0);
 
-  // ── Compact card — icon | remarks+date | amount+badge on the right ─────────
   const renderItem = ({ item }) => {
     const isCredit  = item.type === 'CREDIT' || item.p_type === 'CR';
-    const iconColor = isCredit ? THEME.success : THEME.danger;
     const typeColor = isCredit ? THEME.success : THEME.danger;
-    const typeLabel = isCredit ? 'CREDIT' : 'DEBIT';
+    const typeLabel = isCredit ? t('CREDIT') : t('DEBIT');
 
     return (
       <TouchableOpacity
@@ -125,25 +131,22 @@ const Payment = () => {
         onPress={() => navigation.navigate('PaymentDetailScreen', { id: item.id })}
         style={[styles.card, { backgroundColor: theme.card }]}
       >
-        {/* Left — icon box */}
         <View style={[styles.iconBox, { backgroundColor: theme.iconBg }]}>
-          <Ionicons name="card-outline" size={20} color={iconColor} />
+          <Ionicons name="card-outline" size={20} color={isCredit ? THEME.success : THEME.danger} />
         </View>
 
-        {/* Middle — remarks + date */}
         <View style={styles.mid}>
           <Text style={[styles.remarks, { color: theme.text }]} numberOfLines={1}>
-            {item.remarks || item.transaction_id || 'Payment'}
+            {item.remarks || item.transaction_id || t('Payment')}
           </Text>
           <Text style={[styles.date, { color: theme.secondaryText }]}>
             {formatDate(item.transaction_date_time)}
           </Text>
         </View>
 
-        {/* Right — amount on top, type badge below */}
         <View style={styles.right}>
           <Text style={[styles.amount, { color: isCredit ? THEME.success : theme.text }]}>
-          {formatCurrency(item.amount)}
+            {formatCurrency(item.amount)}
           </Text>
           <View style={[styles.typeBadge, { backgroundColor: typeColor + '20' }]}>
             <Text style={[styles.typeBadgeText, { color: typeColor }]}>
@@ -155,10 +158,9 @@ const Payment = () => {
     );
   };
 
-  // ── Main render ────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <AppHeader title="Payments" nightMode={nightMode} showBack />
+      <AppHeader title={t("Payments")} nightMode={nightMode} showBack />
 
       <FlatList
         data={data}
@@ -169,13 +171,12 @@ const Payment = () => {
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListHeaderComponent={
           <>
-            {/* ── Summary banner ── */}
             <View style={[styles.summaryCard, { backgroundColor: THEME.primary }]}>
               <View style={styles.summaryInner}>
                 <View>
-                  <Text style={styles.summaryLabel}>Total Payments</Text>
-                  <Text style={styles.summaryAmount}>{data.length} transactions</Text>
-                  <Text style={styles.summaryNote}>{formatCurrency(totalCredit)} received</Text>
+                  <Text style={styles.summaryLabel}>{t("Total Payments")}</Text>
+                  <Text style={styles.summaryAmount}>{data.length} {t("transactions")}</Text>
+                  <Text style={styles.summaryNote}>{formatCurrency(totalCredit)} {t("received")}</Text>
                 </View>
                 <View style={styles.summaryIcon}>
                   <Ionicons name="card-outline" size={32} color="rgba(255,255,255,0.9)" />
@@ -185,22 +186,21 @@ const Payment = () => {
               <View style={styles.summarySplitRow}>
                 <View style={styles.summarySplitItem}>
                   <Ionicons name="arrow-down-circle-outline" size={14} color="rgba(255,255,255,0.8)" />
-                  <Text style={styles.summarySplitLabel}>Credit</Text>
+                  <Text style={styles.summarySplitLabel}>{t("Credit")}</Text>
                   <Text style={styles.summarySplitValue}>{formatCurrency(totalCredit)}</Text>
                 </View>
                 <View style={styles.summarySplitDivider} />
                 <View style={styles.summarySplitItem}>
                   <Ionicons name="arrow-up-circle-outline" size={14} color="rgba(255,255,255,0.8)" />
-                  <Text style={styles.summarySplitLabel}>Debit</Text>
+                  <Text style={styles.summarySplitLabel}>{t("Debit")}</Text>
                   <Text style={styles.summarySplitValue}>{formatCurrency(totalDebit)}</Text>
                 </View>
               </View>
             </View>
 
-            {/* ── Section header ── */}
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                Transaction History
+                {t("Transaction History")}
               </Text>
               <View style={[styles.badge, { backgroundColor: theme.pillBg }]}>
                 <Text style={[styles.badgeText, { color: THEME.primary }]}>{data.length}</Text>

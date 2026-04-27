@@ -1,15 +1,18 @@
 import React, { useRef, useEffect, useState } from "react";
 import {
   View,
-  Text,
+  // Text, <── REMOVED standard Text
   TouchableOpacity,
   Animated,
   StyleSheet,
   Dimensions,
 } from "react-native";
 
+// 1. ── NEW: Import your global Text component ──
+import Text from '../components/TranslatedText'; // <── Adjust path to point to your TranslatedText file
+
 const screenWidth = Dimensions.get("window").width;
-import BRAND from "../config"; // adjust path if needed
+import BRAND from "../config"; 
 const COLORS = BRAND.COLORS;
 
 const SlidingTabs = ({
@@ -29,7 +32,6 @@ const SlidingTabs = ({
       ? containerWidth / tabs.length
       : 0;
 
-  // When NOT using scrollX (manual tab press animation)
   useEffect(() => {
     if (!scrollX && tabWidth) {
       Animated.spring(translateX, {
@@ -59,10 +61,11 @@ const SlidingTabs = ({
               activeOpacity={0.7}
               onPress={() => onTabPress(index)}
             >
+              {/* 2. ── Global Text component handles translation of {tab} ── */}
               <Text
                 style={[
                   styles.label,
-                  { color: isActive ? COLORS.primaryColor : inactiveColor },
+                  { color: isActive ? primaryColor : inactiveColor },
                   isActive && styles.activeLabel,
                 ]}
               >
@@ -111,7 +114,6 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 8,
     backgroundColor:'#fff'
-
   },
   container: {
     flexDirection: "row",
@@ -121,12 +123,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-label: {
-  fontSize: 13,
-  fontWeight: "600",
-  textAlign: "center",
-  lineHeight: 18,
-},
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 18,
+  },
   activeLabel: {
     fontWeight: "700",
   },

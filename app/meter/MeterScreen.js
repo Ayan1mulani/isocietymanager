@@ -12,10 +12,13 @@ import MeterReadingTab from "./MeterReadingTab";
 import MeterChartTab from "./MeterChartTab";
 import AppHeader from "../components/AppHeader";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
 const screenWidth = Dimensions.get("window").width;
 
 const MeterScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(0);
 
   const scrollRef = useRef(null);
@@ -26,7 +29,7 @@ const MeterScreen = ({ navigation }) => {
 
       {/* HEADER */}
       <AppHeader
-        title="Energy Consumption"
+        title={t("Energy Consumption")}
         onBack={() => navigation.goBack()}
         rightIcon={
           <TouchableOpacity
@@ -40,7 +43,7 @@ const MeterScreen = ({ navigation }) => {
 
       {/* TABS */}
       <SlidingTabs
-        tabs={["Reading", "Consumption"]}
+        tabs={[t("Reading"), t("Consumption")]}
         activeIndex={activeTab}
         scrollX={scrollX}
         onTabPress={(index) => {

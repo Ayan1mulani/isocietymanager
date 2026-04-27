@@ -1,7 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -12,51 +11,49 @@ import {
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AppHeader from "../components/AppHeader";
 import { ismServices } from "../../services/ismServices";
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
-// ─── Quick range presets ─────────────────────────────────────────────────────
-const PRESETS = [
-  { label: "1W",  full: "1 Week",    days: 7   },
-  { label: "1M",  full: "1 Month",   months: 1 },
-  { label: "2M",  full: "2 Months",  months: 2 },
-  { label: "3M",  full: "3 Months",  months: 3 },
-];
-
-const subtractFromToday = ({ days, months }) => {
-  const to   = new Date();
-  const from = new Date();
-  if (days)   from.setDate(from.getDate() - days);
-  if (months) from.setMonth(from.getMonth() - months);
-  return { from, to };
-};
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-const toISO     = (d) => d.toISOString().split("T")[0];
-const toDisplay = (d) =>
-  d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-
-// ─────────────────────────────────────────────────────────────────────────────
 const ExportMeterScreen = ({ navigation }) => {
+  const { t, i18n } = useTranslation();
+  
+  // ─── Quick range presets (Dynamic) ──────────────────────────────────────────
+  const PRESETS = useMemo(() => [
+    { label: "1W",  full: t("1 Week"),    days: 7   },
+    { label: "1M",  full: t("1 Month"),   months: 1 },
+    { label: "2M",  full: t("2 Months"),  months: 2 },
+    { label: "3M",  full: t("3 Months"),  months: 3 },
+  ], [t]);
+
   const [fromDate,      setFromDate]      = useState(null);
   const [toDate,        setToDate]        = useState(null);
-  const [activePreset,  setActivePreset]  = useState(null); // label of selected chip
+  const [activePreset,  setActivePreset]  = useState(null);
   const [showFromPicker,setShowFromPicker]= useState(false);
   const [showToPicker,  setShowToPicker]  = useState(false);
   const [loading,       setLoading]       = useState(false);
 
-  // ── Preset chip pressed ───────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  const toISO = (d) => d.toISOString().split("T")[0];
+  const toDisplay = (d) =>
+    d.toLocaleDateString(i18n.language === 'km' ? 'km-KH' : 'en-GB', { 
+      day: "2-digit", month: "short", year: "numeric" 
+    });
+
   const applyPreset = (preset) => {
-    const { from, to } = subtractFromToday(preset);
+    const to   = new Date();
+    const from = new Date();
+    if (preset.days)   from.setDate(from.getDate() - preset.days);
+    if (preset.months) from.setMonth(from.getMonth() - preset.months);
     setFromDate(from);
     setToDate(to);
     setActivePreset(preset.label);
   };
 
-  // ── Manual picker changes clear the active preset chip ───────────────────
   const onFromChange = (event, selected) => {
     setShowFromPicker(false);
     if (event.type === "dismissed" || !selected) return;
     setFromDate(selected);
-    setActivePreset(null);          // custom range → no chip highlighted
+    setActivePreset(null);
     if (toDate && selected > toDate) setToDate(null);
   };
 
@@ -64,35 +61,26 @@ const ExportMeterScreen = ({ navigation }) => {
     setShowToPicker(false);
     if (event.type === "dismissed" || !selected) return;
     if (fromDate && selected < fromDate) {
-      Alert.alert("Invalid Date", "End date cannot be before start date.");
+      Alert.alert(t("Invalid Date"), t("End date cannot be before start date."));
       return;
     }
     setToDate(selected);
     setActivePreset(null);
   };
 
-  // ── Export ────────────────────────────────────────────────────────────────
   const handleExport = async () => {
     try {
       if (!fromDate || !toDate) {
-        Alert.alert("Error", "Please select a date range.");
+        Alert.alert(t("Error"), t("Please select a date range."));
         return;
       }
       setLoading(true);
-
-      const url = await ismServices.exportMeterReadings(
-        toISO(fromDate),
-        toISO(toDate),
-        null,
-        "xls"
-      );
-
+      const url = await ismServices.exportMeterReadings(toISO(fromDate), toISO(toDate), null, "xls");
       const supported = await Linking.canOpenURL(url);
-      if (!supported) throw new Error("Cannot open download link");
+      if (!supported) throw new Error(t("Cannot open download link"));
       await Linking.openURL(url);
     } catch (err) {
-      console.log("Export Error:", err);
-      Alert.alert("Error", err.message || "Something went wrong");
+      Alert.alert(t("Error"), err.message || t("Something went wrong"));
     } finally {
       setLoading(false);
     }
@@ -102,14 +90,10 @@ const ExportMeterScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Export Meter Data" onBack={() => navigation.goBack()} />
+      <AppHeader title={t("Export Meter Data")} onBack={() => navigation.goBack()} />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* ── Quick Presets ─────────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>QUICK SELECT</Text>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.sectionLabel}>{t("QUICK SELECT")}</Text>
         <View style={styles.presetRow}>
           {PRESETS.map((p) => {
             const isActive = activePreset === p.label;
@@ -118,67 +102,47 @@ const ExportMeterScreen = ({ navigation }) => {
                 key={p.label}
                 style={[styles.chip, isActive && styles.chipActive]}
                 onPress={() => applyPreset(p)}
-                activeOpacity={0.75}
               >
-                <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]}>
-                  {p.label}
-                </Text>
-                <Text style={[styles.chipFull, isActive && styles.chipFullActive]}>
-                  {p.full}
-                </Text>
+                <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]}>{p.label}</Text>
+                <Text style={[styles.chipFull, isActive && styles.chipFullActive]}>{p.full}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* ── Divider ───────────────────────────────────────────────────── */}
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or custom range</Text>
+          <Text style={styles.dividerText}>{t("or custom range")}</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* ── Manual Date Pickers ───────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>FROM DATE</Text>
-        <TouchableOpacity
-          style={[styles.dateBtn, fromDate && styles.dateBtnFilled]}
-          onPress={() => setShowFromPicker(true)}
-          activeOpacity={0.75}
-        >
+        <Text style={styles.sectionLabel}>{t("FROM DATE")}</Text>
+        <TouchableOpacity style={[styles.dateBtn, fromDate && styles.dateBtnFilled]} onPress={() => setShowFromPicker(true)}>
           <Text style={[styles.dateBtnText, !fromDate && styles.placeholder]}>
-            {fromDate ? toDisplay(fromDate) : "Select start date"}
+            {fromDate ? toDisplay(fromDate) : t("Select start date")}
           </Text>
         </TouchableOpacity>
 
-        <Text style={[styles.sectionLabel, { marginTop: 14 }]}>TO DATE</Text>
-        <TouchableOpacity
-          style={[styles.dateBtn, toDate && styles.dateBtnFilled]}
-          onPress={() => setShowToPicker(true)}
-          activeOpacity={0.75}
-        >
+        <Text style={[styles.sectionLabel, { marginTop: 14 }]}>{t("TO DATE")}</Text>
+        <TouchableOpacity style={[styles.dateBtn, toDate && styles.dateBtnFilled]} onPress={() => setShowToPicker(true)}>
           <Text style={[styles.dateBtnText, !toDate && styles.placeholder]}>
-            {toDate ? toDisplay(toDate) : "Select end date"}
+            {toDate ? toDisplay(toDate) : t("Select end date")}
           </Text>
         </TouchableOpacity>
 
-     
-
-        {/* ── Download Button ───────────────────────────────────────────── */}
         <TouchableOpacity
           style={[styles.exportBtn, (!hasRange || loading) && styles.exportBtnDisabled]}
           onPress={handleExport}
           disabled={!hasRange || loading}
-          activeOpacity={0.85}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.exportBtnText}>  Download Excel</Text>
+            <Text style={styles.exportBtnText}>{t("Download Excel")}</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ── Native Pickers ───────────────────────────────────────────────── */}
       {showFromPicker && (
         <DateTimePicker
           value={fromDate || new Date()}

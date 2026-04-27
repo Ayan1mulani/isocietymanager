@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   Image,
   ActivityIndicator,
@@ -24,7 +23,8 @@ import {
 import { ismServices } from "../../services/ismServices";
 import AppHeader from "../components/AppHeader";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ── Responsive scale: 375 is the baseline (iPhone SE/8) ──
@@ -36,6 +36,7 @@ const PERSPECTIVE = 900;
 const MAX_ROTATE = 18;
 
 const ResidentIdCardScreen = () => {
+  const { t } = useTranslation(); // Add this
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -132,7 +133,7 @@ const ResidentIdCardScreen = () => {
     return { transform: [{ translateX }, { translateY }], opacity };
   });
 
-  const residentType = user?.tenant == 1 ? "TENANT" : "OWNER";
+ const residentType = user?.tenant == 1 ? t("TENANT") : t("OWNER");
 
   const getUserField = (main, alt) => {
     return user?.tenant == 1 ? (alt || main) : main;
@@ -143,7 +144,7 @@ const ResidentIdCardScreen = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppHeader title={"Digital ID"} />
+      <AppHeader title={t("Digital ID")} />
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F0F4F8" }}>
         <View style={{ flex: 1, backgroundColor: "#F0F4F8" }}>
           <ScrollView
@@ -163,7 +164,7 @@ const ResidentIdCardScreen = () => {
                     {/* TOP HEADER BAR */}
                     <View style={styles.cardHeader}>
                       <Text style={styles.headerText} numberOfLines={1}>
-                        OFFICIAL RESIDENT ID
+                        {t("OFFICIAL RESIDENT ID")}
                       </Text>
                      
                     </View>
@@ -224,7 +225,9 @@ const ResidentIdCardScreen = () => {
                           </View>
                         )}
                       </View>
-                      <Text style={styles.scanText}>Scan for Verification</Text>
+                      <Text style={styles.scanText}>
+                        {t("Scan for verification")}
+                      </Text>
                     </View>
 
                     <View style={styles.divider} />
@@ -233,31 +236,31 @@ const ResidentIdCardScreen = () => {
                     <View style={styles.detailsGrid}>
                       <Detail
                         icon="call-outline"
-                        label="Phone"
+                       label={t("Phone")}
                         value={getUserField(user.phone_no, user.alt_phone_no)}
                         half
                       />
                       <Detail
                         icon="home-outline"
-                        label="Unit"
+                        label={t("Unit")}
                         value={`${user.display_unit_no || user.flat_no}`}
                         half
                       />
                       <Detail
                         icon="mail-outline"
-                        label="Email"
+                        label={t("Email")}
                         value={getUserField(user.email, user.alt_email)}
                         multiline
                       />
                       <Detail
                         icon="business-outline"
-                        label="Society"
+                       label={t("Society")}
                         value={user.society_name}
                         half
                       />
                        <Detail
                         icon="key-outline"
-                        label="unit-id"
+                        label={t("unit-id")}
                         value={user.unit_id}
                         half
                       />
@@ -273,7 +276,7 @@ const ResidentIdCardScreen = () => {
                         color="#94A3B8"
                       />
                       <Text style={styles.footerText}>
-                        {" "}iSocietyManager Digital ID
+                        {t("iSocietyManager Digital ID")}
                       </Text>
                     </View>
 
@@ -537,6 +540,7 @@ const styles = StyleSheet.create({
     paddingVertical: scale(10),
     borderTopWidth: 1,
     borderTopColor: "#F8FAFC",
+    gap:5
   },
   footerText: {
     fontSize: scale(10),

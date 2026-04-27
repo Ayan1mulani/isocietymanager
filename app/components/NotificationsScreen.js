@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
@@ -14,6 +13,10 @@ import { ismServices } from "../../services/ismServices";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AppHeader from "./AppHeader";
 import BRAND from '../config'
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const PRIMARY = BRAND.COLORS.icon;
 
@@ -71,7 +74,7 @@ const humanizeMessage = (raw) => {
   return { before: text.trim(), date: null, time: null, rest: "" };
 };
 
-const formatDateTime = (dateString) => {
+const formatDateTime = (dateString, t) => {
   if (!dateString) return "";
 
   // Treat backend time as UTC
@@ -97,8 +100,8 @@ const formatDateTime = (dateString) => {
     minute: "2-digit",
   });
 
-  if (isToday) return `Today • ${time}`;
-  if (isYesterday) return `Yesterday • ${time}`;
+  if (isToday) return `${t("Today")} • ${time}`;
+  if (isYesterday) return `${t("Yesterday")} • ${time}`;
 
   const formattedDate = date.toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -111,6 +114,8 @@ const formatDateTime = (dateString) => {
 /* ───────── Notification Card ───────── */
 
 const NotificationCard = ({ item }) => {
+  const { t } = useTranslation(); // 👈 Init translation
+  
   const formatted = humanizeMessage(item.message);
   const url = extractUrl(item.message);
   const otp = extractOtp(item.message);
@@ -127,6 +132,7 @@ const NotificationCard = ({ item }) => {
       </View>
 
       <View style={styles.cardBody}>
+        {/* We do not use TranslatedText for formatted.before because it is dynamic API text */}
         <Text style={styles.message}>
           {formatted.before}
 
@@ -164,14 +170,14 @@ const NotificationCard = ({ item }) => {
                 size={12}
                 color={PRIMARY}
               />
-              <Text style={styles.linkText}>Open Link</Text>
+              <Text style={styles.linkText}>{t("Open Link")}</Text>
             </TouchableOpacity>
           ) : (
             <View />
           )}
 
           <Text style={styles.dateText}>
-            {formatDateTime(item.created_at)}
+            {formatDateTime(item.created_at, t)}
           </Text>
         </View>
       </View>
@@ -182,6 +188,7 @@ const NotificationCard = ({ item }) => {
 /* ───────── Main Screen ───────── */
 
 const NotificationsScreen = () => {
+  const { t } = useTranslation(); // 👈 Init translation
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -204,7 +211,7 @@ const NotificationsScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader title="Notifications" />
+      <AppHeader title={t("Notifications")} />
 
       {loading ? (
         <View style={styles.center}>
@@ -291,12 +298,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-inlineOtp: {
-  fontSize: 16,
-  fontWeight: "700",
-  color: "#C2410C",
-  letterSpacing: 4,
-},
+  inlineOtp: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#C2410C",
+    letterSpacing: 4,
+  },
 
   footerRow: {
     flexDirection: "row",

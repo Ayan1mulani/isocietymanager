@@ -1,17 +1,14 @@
+import { useTranslation } from 'react-i18next';
 import React, { useState, useMemo, useCallback } from 'react';
-import {
-  StyleSheet,
-  FlatList,
-  Text,
-  View,
-  ActivityIndicator,
-} from 'react-native';
+import { StyleSheet, FlatList, View, ActivityIndicator } from 'react-native';
 import ComplaintCard from './complaintCard';
 import { usePermissions } from '../../Utils/ConetextApi';
 import { useNavigation } from '@react-navigation/native';
 import BRAND from '../config';
 import EmptyState from '../components/EmptyState';
 import ComplaintStats from '../components/ComplaintStatsModal';
+import Text from '../components/TranslatedText';
+
 
 const TERMINAL_STATUSES = ['closed', 'resolved', 'completed', 'cancelled', 'rejected'];
 
@@ -54,6 +51,7 @@ const ComplaintListScreen = ({
 }) => {
   const navigation = useNavigation();
   const { nightMode: contextNightMode } = usePermissions();
+  const { t } = useTranslation();
 
   const currentNightMode = nightMode !== undefined ? nightMode : contextNightMode;
   const currentTheme     = currentNightMode ? THEME.dark : THEME.light;
@@ -111,7 +109,7 @@ const ComplaintListScreen = ({
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={BRAND.COLORS.primary} />
         <Text style={[styles.footerText, { color: currentTheme.inactiveTextColor }]}>
-          Loading more…
+         {t("Loading more…")}
         </Text>
       </View>
     );
@@ -134,19 +132,19 @@ const ComplaintListScreen = ({
       <View style={[styles.centered, { backgroundColor: currentTheme.backgroundColor }]}>
         <ActivityIndicator size="large" color={BRAND.COLORS.primary} />
         <Text style={[styles.loadingText, { color: currentTheme.textColor }]}>
-          Loading {status} complaints...
+         {t("Loading")} {t(status)} {t("complaints...")}
         </Text>
       </View>
     );
   }
 
-  const emptyTitle = selectedSegment
-    ? `No ${selectedSegment.charAt(0).toUpperCase() + selectedSegment.slice(1)} Complaints`
-    : `No ${status} Complaints`;
-
+const emptyTitle = selectedSegment
+  ? `${t("No")} ${t(selectedSegment)} ${t("Complaints")}`
+  : `${t("No")} ${t(status)} ${t("Complaints")}`;
+ 
   const emptySubtitle = selectedSegment
-    ? `No ${selectedSegment} complaints found`
-    : 'Complaints will appear here once submitted';
+  ? `${t("No")} ${t(selectedSegment)} ${t("complaints found")}`
+  : t("Complaints will appear here once submitted");
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.backgroundColor }]}>

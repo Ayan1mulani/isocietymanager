@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
@@ -16,8 +15,11 @@ import { useNavigation } from '@react-navigation/native';
 import BRAND from '../config'
 import EmptyState from '../components/EmptyState';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
+  const { t } = useTranslation(); // Add this 
   const navigation = useNavigation();
 
   const [filteredVisits, setFilteredVisits] = useState([]);
@@ -57,7 +59,7 @@ const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
       data = data.filter(v =>
         v.name?.toLowerCase().includes(q) ||
         v.mobile?.includes(searchQuery) ||
-        v.purpose?.toLowerCase().includes(q)
+        t(v.purpose)?.toLowerCase().includes(q)
       );
     }
 
@@ -88,15 +90,15 @@ const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
 
     // 🔥 PRIORITY: expired first
     if (isExpired && allow === null) {
-      return { label: "EXPIRED", color: "#9CA3AF" };
+      return { label: t("EXPIRED"), color: "#9CA3AF" };
     }
 
-    if (allow === 0) return { label: "REJECTED", color: theme.grey };
-    if (allow === 1 && attended === 1) return { label: "ATTENDED", color: theme.success };
-    if (allow === 1 && attended === 0) return { label: "NOT VISITED", color: theme.grey };
-    if (allow === 1 && attended === null) return { label: "APPROVED", color: theme.primary };
+    if (allow === 0) return { label: t("REJECTED"), color: theme.grey };
+    if (allow === 1 && attended === 1) return { label: t("ATTENDED"), color: theme.success };
+    if (allow === 1 && attended === 0) return { label: t("NOT VISITED"), color: theme.grey };
+    if (allow === 1 && attended === null) return { label: t("APPROVED"), color: theme.primary };
 
-    return { label: "PENDING", color: theme.danger };
+    return { label: t("PENDING"), color: theme.danger };
   };
   useFocusEffect(
     React.useCallback(() => {
@@ -188,7 +190,7 @@ const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
           <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Search name, purpose or phonee"
+          placeholder={t("Search name, purpose or phone")}
             placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -216,8 +218,8 @@ const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
         ListEmptyComponent={() => (
           <EmptyState
             icon="people-outline"
-            title="No Visit Request Yet"
-            subtitle=""
+            title={t("No Visit Request Yet")}
+            subtitle={t("You have no visit requests at the moment.")}
             theme={theme}
           />
         )}

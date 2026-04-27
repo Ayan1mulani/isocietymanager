@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
-  Text,
   Image,
   TouchableOpacity,
   StyleSheet,
@@ -14,6 +13,9 @@ import { visitorServices } from '../../services/visitorServices';
 import PreApproveModal from '../VisitorsScreen/components/AddPreVisitorModal';
 import { useNavigation } from '@react-navigation/native';
 import { hasPermission } from '../../Utils/PermissionHelper';
+
+// 1. ── NEW: Import your global Text component instead of React Native's ──
+import Text from '../components/TranslatedText'; // <--- ADJUST PATH IF NEEDED
 
 const BASE_URL = "https://ism-vms.s3.amazonaws.com/company-logo/";
 const DEFAULT_GUEST_IMAGE =
@@ -187,10 +189,10 @@ const VisitorSection = ({ refreshTrigger }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <Ionicons name="people" size={20} color={theme.textMain} style={{ marginRight: 8 }} />
+          {/* 2. ── Automatically handled by global <Text> wrapper ── */}
           <Text style={[styles.title, { color: theme.textMain }]}>
             Arriving Today
           </Text>
@@ -220,7 +222,6 @@ const VisitorSection = ({ refreshTrigger }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* 1. Map through existing visitors */}
           {visitors.map((visitor) => (
             <TouchableOpacity
               key={visitor.id}
@@ -259,7 +260,6 @@ const VisitorSection = ({ refreshTrigger }) => {
             </TouchableOpacity>
           ))}
 
-          {/* 2. Invite Button */}
           {canCreatePass && (
             <TouchableOpacity
               style={styles.visitorItem}
@@ -277,11 +277,10 @@ const VisitorSection = ({ refreshTrigger }) => {
             </TouchableOpacity>
           )}
 
-          {/* 3. View All Button at the very end */}
           <TouchableOpacity
             style={styles.visitorItem}
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('Visitors')} // Ensure this matches your route name for VisitorScreen
+            onPress={() => navigation.navigate('Visitors')} 
           >
             <View style={styles.avatarWrapper}>
               <View style={[styles.avatarRing, { backgroundColor: theme.iconBtnBg, borderColor: 'transparent' }]}>
@@ -335,92 +334,21 @@ const VisitorSection = ({ refreshTrigger }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 0,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 25,
-    marginBottom: 12,
-  },
-
-  scrollContent: {
-    paddingLeft: 20,
-    paddingRight: 20,
-    paddingBottom: 8,
-  },
-  emptyContainer: {
-    marginHorizontal: 20,
-    paddingTop: 0,
-    paddingBottom: 5,
-    alignItems: 'center',
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  addButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  visitorItem: {
-    alignItems: 'center',
-    width: 60,
-    marginRight: 18,
-  },
-  avatarWrapper: {
-    position: 'relative',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  avatarRing: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dashedRing: {
-    borderStyle: 'dashed',
-    backgroundColor: 'transparent',
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  roleBadge: {
-    position: 'absolute',
-    bottom: -8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    minWidth: 40,
-    alignItems: 'center',
-  },
-  roleBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'capitalize',
-  },
-  name: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
+  container: { marginBottom: 0 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, marginTop: 25, marginBottom: 12 },
+  scrollContent: { paddingLeft: 20, paddingRight: 20, paddingBottom: 8 },
+  emptyContainer: { marginHorizontal: 20, paddingTop: 0, paddingBottom: 5, alignItems: 'center' },
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center' },
+  title: { fontSize: 16, fontWeight: '700' },
+  addButton: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  visitorItem: { alignItems: 'center', width: 60, marginRight: 18 },
+  avatarWrapper: { position: 'relative', alignItems: 'center', marginBottom: 8 },
+  avatarRing: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+  dashedRing: { borderStyle: 'dashed', backgroundColor: 'transparent' },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  roleBadge: { position: 'absolute', bottom: -8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1.5, minWidth: 40, alignItems: 'center' },
+  roleBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700', textTransform: 'capitalize' },
+  name: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
 });
 
 export default VisitorSection;

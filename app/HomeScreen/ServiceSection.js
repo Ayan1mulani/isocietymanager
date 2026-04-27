@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
@@ -19,11 +18,17 @@ import { otherServices } from '../../services/otherServices';
 import { hasPermission } from '../../Utils/PermissionHelper';
 import BRAND from '../config';
 
+import Text from '../components/TranslatedText';
+
+import { useTranslation } from 'react-i18next';
+
 const { width: screenWidth } = Dimensions.get('window');
 
 const ServicesSection = () => {
   const { nightMode, permissions } = usePermissions();
   const navigation = useNavigation();
+
+  const { t } = useTranslation();
 
   const [panicVisible, setPanicVisible] = useState(false);
   const [successVisible, setSuccessVisible] = useState(false);
@@ -42,11 +47,9 @@ const ServicesSection = () => {
     { id: '1', title: 'Accounts', icon: 'card-outline', route: 'Accounts' },
     { id: '2', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
     { id: '3', title: 'Services', icon: 'alert-circle-outline', route: 'Service Requests' },
-
     { id: '4', title: 'SOS', icon: 'alert-circle', isPanic: true },
     { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
-
-    { id: '6', title: 'Family', icon: 'people-outline', route: 'FamilyMember' }, // Fixed typo 'eople-outline'
+    { id: '6', title: 'Family', icon: 'people-outline', route: 'FamilyMember' }, 
     { id: '7', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
     { id: '8', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
     { id: '9', title: "Notices", icon: "notifications-outline", route: "MyNoticesScreen" },
@@ -114,10 +117,11 @@ const ServicesSection = () => {
         setSelectedReason(null);
         setNote('');
       } else {
-        Alert.alert('Error', 'Failed to send alert');
+        // 3. ── NEW: Translate Alert messages ──
+        Alert.alert(t('Error'), t('Failed to send alert'));
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong');
+      Alert.alert(t('Error'), t('Something went wrong'));
     } finally {
       setSending(false);
     }
@@ -145,13 +149,12 @@ const ServicesSection = () => {
 
   return (
     <View style={styles.container}>
-      {/* ── Updated Header aligned with other sections ── */}
       <View style={styles.sectionHeader}>
         <Ionicons
-          name="grid" // Changed icon to grid for services
+          name="grid"
           size={20}
           color={nightMode ? '#D1D5DB' : '#374151'}
-          style={{ marginRight: 8 }} // Removed paddingLeft: 8
+          style={{ marginRight: 8 }} 
         />
         <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Services</Text>
       </View>
@@ -167,7 +170,7 @@ const ServicesSection = () => {
             <View
               style={[
                 styles.iconContainer,
-                { backgroundColor: service.isPanic ? '#FEE2E2' : "#fff" }, // Fixed typo #FFFF -> #fff
+                { backgroundColor: service.isPanic ? '#FCEEED' : "#ffff" }, 
               ]}
             >
               <Ionicons
@@ -185,7 +188,6 @@ const ServicesSection = () => {
 
       {/* 🔴 PANIC MODAL */}
       <Modal visible={panicVisible} transparent animationType="fade" statusBarTranslucent>
-        {/* ... Modal Code remains exactly the same ... */}
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
 
@@ -222,7 +224,8 @@ const ServicesSection = () => {
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.messageInput}
-                placeholder="Add an optional message"
+                // 4. ── NEW: Translate Placeholder ──
+                placeholder={t("Add an optional message")}
                 placeholderTextColor="#9CA3AF"
                 value={note}
                 onChangeText={setNote}

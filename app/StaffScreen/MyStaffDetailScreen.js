@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
@@ -19,6 +18,10 @@ import AppHeader from "../components/AppHeader";
 import BRAND from "../config";
 import StatusModal from "../components/StatusModal";
 import useAlert from "../components/UseAlert"; // adjust path
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
@@ -45,17 +48,15 @@ const parseJSONArray = (raw) => {
   return [];
 };
 
-
-
 const MyStaffDetailScreen = ({ route }) => {
   const { staff } = route.params;
   const navigation = useNavigation();
+  const { t } = useTranslation(); // 👈 Init translation
 
   const staffId = staff.staff_id || staff.id;
   const [staffNotification, setStaffNotification] = useState(true);
   const [notifLoading, setNotifLoading] = useState(false);
   const { showAlert, AlertComponent } = useAlert();
-
 
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState("");
@@ -92,36 +93,7 @@ const MyStaffDetailScreen = ({ route }) => {
 
   useEffect(() => {
     fetchExistingRating();
-    // fetchStaffNotification(); // 👈 ADD THIS
-
   }, []);
-
-
-  // const toggleStaffNotification = async (value) => {
-  //   try {
-  //     setNotifLoading(true);
-
-  //     // 🔥 instant UI update
-  //     setStaffNotification(value);
-
-  //     const res = await otherServices.staffNotification(staffId, value);
-
-  //     if (res?.status !== "success") {
-  //       throw new Error("Failed");
-  //     }
-
-  //   } catch (error) {
-  //     console.log("Toggle error:", error);
-
-  //     // 🔁 revert if failed
-  //     setStaffNotification(prev => !prev);
-
-  //     showModal("error", "Error", "Failed to update notification");
-
-  //   } finally {
-  //     setNotifLoading(false);
-  //   }
-  // };
 
   const fetchExistingRating = useCallback(async () => {
     try {
@@ -153,48 +125,47 @@ const MyStaffDetailScreen = ({ route }) => {
       if (canOpen) {
         await Linking.openURL(url);
       } else {
-        Alert.alert("Error", "Cannot make calls on this device");
+        Alert.alert(t("Error"), t("Cannot make calls on this device"));
       }
     } catch (e) {
       console.error("[MyStaffDetailScreen] Call error:", e);
       showAlert({
-        title: "Error",
-        message: "Cannot make calls on this device",
-        buttons: [{ text: "OK" }],
+        title: t("Error"),
+        message: t("Cannot make calls on this device"),
+        buttons: [{ text: t("OK") }],
       });
     }
-  }, []);
+  }, [t, showAlert]);
 
   const handleRelease = useCallback(() => {
     showAlert({
-      title: "Release Staff",
-      message: "Are you sure you want to release this staff?",
+      title: t("Release Staff"),
+      message: t("Are you sure you want to release this staff?"),
       buttons: [
-        { text: "Cancel", style: "cancel" },
+        { text: t("Cancel"), style: "cancel" },
         {
-          text: "Yes",
+          text: t("Yes"),
           style: "destructive",
           onPress: async () => {
             try {
               setReleasing(true);
-
-              showModal("loading", "Releasing Staff", "Please wait...");
+              showModal("loading", t("Releasing Staff"), t("Please wait..."));
 
               const res = await otherServices.unassignStaff(staffId);
 
               if (res?.status === "success") {
-                showModal("success", "Released", "Staff has been released");
+                showModal("success", t("Released"), t("Staff has been released"));
 
                 setTimeout(() => {
                   closeModal();
                   navigation.goBack();
                 }, 2000);
               } else {
-                showModal("error", "Error", res?.message || "Unable to release staff");
+                showModal("error", t("Error"), res?.message || t("Unable to release staff"));
               }
             } catch (error) {
               console.error("[Release error]:", error);
-              showModal("error", "Error", "Failed to release staff");
+              showModal("error", t("Error"), t("Failed to release staff"));
             } finally {
               setReleasing(false);
             }
@@ -202,45 +173,44 @@ const MyStaffDetailScreen = ({ route }) => {
         },
       ],
     });
-  }, [staffId, navigation, showModal, closeModal]);
+  }, [staffId, navigation, showModal, closeModal, t, showAlert]);
 
   const handleSubmitRating = useCallback(async () => {
     if (!rating) {
       showAlert({
-        title: "Validation",
-        message: "Please select a rating before submitting",
-        buttons: [{ text: "OK" }],
+        title: t("Validation"),
+        message: t("Please select a rating before submitting"),
+        buttons: [{ text: t("OK") }],
       });
       return;
     }
 
     try {
-      // FIX: uses submitting state, not shared loading
       setSubmitting(true);
       const res = await otherServices.addOrUpdateRating(staffId, rating, review);
 
       if (res?.status === "success") {
         showAlert({
-          title: "Success",
-          message: isEditing ? "Rating updated!" : "Rating submitted!",
-          buttons: [{ text: "OK" }],
+          title: t("Success"),
+          message: isEditing ? t("Rating updated!") : t("Rating submitted!"),
+          buttons: [{ text: t("OK") }],
         });
         setIsEditing(false);
         fetchExistingRating();
       } else {
         showAlert({
-          title: "Error",
-          message: res?.message || "Failed to submit rating",
-          buttons: [{ text: "OK" }],
+          title: t("Error"),
+          message: res?.message || t("Failed to submit rating"),
+          buttons: [{ text: t("OK") }],
         });
       }
     } catch (error) {
       console.error("[MyStaffDetailScreen] rating submit error:", error);
-      Alert.alert("Error", "Failed to submit rating");
+      Alert.alert(t("Error"), t("Failed to submit rating"));
     } finally {
       setSubmitting(false);
     }
-  }, [staffId, rating, review, isEditing, fetchExistingRating]);
+  }, [staffId, rating, review, isEditing, fetchExistingRating, t, showAlert]);
 
   const renderInteractiveStars = () =>
     [1, 2, 3, 4, 5].map((star) => (
@@ -273,27 +243,28 @@ const MyStaffDetailScreen = ({ route }) => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
-      <AppHeader title="Staff Details" onBack={() => navigation.goBack()} />
+      <AppHeader title={t("Staff Details")} onBack={() => navigation.goBack()} />
 
       <ScrollView showsVerticalScrollIndicator={false}>
-
         {/* ── PROFILE ── */}
+   {/* ── PROFILE ── */}
         <View style={styles.profileContainer}>
           <View style={styles.avatar}>
             {staff.image && staff.image.startsWith("http") ? (
               <Image source={{ uri: staff.image }} style={styles.avatarImage} />
             ) : (
               <Text style={styles.initials}>
-                {staff.name?.charAt(0)?.toUpperCase() || "U"}
+                {/* SAFE: Force string, grab first char, then uppercase */}
+                {String(staff.name || "U").charAt(0).toUpperCase()}
               </Text>
             )}
           </View>
-          {/* FIX: safe toUpperCase using String() */}
           <Text style={styles.name}>
+            {/* SAFE: Force string before uppercase */}
             {String(staff.name || "").toUpperCase()}
           </Text>
           <Text style={styles.subInfo}>
-            {staff.address || "Pune"} · {staff.category || "—"} · {staff.mobile || "N/A"}
+            {t(staff.address || "Pune")} · {t(staff.category || "—")} · {staff.mobile || "N/A"}
           </Text>
         </View>
 
@@ -303,7 +274,7 @@ const MyStaffDetailScreen = ({ route }) => {
             <Text style={styles.infoNumber} numberOfLines={1}>
               {staff.code || staff.id || "—"}
             </Text>
-            <Text style={styles.infoLabel}>Emp ID</Text>
+            <Text style={styles.infoLabel}>{t("Emp ID")}</Text>
           </View>
 
           <View style={styles.infoDivider} />
@@ -312,39 +283,45 @@ const MyStaffDetailScreen = ({ route }) => {
             <Text
               style={[
                 styles.infoNumber,
-                { color: staff.status === "PRESENT" ? COLORS.success : COLORS.danger },
+                { 
+                  // SAFE: Check status safely
+                  color: String(staff.status || "").toUpperCase() === "PRESENT" 
+                    ? COLORS.success 
+                    : COLORS.danger 
+                },
               ]}
             >
-              {staff.status || "N/A"}
+              {/* SAFE: Check status safely */}
+              {String(staff.status || "").toUpperCase() === "PRESENT" ? t("IN") : t("OUT")}
             </Text>
-            <Text style={styles.infoLabel}>Status</Text>
+            <Text style={styles.infoLabel}>{t("Status")}</Text>
           </View>
 
           <View style={styles.infoDivider} />
 
           <View style={styles.infoItem}>
             <Text style={styles.infoNumber} numberOfLines={1}>
-              {staff.designation || "—"}
+              {t(staff.designation || "—")}
             </Text>
-            <Text style={styles.infoLabel}>Role</Text>
+            <Text style={styles.infoLabel}>{t("Role")}</Text>
           </View>
 
           <View style={styles.infoDivider} />
 
           <View style={styles.infoItem}>
             <Text style={styles.infoNumber}>{houseCount}</Text>
-            <Text style={styles.infoLabel}>Houses</Text>
+            <Text style={styles.infoLabel}>{t("Houses")}</Text>
           </View>
         </View>
 
+      
         {/* ── ACTION BUTTONS ── */}
-        {/* FIX: gap replaced with marginRight on each button */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={styles.attendanceBtn}
             onPress={() => navigation.navigate("MyStaffAttendanceScreen", { staff })}
           >
-            <Text style={styles.attendanceText}>Attendance</Text>
+            <Text style={styles.attendanceText}>{t("Attendance")}</Text>
           </TouchableOpacity>
 
           {staff.mobile ? (
@@ -352,9 +329,8 @@ const MyStaffDetailScreen = ({ route }) => {
               style={styles.callBtn}
               onPress={() => handleCall(staff.mobile)}
             >
-              {/* FIX: gap replaced with marginRight on icon */}
               < Ionicons name="call" size={16} color="#fff" style={{ marginRight: 5 }} />
-              <Text style={styles.callText}>Call</Text>
+              <Text style={styles.callText}>{t("Call")}</Text>
             </TouchableOpacity>
           ) : null}
 
@@ -366,60 +342,34 @@ const MyStaffDetailScreen = ({ route }) => {
             {releasing ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.releaseText}>Release</Text>
+              <Text style={styles.releaseText}>{t("Release")}</Text>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* <View style={styles.notificationCard}>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Ionicons name="notifications-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.notificationText}>Staff Notifications</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              { backgroundColor: staffNotification ? COLORS.success : "#D1D5DB" }
-            ]}
-            onPress={() => toggleStaffNotification(!staffNotification)}
-            disabled={notifLoading}
-          >
-            {notifLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.toggleText}>
-                {staffNotification ? "ON" : "OFF"}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View> */}
         {/* ── RATING SECTION ── */}
         <View style={styles.rateSection}>
-
           {fetchingRating ? (
             <View style={styles.ratingLoader}>
               <ActivityIndicator size="small" color={COLORS.primary} />
               <Text style={[styles.ratingLoaderText, { color: COLORS.subText }]}>
-                Loading rating...
+                {t("Loading rating...")}
               </Text>
             </View>
-
           ) : existingRating && !isEditing ? (
             /* ── Display existing rating ── */
             <View style={styles.ratingCard}>
               <View style={styles.ratingCardHeader}>
-                <Text style={styles.rateTitle}>Your Rating</Text>
+                <Text style={styles.rateTitle}>{t("Your Rating")}</Text>
                 <TouchableOpacity
                   style={styles.editBtn}
                   onPress={() => setIsEditing(true)}
                 >
                   < Ionicons name="pencil" size={13} color={COLORS.primary} style={{ marginRight: 4 }} />
-                  <Text style={styles.editBtnText}>Edit</Text>
+                  <Text style={styles.editBtnText}>{t("Edit")}</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Stars + numeric value */}
               <View style={styles.displayStarsRow}>
                 {renderDisplayStars(existingRating.rating)}
                 <Text style={styles.ratingNumeric}>
@@ -427,7 +377,6 @@ const MyStaffDetailScreen = ({ route }) => {
                 </Text>
               </View>
 
-              {/* Review text */}
               {existingRating.remarks ? (
                 <View style={styles.reviewBubble}>
                   < Ionicons name="chatbubble-outline" size={13} color={COLORS.subText} style={{ marginRight: 6 }} />
@@ -436,39 +385,35 @@ const MyStaffDetailScreen = ({ route }) => {
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.noReviewText}>No review written</Text>
+                <Text style={styles.noReviewText}>{t("No review written")}</Text>
               )}
             </View>
-
           ) : (
             /* ── Submit / Edit rating form ── */
             <View style={styles.ratingCard}>
               <View style={styles.ratingCardHeader}>
                 <Text style={styles.rateTitle}>
-                  {isEditing ? "Edit Rating" : "Rate This Staff"}
+                  {isEditing ? t("Edit Rating") : t("Rate This Staff")}
                 </Text>
                 {isEditing && (
                   <TouchableOpacity onPress={() => setIsEditing(false)}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{t("Cancel")}</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Interactive stars centered */}
               <View style={styles.interactiveStarsRow}>
                 {renderInteractiveStars()}
               </View>
 
-              {/* Star label */}
               {rating > 0 && (
                 <Text style={styles.ratingLabel}>
-                  {["", "Poor", "Fair", "Good", "Very Good", "Excellent"][rating]}
+                  {t(["", "Poor", "Fair", "Good", "Very Good", "Excellent"][rating])}
                 </Text>
               )}
 
-              {/* Review input */}
               <TextInput
-                placeholder="Write your review (optional)"
+                placeholder={t("Write your review (optional)")}
                 placeholderTextColor={COLORS.subText}
                 value={review}
                 onChangeText={setReview}
@@ -477,7 +422,6 @@ const MyStaffDetailScreen = ({ route }) => {
                 textAlignVertical="top"
               />
 
-              {/* Submit button */}
               <TouchableOpacity
                 style={[styles.submitBtn, { opacity: submitting ? 0.6 : 1 }]}
                 onPress={handleSubmitRating}
@@ -487,7 +431,7 @@ const MyStaffDetailScreen = ({ route }) => {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={styles.submitText}>
-                    {isEditing ? "Update Rating" : "Submit Rating"}
+                    {isEditing ? t("Update Rating") : t("Submit Rating")}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -497,6 +441,7 @@ const MyStaffDetailScreen = ({ route }) => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      
       <StatusModal
         visible={statusModal.visible}
         type={statusModal.type}
@@ -512,7 +457,6 @@ const MyStaffDetailScreen = ({ route }) => {
 export default MyStaffDetailScreen;
 
 const styles = StyleSheet.create({
-
   /* ── Profile ── */
   profileContainer: {
     alignItems: "center",
@@ -562,38 +506,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 60,
   },
-  notificationCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginHorizontal: 16,
-    marginTop: 14,
-    padding: 14,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-
-  notificationText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-
-  toggleBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-
-  toggleText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-
   initials: {
     fontSize: 34,
     fontWeight: "700",
@@ -611,7 +523,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: "center",
   },
-  // FIX: infoDivider was used in JSX but missing from StyleSheet
   infoDivider: {
     width: 1,
     height: 36,
@@ -619,7 +530,6 @@ const styles = StyleSheet.create({
   },
 
   /* ── Action Row ── */
-  // FIX: gap replaced with marginRight on each child button
   actionRow: {
     flexDirection: "row",
     marginHorizontal: 16,

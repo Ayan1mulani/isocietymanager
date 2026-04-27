@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { View, Text, ActivityIndicator, StyleSheet, ScrollView } from "react-native";
+import { View, ActivityIndicator, StyleSheet, ScrollView } from "react-native";
 import { BarChart } from "react-native-gifted-charts";
 import { ismServices } from "../../services/ismServices";
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
 const MeterChartTab = () => {
+  const { t, i18n } = useTranslation();
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -26,11 +29,7 @@ const MeterChartTab = () => {
   };
 
   const handleBarPress = (index) => {
-    if (selectedIndex === index) {
-      setSelectedIndex(null); 
-    } else {
-      setSelectedIndex(index); 
-    }
+    setSelectedIndex(selectedIndex === index ? null : index);
   };
 
   const { chartData, stats } = useMemo(() => {
@@ -47,8 +46,10 @@ const MeterChartTab = () => {
       if (!item || typeof item.time !== 'string' || item.time.length < 8) return;
 
       const day = item.time.slice(6, 8);
-      const month = item.time.slice(4, 6);
-      const monthName = new Date(2026, month - 1).toLocaleString('en', { month: 'short' });
+      const month = parseInt(item.time.slice(4, 6));
+      
+      // Localized month name
+      const monthName = new Date(2026, month - 1).toLocaleString(i18n.language === 'km' ? 'km-KH' : 'en-US', { month: 'short' });
       const label = `${day} ${monthName}`;
 
       const gridVal = Number(item.grid) || 0;
@@ -74,11 +75,7 @@ const MeterChartTab = () => {
         topLabelComponent: () =>
           selectedIndex === gridBarIndex ? (
             <View style={styles.tooltip}>
-              <Text 
-                style={styles.tooltipValue} 
-                numberOfLines={1} 
-                adjustsFontSizeToFit
-              >
+              <Text style={styles.tooltipValue} numberOfLines={1} adjustsFontSizeToFit>
                 {gridVal.toFixed(1)}
               </Text>
             </View>
@@ -93,11 +90,7 @@ const MeterChartTab = () => {
         topLabelComponent: () =>
           selectedIndex === dgBarIndex ? (
             <View style={styles.tooltip}>
-              <Text 
-                style={styles.tooltipValue} 
-                numberOfLines={1} 
-                adjustsFontSizeToFit
-              >
+              <Text style={styles.tooltipValue} numberOfLines={1} adjustsFontSizeToFit>
                 {dgVal.toFixed(1)}
               </Text>
             </View>
@@ -109,15 +102,7 @@ const MeterChartTab = () => {
       chartData: barData,
       stats: { grid: totalGrid, dg: totalDg, ahu: totalAhu }
     };
-  }, [rawData, selectedIndex]);
-
-  const getMaxValue = () => {
-    if (chartData.length === 0) return 100;
-    const values = chartData.map(d => d.value).filter(v => v !== undefined && v !== null);
-    if (values.length === 0) return 100;
-    const maxVal = Math.max(...values);
-    return maxVal > 0 ? maxVal * 1.3 : 100;
-  };
+  }, [rawData, selectedIndex, i18n.language]); // Re-calculate when language changes
 
   if (loading) {
     return (
@@ -130,7 +115,7 @@ const MeterChartTab = () => {
   if (chartData.length === 0) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.emptyText}>No data available</Text>
+        <Text style={styles.emptyText}>{t("No data available")}</Text>
       </View>
     );
   }
@@ -143,8 +128,8 @@ const MeterChartTab = () => {
       nestedScrollEnabled={true}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Energy Breakdown</Text>
-        <Text style={styles.subtitle}> Grid & generator usage</Text>
+        <Text style={styles.title}>{t("Energy Breakdown")}</Text>
+        <Text style={styles.subtitle}>{t("Grid & generator usage")}</Text>
       </View>
 
       <View style={styles.chartCard}>
@@ -158,7 +143,7 @@ const MeterChartTab = () => {
           rulesColor="#F3F4F6"
           rulesType="dashed"
           noOfSections={4}
-          maxValue={getMaxValue()}
+          maxValue={Math.max(...chartData.map(d => d.value)) * 1.3 || 100}
           isAnimated
           animationDuration={300}
           height={200}
@@ -172,40 +157,39 @@ const MeterChartTab = () => {
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
-            <Text style={styles.legendText}>Grid</Text>
+            <Text style={styles.legendText}>{t("Grid")}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
-            <Text style={styles.legendText}>DG</Text>
+            <Text style={styles.legendText}>{t("DG")}</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.statsGrid}>
         <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Grid Supply</Text>
-          <Text style={[styles.statValue, { color: '#10B981' }]}>{stats.grid.toFixed(1)} kWh</Text>
+          <Text style={styles.statLabel}>{t("Grid Supply")}</Text>
+          <Text style={[styles.statValue, { color: '#10B981' }]}>{stats.grid.toFixed(1)} {t("kWh")}</Text>
         </View>
 
         <View style={styles.statBox}>
-          <Text style={styles.statLabel}>DG Supply</Text>
-          <Text style={[styles.statValue, { color: '#F59E0B' }]}>{stats.dg.toFixed(1)} kWh</Text>
+          <Text style={styles.statLabel}>{t("DG Supply")}</Text>
+          <Text style={[styles.statValue, { color: '#F59E0B' }]}>{stats.dg.toFixed(1)} {t("kWh")}</Text>
         </View>
 
         <View style={styles.statBox}>
-          <Text style={styles.statLabel}>AHU Usage</Text>
-          <Text style={styles.statValue}>{stats.ahu.toFixed(1)} kWh</Text>
+          <Text style={styles.statLabel}>{t("AHU Usage")}</Text>
+          <Text style={styles.statValue}>{stats.ahu.toFixed(1)} {t("kWh")}</Text>
         </View>
 
         <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Total Usage</Text>
-          <Text style={styles.statValue}>{(stats.grid + stats.dg).toFixed(1)} kWh</Text>
+          <Text style={styles.statLabel}>{t("Total Usage")}</Text>
+          <Text style={styles.statValue}>{(stats.grid + stats.dg).toFixed(1)} {t("kWh")}</Text>
         </View>
       </View>
     </ScrollView>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -1,3 +1,4 @@
+import './app/i18n';
 import React, { useEffect, useRef } from "react";
 import {
   View, ActivityIndicator, Text, StatusBar,
@@ -7,6 +8,10 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import notifee, { EventType } from "@notifee/react-native";
+
+// ── NEW: Import the hook ──
+import { useTranslation } from 'react-i18next';
+
 import NavigationPage from "./NavigationPage";
 import BRAND from "./app/config";
 import initializeOneSignal, { setOnVisitorPending } from "./Utils/PushNotifications";
@@ -94,6 +99,10 @@ const AppContent = () => {
 
 /* ─── Main App ──────────────────────────────────────────────────────────── */
 export default function App() {
+  
+  // ── NEW: Initialize the translation hook ──
+  const { t } = useTranslation();
+
   const [processing, setProcessing] = React.useState(false);
   const pendingVisitorRef = useRef(null);
   const pendingStaffRef = useRef(null);
@@ -141,10 +150,7 @@ export default function App() {
     navigationRef.navigate("StaffScreen");
   };
 
-  /* ── Read staff intent from Kotlin tap (locked screen / background) ───
-     Kotlin puts extras on the launch intent when user taps the staff
-     notification. We read those extras here and navigate to StaffScreen.
-  ───────────────────────────────────────────────────────────────────────── */
+  /* ── Read staff intent from Kotlin tap (locked screen / background) ─── */
   const checkStaffIntent = async () => {
     try {
       if (Platform.OS !== "android") return;
@@ -159,10 +165,8 @@ export default function App() {
       if (extras?.notification_type === "STAFF") {
         console.log(TAG, "Staff intent detected → navigating to StaffScreen");
 
-        // Clear so it doesn't fire again on next resume
         await IntentModule.clearIntentExtras();
 
-        // Set pending and navigate
         pendingStaffRef.current = {
           type: "STAFF",
           data: {
@@ -277,7 +281,6 @@ export default function App() {
 
   /* ── Cold start: staff intent (app opened from locked screen tap) ─────── */
   useEffect(() => {
-    // Small delay so navigation is ready
     const timer = setTimeout(() => {
       checkStaffIntent();
     }, 500);
@@ -289,7 +292,6 @@ export default function App() {
     const sub = AppState.addEventListener("change", async (state) => {
       if (state !== "active") return;
 
-      // ── Check visitor ──────────────────────────────────────────────────
       try {
         if (VisitorModule) {
           await new Promise(res => setTimeout(res, 800));
@@ -304,8 +306,6 @@ export default function App() {
         }
       } catch (e) { }
 
-      // ── Check staff intent (user unlocked phone and tapped notification) ─
-      // Small delay lets the intent extras be readable after activity resumes
       setTimeout(() => {
         checkStaffIntent();
       }, 600);
@@ -329,7 +329,8 @@ export default function App() {
           {processing && (
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#22C55E" />
-              <Text style={styles.overlayText}>Processing request...</Text>
+              {/* ── NEW: Wrapped text in translation hook ── */}
+              <Text style={styles.overlayText}>{t("Processing request...")}</Text>
             </View>
           )}
         </SafeAreaView>

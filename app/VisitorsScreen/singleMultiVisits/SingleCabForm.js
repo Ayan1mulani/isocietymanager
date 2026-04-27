@@ -1,7 +1,6 @@
 import React, { useState , useRef} from "react";
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   TextInput,
@@ -14,17 +13,19 @@ import { visitorServices } from "../../../services/visitorServices";
 import SubmitButton from "../../components/SubmitButton";
 import { useNavigation, useRoute } from "@react-navigation/native";
 
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../../components/TranslatedText';
+
 const SingleCabForm = ({ theme, onGoBack }) => {
     const navigation = useNavigation();
-    const hasChanges = useRef(false);
-
+    const { t } = useTranslation(); // 👈 Init translation
 
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [isCustom, setIsCustom] = useState(false);
   const [customName, setCustomName] = useState("");
   const [visitDate, setVisitDate] = useState(null);
   const [vehicleNo, setVehicleNo] = useState("");
-  // const [entriesPerDay, setEntriesPerDay] = useState(1);
   const [errors, setErrors] = useState({});
   const [modalType, setModalType] = useState(null);
 
@@ -41,20 +42,19 @@ const SingleCabForm = ({ theme, onGoBack }) => {
     let newErrors = {};
 
     if (!selectedProvider) {
-      newErrors.provider = "Please select cab company";
+      newErrors.provider = t("Please select cab company");
     }
 
-    // 👉 custom validation
     if (isCustom && !customName.trim()) {
-      newErrors.custom = "Please enter company name";
+      newErrors.custom = t("Please enter company name");
     }
 
     if (!visitDate) {
-      newErrors.date = "Please select visit date";
+      newErrors.date = t("Please select visit date");
     }
 
     if (!vehicleNo || vehicleNo.length !== 4) {
-      newErrors.vehicle = "Enter 4-digit cab number";
+      newErrors.vehicle = t("Enter 4-digit cab number");
     }
     
     if (Object.keys(newErrors).length > 0) {
@@ -87,11 +87,7 @@ const SingleCabForm = ({ theme, onGoBack }) => {
         setModalType("success");
         setTimeout(() => {
           setModalType(null);
-
-          if (onGoBack) {
-            onGoBack(); // ✅ refresh VisitorSection
-          }
-
+          if (onGoBack) onGoBack();
           navigation.goBack();
         }, 1400);
       } else {
@@ -118,15 +114,12 @@ const SingleCabForm = ({ theme, onGoBack }) => {
           selectedProvider={selectedProvider}
           setSelectedProvider={(val) => {
             setSelectedProvider(val);
-
-            // Handle Custom Selection
             if (val === "Custom") {
               setIsCustom(true);
             } else {
               setIsCustom(false);
               setCustomName("");
             }
-
             if (errors.provider)
               setErrors((prev) => ({ ...prev, provider: null }));
           }}
@@ -139,18 +132,17 @@ const SingleCabForm = ({ theme, onGoBack }) => {
         {/* Custom Company Name Input */}
         {isCustom && (
           <View style={[styles.card, { backgroundColor: theme.cardBg, marginTop: 10 }]}>
-            <Text style={[styles.label, { color: theme.text }]}>Enter Cab Company</Text>
+            <Text style={[styles.label, { color: theme.text }]}>{t("Enter Cab Company")}</Text>
 
             <TextInput
               value={customName}
               onChangeText={(text) => {
                 setCustomName(text);
-
                 if (errors.custom) {
                   setErrors((prev) => ({ ...prev, custom: null }));
                 }
               }}
-              placeholder="Enter company name"
+              placeholder={t("Enter company name")}
               placeholderTextColor={theme.textSecondary || "#9CA3AF"}
               style={[
                 styles.input,
@@ -177,7 +169,7 @@ const SingleCabForm = ({ theme, onGoBack }) => {
               if (errors.date)
                 setErrors((prev) => ({ ...prev, date: null }));
             }}
-            label="Visit Date"
+            label={t("Visit Date")}
             required={true}
             nightMode={false}
           />
@@ -189,7 +181,7 @@ const SingleCabForm = ({ theme, onGoBack }) => {
         {/* Vehicle */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <Text style={[styles.label, { color: theme.text }]}>
-            Vehicle Number (Last 4 Digits) <Text style={{ color: "#EF4444" }}>*</Text>
+            {t("Vehicle Number (Last 4 Digits)")} <Text style={{ color: "#EF4444" }}>*</Text>
           </Text>
 
           <TextInput
@@ -215,30 +207,28 @@ const SingleCabForm = ({ theme, onGoBack }) => {
 
       </ScrollView>
 
-      {/* Sticky Button */}
       <SubmitButton
-        title="Schedule Cab"
+        title={t("Schedule Cab")}
         onPress={handleSubmit}
         loading={modalType === "loading"}
       />
 
-      {/* Reusable Modal */}
       <StatusModal
         visible={!!modalType}
         type={modalType}
         title={
           modalType === "loading"
-            ? "Scheduling..."
+            ? t("Scheduling...")
             : modalType === "success"
-              ? "Cab Scheduled"
-              : "Failed!"
+              ? t("Cab Scheduled")
+              : t("Failed!")
         }
         subtitle={
           modalType === "loading"
-            ? "Please wait"
+            ? t("Please wait")
             : modalType === "success"
-              ? "Cab pass created"
-              : "Please try again"
+              ? t("Cab pass created")
+              : t("Please try again")
         }
       />
     </View>
@@ -248,59 +238,9 @@ const SingleCabForm = ({ theme, onGoBack }) => {
 export default SingleCabForm;
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    padding: 16,
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    fontSize: 14,
-  },
-
-  vehicleInput: {
-    height: 50,
-    borderWidth: 1,
-    borderRadius: 12,
-    textAlign: "center",
-    fontSize: 22,
-    letterSpacing: 8,
-    fontWeight: "600",
-  },
-
-  counterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-
-  counterBtn: {
-    width: 40,
-    height: 40,
-    borderWidth: 1,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  counterText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-
-  errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    marginTop: 6,
-    marginLeft: 4,
-  },
+  card: { borderRadius: 16, padding: 16 },
+  label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
+  input: { height: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, fontSize: 14 },
+  vehicleInput: { height: 50, borderWidth: 1, borderRadius: 12, textAlign: "center", fontSize: 22, letterSpacing: 8, fontWeight: "600" },
+  errorText: { color: "#EF4444", fontSize: 12, marginTop: 6, marginLeft: 4 },
 });

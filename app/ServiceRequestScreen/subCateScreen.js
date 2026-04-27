@@ -2,7 +2,6 @@
 import React from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -12,7 +11,11 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { usePermissions } from '../../Utils/ConetextApi';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BRAND from '../config';
-import AppHeader from '../components/AppHeader'; // ✅ Added AppHeader
+import AppHeader from '../components/AppHeader'; 
+
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const ICON_MAP = [
   { keys: ['electric', 'power'], name: 'electrical-services' },
@@ -33,6 +36,7 @@ const getIcon = (name = '') => {
 
 const SubCategorySelectionScreen = ({ navigation, route }) => {
   const { nightMode } = usePermissions();
+  const { t } = useTranslation(); // 👈 Init translation
 
   const selectedCategory = route?.params?.selectedCategory || {};
   const subCategories = selectedCategory?.sub_catagory || [];
@@ -46,7 +50,7 @@ const SubCategorySelectionScreen = ({ navigation, route }) => {
         sub: '#9CA3AF',
       }
     : {
-        bg: '#F4F6FA', // Light background for better contrast
+        bg: '#F4F6FA', 
         surface: '#FFFFFF',
         border: '#E5E7EB',
         text: '#111827',
@@ -54,15 +58,16 @@ const SubCategorySelectionScreen = ({ navigation, route }) => {
       };
 
   return (
-    <SafeAreaView style={[styles.root]} edges={['bottom']}>
+    // FIX: Applied theme.bg so night mode actually works!
+    <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]} edges={['bottom']}>
       
-      {/* 1. Standardized Header */}
-      <AppHeader title={selectedCategory?.name || 'Select Issue'} />
+      {/* 1. Standardized Header with translated title/fallback */}
+      <AppHeader title={selectedCategory?.name ? t(selectedCategory.name) : t('Select Issue')} />
 
       {/* 2. Issue Count Summary */}
       <View style={styles.summaryContainer}>
          <Text style={[styles.subtitle, { color: theme.sub }]}>
-            Choose the specific {selectedCategory?.name?.toLowerCase()} issue ({subCategories.length})
+            {t('Choose the specific issue for')} {selectedCategory?.name ? t(selectedCategory.name) : ''} ({subCategories.length})
           </Text>
       </View>
 
@@ -75,7 +80,7 @@ const SubCategorySelectionScreen = ({ navigation, route }) => {
           <View style={styles.empty}>
             <MaterialIcons name="search-off" size={48} color={theme.sub} />
             <Text style={{ marginTop: 10, color: theme.sub, fontSize: 15 }}>
-              No issue types available
+              {t("No issue types available")}
             </Text>
           </View>
         ) : (
@@ -106,7 +111,8 @@ const SubCategorySelectionScreen = ({ navigation, route }) => {
                 style={[styles.cardText, { color: theme.text }]}
                 numberOfLines={2}
               >
-                {item.name}
+                {/* Wrap subcategory name in t() to catch backend translations */}
+                {t(item.name)}
               </Text>
 
               <Ionicons
@@ -125,19 +131,17 @@ const SubCategorySelectionScreen = ({ navigation, route }) => {
 export default SubCategorySelectionScreen;
 
 const styles = StyleSheet.create({
-  root: { flex: 1 ,    backgroundColor:'#ffff'
-},
-
+  root: { 
+    flex: 1, 
+  },
   summaryContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-
   subtitle: {
     fontSize: 13,
     fontWeight: '500',
   },
-
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -147,14 +151,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginHorizontal: 16,
     marginBottom: 10,
-    // Subtle shadow
     elevation: 0.1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-
   iconBox: {
     width: 44,
     height: 44,
@@ -163,13 +165,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-
   cardText: {
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
   },
-
   empty: {
     alignItems: 'center',
     justifyContent: 'center',

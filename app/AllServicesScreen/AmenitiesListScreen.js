@@ -1,9 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
-
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
@@ -12,19 +10,20 @@ import {
   ScrollView,
   Dimensions,
 } from "react-native";
-
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { usePermissions } from "../../Utils/ConetextApi";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { otherServices } from "../../services/otherServices";
 import { visitorServices } from "../../services/visitorServices";
 import AppHeader from "../components/AppHeader";
-import { useCallback } from "react";
 import SubmitButton from "../components/SubmitButton";
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
 const { width } = Dimensions.get("window");
 
 const AmenitiesListScreen = () => {
+  const { t, i18n } = useTranslation();
   const route = useRoute();
   const { type, title } = route.params || {};
 
@@ -55,20 +54,15 @@ const AmenitiesListScreen = () => {
   const fetchFacilities = async () => {
     try {
       setLoading(true);
-
       let data = [];
-
       if (type === "PARKING") {
         const res = await visitorServices.getParkingLocations();
         data = res?.data || [];
       } else {
         data = await otherServices.getAmenities();
       }
-
       setAmenities(data);
-
       fetchTodayBookings(data);
-
     } catch (err) {
       console.log("Facility error:", err);
     } finally {
@@ -77,39 +71,31 @@ const AmenitiesListScreen = () => {
   };
 
   const fetchTodayBookings = async (amenityList) => {
-    const today = new Date().toLocaleDateString("en-CA");
-
+    // Keep ISO format for API filtering
+    const today = new Date().toISOString().split('T')[0];
     const counts = {};
 
     await Promise.all(
       amenityList.map(async (item) => {
         try {
           const res = await otherServices.getAmenityBookingsById(item.id);
-
           const bookings = res?.data || [];
-
           const todayCount = bookings.filter((b) =>
             b.booking_from?.startsWith(today)
           ).length;
-
           counts[item.id] = todayCount;
         } catch {
           counts[item.id] = 0;
         }
       })
     );
-
     setTodayBookings(counts);
   };
 
   const onImageScroll = (event, itemId) => {
     const contentOffset = event.nativeEvent.contentOffset;
     const index = Math.round(contentOffset.x / (width - 32));
-
-    setCurrentImageIndex((prev) => ({
-      ...prev,
-      [itemId]: index,
-    }));
+    setCurrentImageIndex((prev) => ({ ...prev, [itemId]: index }));
   };
 
   const renderAmenity = ({ item }) => {
@@ -118,137 +104,79 @@ const AmenitiesListScreen = () => {
     const isActive = item.is_booking === 1;
 
     let rules = {};
-    try {
-      rules = JSON.parse(item.rules || "{}");
-    } catch {
-      rules = {};
-    }
+    try { rules = JSON.parse(item.rules || "{}"); } catch { rules = {}; }
 
     let parsedSlot = {};
     try {
       const temp = JSON.parse(item.slot || "{}");
       parsedSlot = temp && typeof temp === "object" ? temp : {};
-    } catch {
-      parsedSlot = {};
-    }
+    } catch { parsedSlot = {}; }
 
     let rate = null;
     let rateMethod = "";
-
     try {
       const parsedData = JSON.parse(item.data || "{}");
       rate = parsedData?.rates?.rate;
       rateMethod = parsedData?.rates?.method;
-    } catch {
-      rate = null;
-    }
+    } catch { rate = null; }
 
     const maxPerDay = rules?.max_per_day || 0;
     const todayCount = todayBookings[item.id] || 0;
     const isFull = todayCount >= maxPerDay;
 
-    const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
+    // Localized Weekdays
+    const weekDays = [t("S"), t("M"), t("T"), t("W"), t("T"), t("F"), t("S")];
 
     return (
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: theme.card, borderColor: theme.border },
-        ]}
-      >
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <View style={styles.imageWrapper}>
           {hasImages ? (
             <>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={(e) => onImageScroll(e, item.id)}
-                scrollEventThrottle={16}
-              >
+              <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+                onScroll={(e) => onImageScroll(e, item.id)} scrollEventThrottle={16}>
                 {item.image.map((img, index) => (
                   <Image key={index} source={{ uri: img }} style={styles.image} />
                 ))}
               </ScrollView>
-
               {item.image.length > 1 && (
                 <View style={styles.indicators}>
                   {item.image.map((_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.indicator,
-                        {
-                          backgroundColor:
-                            index === imageIndex ? theme.primary : theme.border,
-                        },
-                      ]}
-                    />
+                    <View key={index} style={[styles.indicator, { backgroundColor: index === imageIndex ? theme.primary : theme.border }]} />
                   ))}
                 </View>
               )}
             </>
           ) : (
-            <View
-              style={[
-                styles.noImageContainer,
-                { backgroundColor: theme.border },
-              ]}
-            >
-              < Ionicons name="image-outline" size={36} color={theme.subText} />
-              <Text style={[styles.noImageText, { color: theme.subText }]}>
-                No images available
-              </Text>
+            <View style={[styles.noImageContainer, { backgroundColor: theme.border }]}>
+              <Ionicons name="image-outline" size={36} color={theme.subText} />
+              <Text style={[styles.noImageText, { color: theme.subText }]}>{t("No images available")}</Text>
             </View>
           )}
         </View>
 
         <View style={styles.content}>
-          <Text style={[styles.title, { color: theme.text }]}>{item.name}</Text>
+          <Text style={[styles.title, { color: theme.text }]}>{t(item.name)}</Text>
 
           {rate && (
-            <Text
-              style={{
-                fontSize: 13,
-                fontWeight: "600",
-                color: '#6769e6',
-                marginTop: 2,
-              }}
-            >
-              ₹{rate} {rateMethod === "per_slot" ? "/ slot" : ""}
+            <Text style={{ fontSize: 13, fontWeight: "600", color: '#6769e6', marginTop: 2 }}>
+              {i18n.language === 'km' ? '៛' : '₹'}{rate} {rateMethod === "per_slot" ? t("/ slot") : ""}
             </Text>
           )}
 
           <View style={{ marginTop: 4 }}>
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: "600",
-                color: isFull ? "#EF4444" : "#10B981",
-              }}
-            >
-              TODAY {todayCount} / {maxPerDay}
+            <Text style={{ fontSize: 12, fontWeight: "600", color: isFull ? "#EF4444" : "#10B981" }}>
+              {t("TODAY")} {todayCount} / {maxPerDay}
             </Text>
           </View>
 
-          <View
-            style={[
-              styles.badge,
-              { backgroundColor: isActive ? "#10B981" : "#6B7280" },
-            ]}
-          >
-            <Text style={styles.badgeText}>
-              {isActive ? "Open" : "Closed"}
-            </Text>
+          <View style={[styles.badge, { backgroundColor: isActive ? "#10B981" : "#6B7280" }]}>
+            <Text style={styles.badgeText}>{isActive ? t("Open") : t("Closed")}</Text>
           </View>
 
           {item.description && (
             <View style={{ marginTop: 4 }}>
-              <Text
-                numberOfLines={2}
-                style={[styles.description, { color: theme.subText }]}
-              >
-                {item.description}
+              <Text numberOfLines={2} style={[styles.description, { color: theme.subText }]}>
+                {t(item.description)}
               </Text>
             </View>
           )}
@@ -257,15 +185,8 @@ const AmenitiesListScreen = () => {
             <View style={styles.daysRow}>
               {weekDays.map((day, index) => {
                 const isAvailable = parsedSlot[index]?.avl === true;
-
                 return (
-                  <Text
-                    key={index}
-                    style={[
-                      styles.dayLabel,
-                      { color: isAvailable ? "#10B981" : theme.subText },
-                    ]}
-                  >
+                  <Text key={index} style={[styles.dayLabel, { color: isAvailable ? "#10B981" : theme.subText }]}>
                     {day}
                   </Text>
                 );
@@ -274,7 +195,7 @@ const AmenitiesListScreen = () => {
 
             {isActive && (
               <SubmitButton
-                title={type === "PARKING" ? "Book Parking" : "Book Now"}
+                title={type === "PARKING" ? t("Book Parking") : t("Book Now")}
                 style={{ minWidth: 110 }}
                 onPress={() =>
                   navigation.navigate("AmenityBooking", {
@@ -292,10 +213,8 @@ const AmenitiesListScreen = () => {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.background }]}
-    >
-      <AppHeader title={title || "Amenities"} />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <AppHeader title={title ? t(title) : t("Amenities")} />
 
       {loading ? (
         <View style={styles.center}>
@@ -306,19 +225,14 @@ const AmenitiesListScreen = () => {
           data={amenities}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderAmenity}
-          contentContainerStyle={[
-            styles.listContent,
-            amenities.length === 0 && { flex: 1 }
-          ]}
+          contentContainerStyle={[styles.listContent, amenities.length === 0 && { flex: 1 }]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={() => (
             <View style={styles.emptyContainer}>
               <Ionicons name="calendar-outline" size={60} color={theme.subText} />
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                No amenities available
-              </Text>
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>{t("No amenities available")}</Text>
               <Text style={[styles.emptySub, { color: theme.subText }]}>
-                Currently there are no amenities to display.
+                {t("Currently there are no amenities to display.")}
               </Text>
             </View>
           )}

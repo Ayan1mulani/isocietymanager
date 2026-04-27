@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   TouchableOpacity,
@@ -16,6 +15,8 @@ import AppCard from "../components/AppCard";
 import AppSearchBar from "../components/AppSearchBar";
 import BRAND from '../config'
 import EmptyState from "../components/EmptyState";
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
@@ -37,6 +38,7 @@ const COLORS = {
 
 const MyStaffScreen = ({ nightMode }) => {
   const navigation = useNavigation();
+  const { t } = useTranslation();
 
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,27 +95,27 @@ const MyStaffScreen = ({ nightMode }) => {
   };
 
   const filteredStaff = useMemo(() => {
-    const q = search.toLowerCase().trim();
+  const q = search.toLowerCase().trim();
 
-    const result = staffList.filter(
-      (s) =>
-        s.name?.toLowerCase().includes(q) ||
-        s.designation?.toLowerCase().includes(q) ||
-        s.category?.toLowerCase().includes(q) ||
-        String(s.code || "").includes(q)
+  return staffList.filter((s) => {
+    const translatedStatus = s.status?.toUpperCase() === "PRESENT" ? t("IN") : t("OUT");
+    return (
+      s.name?.toLowerCase().includes(q) ||
+      t(s.designation || s.category)?.toLowerCase().includes(q) ||
+      translatedStatus.toLowerCase().includes(q) || // Now searchable in Khmer!
+      String(s.code || "").includes(q)
     );
+  }).sort((a, b) => {
+    const aPresent = a.status?.toUpperCase() === "PRESENT";
+    const bPresent = b.status?.toUpperCase() === "PRESENT";
 
-    // PRESENT (IN) always on top
-    return result.sort((a, b) => {
-      const aPresent = a.status?.toUpperCase() === "PRESENT";
-      const bPresent = b.status?.toUpperCase() === "PRESENT";
+    if (aPresent && !bPresent) return -1;
+    if (!aPresent && bPresent) return 1;
 
-      if (aPresent && !bPresent) return -1;
-      if (!aPresent && bPresent) return 1;
-
-      return a.name.localeCompare(b.name); // secondary sort
-    });
-  }, [search, staffList]);
+    return a.name.localeCompare(b.name); // secondary sort
+  });
+}, [search, staffList, t]); 
+  
 
   const renderStars = (rating) => {
     const rounded = Math.round(rating);
@@ -161,7 +163,7 @@ const MyStaffScreen = ({ nightMode }) => {
                   numberOfLines={1}
                   style={[styles.name, { color: theme.text, flex: 1 }]}
                 >
-                  {item.name?.trim() || "Unknown"}
+                  {item.name?.trim() || t("Unknown")}
                 </Text>
               </View>
 
@@ -169,7 +171,7 @@ const MyStaffScreen = ({ nightMode }) => {
                 style={[styles.role, { color: theme.textSecondary }]}
                 numberOfLines={1}
               >
-                {item.designation || item.category || "No Role"}
+               {t(item.designation || item.category || "No Role")}
               </Text>
 
               {item.avgRating !== null && (
@@ -181,19 +183,29 @@ const MyStaffScreen = ({ nightMode }) => {
           </View>
 
           {/* ── Right: IN/OUT badge on top, emp code below ── */}
-          <View style={{
-            backgroundColor: isPresent ? "#ECFDF5" : "#FEF2F2",
-            paddingHorizontal: 8,
-            paddingVertical: 2,
-            borderRadius: 6,
-          }}>
-            <Text style={{
-              color: isPresent ? "#10B981" : "#5e5858",
-              fontSize: 11,
-              fontWeight: "700",
+          <View style={styles.rightCol}>
+            <View style={{
+              backgroundColor: isPresent ? "#ECFDF5" : "#FEF2F2",
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 6,
+              marginBottom: item.code ? 6 : 0, // Add spacing if code exists
             }}>
-              {isPresent ? "IN" : "OUT"}
-            </Text>
+              <Text style={{
+                color: isPresent ? "#10B981" : "#5e5858",
+                fontSize: 11,
+                fontWeight: "700",
+              }}>
+               {isPresent ? t("IN") : t("OUT")}
+              </Text>
+            </View>
+
+            {/* Display Employee Code as intended by your styles */}
+            {item.code ? (
+              <Text style={[styles.empCode, { color: theme.textSecondary }]}>
+                ID: {item.code}
+              </Text>
+            ) : null}
           </View>
         </TouchableOpacity>
       </AppCard>
@@ -213,7 +225,7 @@ const MyStaffScreen = ({ nightMode }) => {
       <AppSearchBar
         value={search}
         onChangeText={setSearch}
-        placeholder="Search by name, role or ID..."
+       placeholder={t("Search by name, role or ID...")}
         theme={theme}
       />
 
@@ -227,11 +239,11 @@ const MyStaffScreen = ({ nightMode }) => {
         ListEmptyComponent={() => (
           <EmptyState
             icon="people-outline"
-            title={search ? "No Results Found" : "No Staff Found"}
+            title={search ? t("No Results Found") : t("No Staff Found")}
             subtitle={
               search
                 ? `No staff matches "${search}"`
-                : "Add staff to manage them here"
+                : t("Add staff to manage them here")
             }
             theme={theme}
           />

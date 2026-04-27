@@ -1,7 +1,6 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   Dimensions,
@@ -12,6 +11,8 @@ import FastImage from "@d11/react-native-fast-image";
 import LinearGradient from "react-native-linear-gradient";
 import { visitorServices } from "../../services/visitorServices";
 import { usePermissions } from "../../Utils/ConetextApi";
+import { useTranslation } from "react-i18next";
+import Text from "../components/TranslatedText";
 
 const { width } = Dimensions.get("window");
 
@@ -28,13 +29,24 @@ const ShimmerCard = () => {
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
       ])
     ).start();
   }, []);
 
-  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
+  const opacity = shimmer.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.4, 1],
+  });
 
   return (
     <Animated.View style={[styles.shimmerCard, { opacity }]}>
@@ -48,22 +60,74 @@ const ShimmerCard = () => {
   );
 };
 
+/* ─── Animated Dot ─── */
+/**
+ * Each dot interpolates its own width and opacity directly from the shared
+ * scrollX Animated.Value, so animations are perfectly in sync with the finger.
+ */
+const AnimatedDot = ({ index, scrollX, total, theme }) => {
+  // Input range: one full page before, this page, one full page after
+  const inputRange = [
+    (index - 1) * SNAP_INTERVAL,
+    index * SNAP_INTERVAL,
+    (index + 1) * SNAP_INTERVAL,
+  ];
+
+  const dotWidth = scrollX.interpolate({
+    inputRange,
+    outputRange: [6, 22, 6],
+    extrapolate: "clamp",
+  });
+
+  const opacity = scrollX.interpolate({
+    inputRange,
+    outputRange: [0.35, 1, 0.35],
+    extrapolate: "clamp",
+  });
+
+  // Scale for a subtle "pop" feel on the active dot
+  const scale = scrollX.interpolate({
+    inputRange,
+    outputRange: [0.8, 1.15, 0.8],
+    extrapolate: "clamp",
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.dot,
+        {
+          width: dotWidth,
+          opacity,
+          transform: [{ scaleY: scale }],
+          backgroundColor: theme.textMain,
+          borderRadius: 4,
+        },
+      ]}
+    />
+  );
+};
+
 const CarouselSection = () => {
+  const { t } = useTranslation();
   const { nightMode } = usePermissions();
   const flatListRef = useRef(null);
+  const activeIndexRef = useRef(0);           // shadow ref — avoids stale closure in timer
   const [activeIndex, setActiveIndex] = useState(0);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ── Clean Theme Palette ──
+  // Single Animated.Value that tracks horizontal scroll offset
+  const scrollX = useRef(new Animated.Value(0)).current;
+
   const theme = {
     background: nightMode ? "#111827" : "#FFFFFF",
     textMain: nightMode ? "#F9FAFB" : "#111827",
     textSub: nightMode ? "#9CA3AF" : "#6B7280",
     pillBg: nightMode ? "#374151" : "#F3F4F6",
-    iconBadgeBg: nightMode ? "#374151" : "#111827",
   };
 
+  /* ── Fetch ── */
   const fetchImages = async () => {
     try {
       const res = await visitorServices.getSocietyImages();
@@ -86,21 +150,35 @@ const CarouselSection = () => {
     fetchImages();
   }, []);
 
+  /* ── Auto-scroll ── */
   useEffect(() => {
     if (images.length <= 1) return;
-    const interval = setInterval(() => {
-      const nextIndex = (activeIndex + 1) % images.length;
-      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-      setActiveIndex(nextIndex);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [activeIndex, images]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) setActiveIndex(viewableItems[0].index);
-  }).current;
+    const interval = setInterval(() => {
+      const next = (activeIndexRef.current + 1) % images.length;
+      flatListRef.current?.scrollToOffset({
+        offset: next * SNAP_INTERVAL,
+        animated: true,
+      });
+      // State update handled by onViewableItemsChanged; ref updated here for timer
+      activeIndexRef.current = next;
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, [images.length]);
+
+  /* ── Viewability ── */
+  const onViewableItemsChanged = useCallback(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      const idx = viewableItems[0].index ?? 0;
+      activeIndexRef.current = idx;
+      setActiveIndex(idx);
+    }
+  }, []);
 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
+  const formatNumber = (num) => num.toString();
 
   if (images.length === 0 && !loading) return null;
 
@@ -110,24 +188,24 @@ const CarouselSection = () => {
       {/* ── Header ── */}
       <View style={styles.sectionHeader}>
         <View style={styles.headerLeft}>
-          <View style={[styles.iconBadge]}>
-            <Ionicons name="albums" size={20} color="'#111827"style={{ marginRight: 8 }} />
+          <View style={styles.iconBadge}>
+            <Ionicons name="albums" size={20} color="#111827" />
           </View>
           <Text style={[styles.headerText, { color: theme.textMain }]}>
-            Society Snapshot
+            {t("Society Snapshot")}
           </Text>
         </View>
-
-
       </View>
 
-      {/* ── Shimmer or Real List ── */}
+      {/* ── List ── */}
       {loading ? (
         <View style={styles.shimmerRow}>
-          {[0, 1].map((i) => <ShimmerCard key={i} />)}
+          {[0, 1].map((i) => (
+            <ShimmerCard key={i} />
+          ))}
         </View>
       ) : (
-        <FlatList
+        <Animated.FlatList
           ref={flatListRef}
           data={images}
           horizontal
@@ -136,10 +214,17 @@ const CarouselSection = () => {
           snapToInterval={SNAP_INTERVAL}
           snapToAlignment="start"
           decelerationRate="fast"
+          disableIntervalMomentum={true}
           contentContainerStyle={{ paddingHorizontal: SIDE_PADDING }}
           ItemSeparatorComponent={() => <View style={{ width: SPACING }} />}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewConfig}
+          // Drive scrollX from native thread — zero JS overhead while swiping
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+            { useNativeDriver: false }   // width interpolation needs JS driver
+          )}
+          scrollEventThrottle={16}
           getItemLayout={(_, index) => ({
             length: SNAP_INTERVAL,
             offset: SNAP_INTERVAL * index,
@@ -147,8 +232,6 @@ const CarouselSection = () => {
           })}
           renderItem={({ item, index }) => (
             <View style={styles.card}>
-
-              {/* Image */}
               <FastImage
                 source={{
                   uri: item.uri,
@@ -158,20 +241,15 @@ const CarouselSection = () => {
                 style={StyleSheet.absoluteFill}
                 resizeMode={FastImage.resizeMode.cover}
               />
-
-              {/* Bottom gradient overlay */}
               <LinearGradient
                 colors={["transparent", "rgba(0,0,0,0.5)"]}
                 style={styles.gradientOverlay}
               />
-
-              {/* Index badge */}
               <View style={styles.indexBadge}>
                 <Text style={styles.indexBadgeText}>
-                  {index + 1}/{images.length}
+                  {formatNumber(index + 1)}/{formatNumber(images.length)}
                 </Text>
               </View>
-
             </View>
           )}
         />
@@ -182,14 +260,12 @@ const CarouselSection = () => {
         <View style={styles.paginationWrapper}>
           <View style={[styles.paginationPill, { backgroundColor: theme.pillBg }]}>
             {images.map((_, index) => (
-              <View
+              <AnimatedDot
                 key={index}
-                style={[
-                  styles.dot,
-                  activeIndex === index
-                    ? [styles.dotActive, { backgroundColor: theme.textMain }]
-                    : [styles.dotInactive, { backgroundColor: theme.textSub, opacity: 0.4 }],
-                ]}
+                index={index}
+                scrollX={scrollX}
+                total={images.length}
+                theme={theme}
               />
             ))}
           </View>
@@ -204,7 +280,7 @@ export default CarouselSection;
 
 const styles = StyleSheet.create({
   sectionWrapper: {
-    paddingTop:30
+    paddingTop: 30,
   },
 
   /* Header */
@@ -231,17 +307,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.3,
-  },
-  headerPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  headerPillText: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
   },
 
   /* Card */
@@ -313,12 +378,6 @@ const styles = StyleSheet.create({
   },
   dot: {
     height: 6,
-    borderRadius: 3,
-  },
-  dotActive: {
-    width: 24,
-  },
-  dotInactive: {
-    width: 6,
+    borderRadius: 4,
   },
 });

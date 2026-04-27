@@ -20,6 +20,7 @@ import CreateAccount from './app/Login/SignUpScreen';
 import BouncedChequeListScreen from './app/AccountsScreen/BouncedChequeListScreen';
 import BouncedChequeDetailScreen from './app/AccountsScreen/BouncedChequeDetailScreen';
 import PendingStatusScreen from './app/Login/PendingStatusScreen'; // ✅ The yellow status screen
+import { useTranslation } from 'react-i18next';
 
 import VisitorPopup from "./app/components/VisitorPopup";
 import { setPopupHandler } from "./services/VisitorPopupService";
@@ -119,6 +120,7 @@ const ServiceRequestsStack = () => {
 // --- Modern Custom Tab Bar with Sliding Animation ---
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   const { nightMode } = usePermissions();
+  const { t } = useTranslation(); // <--- 1. ADD THIS HERE
   const COLORS = BRAND.COLORS;
 
   const PRIMARY_COLOR = nightMode ? "#2A2A2Aee" : COLORS.bottomNavBackground;
@@ -259,7 +261,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
                     style={[styles.tabLabel, { color: PRIMARY_COLOR }]}
                     numberOfLines={1}
                   >
-                    {shortLabel}
+                   {t(shortLabel)}
                   </Text>
                 )}
               </View>
@@ -344,6 +346,7 @@ const NavigationTabs = () => {
 };
 
 const NavigationPage = () => {
+  const { t } = useTranslation(); // <--- 1. ADD THIS HERE
   const getUserDetails= async () => {
     await ismServices.getUserDetails();
   };
@@ -431,7 +434,7 @@ const NavigationPage = () => {
         <Stack.Screen
           name="ResidentIdCard"
           component={ResidentIdCardScreen}
-          options={{ title: "Resident ID Card" }}
+         options={{ title: t("Resident ID Card") }}
         />
 
 

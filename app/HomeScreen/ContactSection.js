@@ -1,11 +1,19 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  Image, Linking, Alert,
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Linking,
+  Alert,
 } from 'react-native';
 import { usePermissions } from '../../Utils/ConetextApi';
-import Ionicons from 'react-native-vector-icons/Ionicons'; // 👈 Added for the standard header icon
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
+// 💡 TIP: In a real app, you should fetch this list from your API 
+// so the numbers change automatically based on the country.
 const CONTACTS = [
   {
     id: '1',
@@ -34,20 +42,19 @@ const CONTACTS = [
 ];
 
 export default function ImportantContacts() {
+  const { t } = useTranslation();
   const { nightMode } = usePermissions();
 
-  const t = nightMode ? {
+  const colors = nightMode ? {
     bg: '#1E1E2A',
-    border: '#2C2C3E',
-    header: '#F9FAFB', // Updated to match other standard headers in dark mode
+    header: '#F9FAFB',
     icon: '#D1D5DB',
     name: '#F3F4F6',
     phone: '#9CA3AF',
     itemBorder: '#333348',
   } : {
-    bg: 'transparent', // Removed the white box so it sits cleanly on the screen background
-    border: 'transparent',
-    header: '#374151', // Standardized dark gray header
+    bg: 'transparent',
+    header: '#374151',
     icon: '#374151',
     name: '#1F2937',
     phone: '#6B7280',
@@ -56,23 +63,16 @@ export default function ImportantContacts() {
 
   const handleCall = (phone) => {
     Linking.openURL(`tel:${phone}`).catch(() =>
-      Alert.alert('Error', 'Unable to place call')
+      Alert.alert(t('Error'), t('Unable to place call'))
     );
   };
 
   return (
-    <View style={[s.container, { backgroundColor: t.bg, borderColor: t.border }]}>
-
-      {/* ── Standardized Header ── */}
+    <View style={s.container}>
       <View style={s.sectionHeader}>
-        <Ionicons
-          name="call"
-          size={20}
-          color={t.icon}
-          style={{ marginRight: 8 }}
-        />
-        <Text style={[s.headerText, { color: t.header }]}>
-          Important Contacts
+        <Ionicons name="call" size={20} color={colors.icon} style={{ marginRight: 8 }} />
+        <Text style={[s.headerText, { color: colors.header }]}>
+          {t("Important Contacts")}
         </Text>
       </View>
 
@@ -80,17 +80,15 @@ export default function ImportantContacts() {
         {CONTACTS.map((item) => (
           <TouchableOpacity
             key={item.id}
-            style={[s.item, { borderColor: t.itemBorder, backgroundColor: nightMode ? '#1E1E2A' : '#fff' }]}
+            style={[s.item, { borderColor: colors.itemBorder, backgroundColor: nightMode ? '#1E1E2A' : '#fff' }]}
             onPress={() => handleCall(item.phone)}
             activeOpacity={0.7}
           >
             <Image source={{ uri: item.image }} style={s.avatar} />
-
-            <Text style={[s.name, { color: t.name }]} numberOfLines={1}>
-              {item.name}
+            <Text style={[s.name, { color: colors.name }]} numberOfLines={1}>
+              {t(item.name)}
             </Text>
-
-            <Text style={[s.phone, { color: t.phone }]}>
+            <Text style={[s.phone, { color: colors.phone }]}>
               {item.phone}
             </Text>
           </TouchableOpacity>
@@ -128,7 +126,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderRadius: 12,
-    elevation: 0.3,
+    elevation: 0.4,
 
     borderWidth: 0.5,
   },

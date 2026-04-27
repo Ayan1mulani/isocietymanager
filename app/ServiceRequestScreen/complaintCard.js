@@ -1,10 +1,12 @@
 // ServiceRequestDetailCard.js
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { usePermissions } from '../../Utils/ConetextApi';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import { useTranslation } from 'react-i18next';
+import Text from '../components/TranslatedText';
 
 const COLORS = {
   primary: '#1996D3',
@@ -113,7 +115,7 @@ const CATEGORY_ICONS = {
 
 
 // ✅ Fixed: proper status mapping
-const getStatusConfig = (status, nightMode) => {
+const getStatusConfig = (status, nightMode , t) => {
   const s = status?.toLowerCase() || '';
   const isActiveStatus = !['resolved', 'closed', 'completed'].includes(status);
 
@@ -133,7 +135,7 @@ const getStatusConfig = (status, nightMode) => {
     ...config,
     bg: themeStyle.bg,
     color: themeStyle.color,
-    label: key === 'UNKNOWN' && status ? status : config.label,
+    label: key === 'UNKNOWN' && status ? status :t(config.label),
   };
 };
 const getCategoryIcon = (categoryName, theme) => {
@@ -174,6 +176,7 @@ const AppIcon = ({ name, library, color, size = 16 }) => {
 
 const ServiceRequestDetailCard = ({ complaint, onPress }) => {
   const { nightMode } = usePermissions();
+  const { t } = useTranslation(); 
   const theme = nightMode ? COLORS.dark : COLORS.light;
   let parsedData = {};
   try {
@@ -192,7 +195,7 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
 
 
 
-  const statusConfig = getStatusConfig(complaint?.status, nightMode);
+  const statusConfig = getStatusConfig(complaint?.status, nightMode, t);
   const categoryIcon = getCategoryIcon(
     complaint?.complaint_type_name,
     theme
@@ -245,10 +248,10 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
             ]}
             numberOfLines={1}
           >
-            {complaint?.complaint_type_name || complaint?.sub_category || 'Service Request'}
+          {t(complaint?.complaint_type_name || complaint?.sub_category || 'Service Request')}
           </Text>
           <Text style={[styles.descriptionText, { color: theme.description }]} numberOfLines={2}>
-            {complaint?.description || 'No description provided.'}
+           {complaint?.description || t('No description provided.')}
           </Text>
         </View>
       </View>
@@ -260,9 +263,7 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
   <View style={styles.visitRow}>
     <Ionicons name="calendar-outline" size={14} color={COLORS.primary} />
     <Text style={[styles.probableDateText, { color: theme.textSecondary }]}>
-      {probableDate
-        ? `Expected Visit: ${formatDate(probableDate)}`
-        : "Visit not scheduled"}
+{probableDate ? `${t("Expected Visit")}: ${formatDate(probableDate)}` : t("Visit not scheduled")}
     </Text>
   </View>
 
@@ -296,7 +297,7 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
         <View style={styles.dateItem}>
           <View style={styles.dateTexts}>
             <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>
-              {isClosed ? "Closed" : "Updated"}
+             {isClosed ? t("Closed") : t("Updated")}
             </Text>
 
             <Text style={[styles.dateValue, { color: theme.text }]}>

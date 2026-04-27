@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -23,9 +22,14 @@ import BRAND from "../../config";
 import { usePermissions } from "../../../Utils/ConetextApi";
 import { hasPermission } from "../../../Utils/PermissionHelper";
 
+// ── Translation Imports ──
+import { useTranslation } from 'react-i18next';
+import Text from '../../components/TranslatedText'; // Adjust path if necessary
+
 const SingleVisitorForm = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const { t } = useTranslation();
   const onGoBack = route.params?.onGoBack;
 
   const theme = {
@@ -96,43 +100,39 @@ const SingleVisitorForm = () => {
      =============================== */
   const handlePickContact = async () => {
     try {
-      // ── Android permission ──
       if (Platform.OS === "android") {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
           {
-            title: "Contacts Permission",
-            message: "Allow access to contacts to fill visitor details?",
-            buttonPositive: "Allow",
-            buttonNegative: "Deny",
+            title: t("Contacts Permission"),
+            message: t("Allow access to contacts to fill visitor details?"),
+            buttonPositive: t("Allow"),
+            buttonNegative: t("Deny"),
           }
         );
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          Alert.alert("Permission Denied", "Contacts permission is required.");
+          Alert.alert(t("Permission Denied"), t("Contacts permission is required."));
           return;
         }
       }
 
-      // ── iOS permission ──
       if (Platform.OS === "ios") {
         const permission = await Contacts.requestPermission();
         if (permission !== "authorized") {
           Alert.alert(
-            "Permission Denied",
-            "Please allow contacts access in Settings."
+            t("Permission Denied"),
+            t("Please allow contacts access in Settings.")
           );
           return;
         }
       }
 
-      // ── Load contacts ──
       setLoadingContacts(true);
       setContactModalVisible(true);
       setContactSearch("");
 
       const contacts = await Contacts.getAll();
 
-      // Keep only contacts that have at least one phone number
       const withPhone = contacts
         .filter((c) => c.phoneNumbers && c.phoneNumbers.length > 0)
         .sort((a, b) => {
@@ -147,8 +147,7 @@ const SingleVisitorForm = () => {
     } catch (err) {
       setLoadingContacts(false);
       setContactModalVisible(false);
-      console.log("Contact load error:", err);
-      Alert.alert("Error", "Could not load contacts. Please try again.");
+      Alert.alert(t("Error"), t("Could not load contacts. Please try again."));
     }
   };
 
@@ -171,7 +170,7 @@ const SingleVisitorForm = () => {
     rawPhone = rawPhone.replace(/\D/g, "").slice(-10);
 
     if (!rawPhone) {
-      Alert.alert("Invalid Number", "Could not extract a valid phone number.");
+      Alert.alert(t("Invalid Number"), t("Could not extract a valid phone number."));
       return;
     }
 
@@ -203,9 +202,11 @@ const SingleVisitorForm = () => {
     const isToday =
       start.toDateString() === today.toDateString() &&
       end.toDateString() === today.toDateString();
+    
     const formatDate = (d) =>
       d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-    if (isToday) return "Today";
+
+    if (isToday) return t("Today");
     if (isSameDay) return formatDate(start);
     return `${formatDate(start)} - ${formatDate(end)}`;
   };
@@ -215,7 +216,7 @@ const SingleVisitorForm = () => {
      =============================== */
   const handleSubmit = async () => {
     if (!visitorName || !mobileNumber || !visitDate) {
-      alert("Please fill all required fields");
+      Alert.alert(t("Validation"), t("Please fill all required fields"));
       return;
     }
 
@@ -223,8 +224,8 @@ const SingleVisitorForm = () => {
       setModalConfig({
         visible: true,
         type: "loading",
-        title: "Adding Visitor",
-        subtitle: "Please wait...",
+        title: t("Adding Visitor"),
+        subtitle: t("Please wait..."),
       });
 
       const formattedDate =
@@ -241,7 +242,7 @@ const SingleVisitorForm = () => {
       });
 
       if (visitorRes?.status !== "success") {
-        throw new Error(visitorRes?.message || "Visitor creation failed");
+        throw new Error(visitorRes?.message || t("Visitor creation failed"));
       }
 
       const visitorId = visitorRes?.data?.id;
@@ -262,8 +263,8 @@ const SingleVisitorForm = () => {
       setModalConfig({
         visible: true,
         type: "success",
-        title: "Success!",
-        subtitle: "Visitor added successfully.",
+        title: t("Success!"),
+        subtitle: t("Visitor added successfully."),
       });
 
       setTimeout(() => {
@@ -275,8 +276,8 @@ const SingleVisitorForm = () => {
       setModalConfig({
         visible: true,
         type: "error",
-        title: "Failed to add",
-        subtitle: err?.message || "Something went wrong. Please try again.",
+        title: t("Failed to add"),
+        subtitle: err?.message || t("Something went wrong. Please try again."),
       });
     }
   };
@@ -288,7 +289,7 @@ const SingleVisitorForm = () => {
     const name =
       [item.givenName, item.familyName].filter(Boolean).join(" ").trim() ||
       item.displayName ||
-      "Unknown";
+      t("Unknown");
     const phone = item.phoneNumbers?.[0]?.number || "";
     const initials = name
       .split(" ")
@@ -319,23 +320,23 @@ const SingleVisitorForm = () => {
     <>
       {/* ── Visitor Name ── */}
       <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
-        <Text style={[styles.label, { color: theme.text }]}>Visitor Name *</Text>
+        <Text style={[styles.label, { color: theme.text }]}>{t("Visitor Name *")}</Text>
 
         {contactFilled && (
           <View style={styles.filledBadge}>
             <Ionicons name="checkmark-circle" size={13} color="#10B981" />
-            <Text style={styles.filledBadgeText}>Filled from contacts</Text>
+            <Text style={styles.filledBadgeText}>{t("Filled from contacts")}</Text>
           </View>
         )}
 
         <TextInput
           value={visitorName}
           onChangeText={handleNameChange}
-          placeholder="Enter visitor name"
+          placeholder={t("Enter visitor name")}
           placeholderTextColor={theme.textSecondary}
           style={[
             styles.input,
-            { backgroundColor: theme.inputBg, borderColor: theme.border },
+            { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.text },
             contactFilled && styles.inputHighlight,
           ]}
         />
@@ -343,7 +344,7 @@ const SingleVisitorForm = () => {
 
       {/* ── Mobile with contact icon inside ── */}
       <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
-        <Text style={[styles.label, { color: theme.text }]}>Mobile Number *</Text>
+        <Text style={[styles.label, { color: theme.text }]}>{t("Mobile Number *")}</Text>
 
         <View style={styles.inputWrapper}>
           <TextInput
@@ -351,12 +352,12 @@ const SingleVisitorForm = () => {
             onChangeText={handleMobileChange}
             keyboardType="phone-pad"
             maxLength={10}
-            placeholder="Enter 10-digit mobile"
+            placeholder={t("Enter 10-digit mobile")}
             placeholderTextColor={theme.textSecondary}
             style={[
               styles.input,
               styles.inputWithIcon,
-              { backgroundColor: theme.inputBg, borderColor: theme.border },
+              { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.text },
               contactFilled && styles.inputHighlight,
             ]}
           />
@@ -371,7 +372,7 @@ const SingleVisitorForm = () => {
         <CalendarSelector
           selectedDate={visitDate}
           onDateSelect={setVisitDate}
-          label="Scheduled Date"
+          label={t("Scheduled Date")}
           required
           nightMode={false}
         />
@@ -381,7 +382,7 @@ const SingleVisitorForm = () => {
       {canAddVehicle && (
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <Text style={[styles.label, { color: theme.text }]}>
-            Vehicle Number (Last 4 Digits - Optional)
+            {t("Vehicle Number (Last 4 Digits - Optional)")}
           </Text>
           <TextInput
             value={vehicleNo}
@@ -392,7 +393,7 @@ const SingleVisitorForm = () => {
             placeholderTextColor={theme.textSecondary}
             style={[
               styles.input,
-              { backgroundColor: theme.inputBg, borderColor: theme.border },
+              { backgroundColor: theme.inputBg, borderColor: theme.border, color: theme.text },
             ]}
           />
         </View>
@@ -401,7 +402,7 @@ const SingleVisitorForm = () => {
       {/* ── Parking ── */}
       {canUseGuestParking && (
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
-          <Text style={[styles.label, { color: theme.text }]}>Need parking?</Text>
+          <Text style={[styles.label, { color: theme.text }]}>{t("Need parking?")}</Text>
           <TouchableOpacity
             style={[
               styles.selectButton,
@@ -409,12 +410,12 @@ const SingleVisitorForm = () => {
             ]}
             onPress={() => {
               if (!visitDate) {
-                alert("Please select visit date first");
+                Alert.alert(t("Validation"), t("Please select visit date first"));
                 return;
               }
               navigation.navigate("AmenitiesListScreen", {
                 type: "PARKING",
-                title: "Parking",
+                title: t("Parking"),
                 onParkingSelected: (parking) => setSelectedParking(parking),
               });
             }}
@@ -426,7 +427,7 @@ const SingleVisitorForm = () => {
                     selectedParking.booking_from,
                     selectedParking.booking_to
                   )} • ${selectedParking.slot}`
-                : "Select Parking"}
+                : t("Select Parking")}
             </Text>
             <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
           </TouchableOpacity>
@@ -435,7 +436,7 @@ const SingleVisitorForm = () => {
 
       {/* ── Submit ── */}
       <SubmitButton
-        title="Add Visitor"
+        title={t("Add Visitor")}
         onPress={handleSubmit}
         loading={modalConfig.type === "loading"}
       />
@@ -458,7 +459,7 @@ const SingleVisitorForm = () => {
 
           {/* Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Contact</Text>
+            <Text style={styles.modalTitle}>{t("Select Contact")}</Text>
             <TouchableOpacity onPress={() => setContactModalVisible(false)}>
               <Ionicons name="close" size={24} color="#1F2937" />
             </TouchableOpacity>
@@ -470,7 +471,7 @@ const SingleVisitorForm = () => {
             <TextInput
               value={contactSearch}
               onChangeText={setContactSearch}
-              placeholder="Search by name or number..."
+              placeholder={t("Search by name or number...")}
               placeholderTextColor="#9CA3AF"
               style={styles.searchInput}
               autoFocus
@@ -485,7 +486,7 @@ const SingleVisitorForm = () => {
           {/* Contact count */}
           {!loadingContacts && (
             <Text style={styles.contactCount}>
-              {filteredContacts.length} contact{filteredContacts.length !== 1 ? "s" : ""}
+              {filteredContacts.length} {t("contact(s)")}
             </Text>
           )}
 
@@ -493,7 +494,7 @@ const SingleVisitorForm = () => {
           {loadingContacts ? (
             <View style={styles.loaderBox}>
               <ActivityIndicator size="large" color="#1996D3" />
-              <Text style={styles.loaderText}>Loading contacts...</Text>
+              <Text style={styles.loaderText}>{t("Loading contacts...")}</Text>
             </View>
           ) : (
             <FlatList
@@ -505,7 +506,7 @@ const SingleVisitorForm = () => {
               ListEmptyComponent={
                 <View style={styles.emptyBox}>
                   <Ionicons name="person-outline" size={40} color="#D1D5DB" />
-                  <Text style={styles.emptyText}>No contacts found</Text>
+                  <Text style={styles.emptyText}>{t("No contacts found")}</Text>
                 </View>
               }
             />
@@ -582,8 +583,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
   },
-
-  // ── Contact Modal ──
   modalContainer: {
     flex: 1,
     backgroundColor: "#FFFFFF",

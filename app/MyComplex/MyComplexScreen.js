@@ -10,20 +10,23 @@ import SlidingTabs from "../components/SlidingTabs";
 import GuidelinesTab from "./GuidelinesTab";
 import AppHeader from "../components/AppHeader";
 import MgtTab from "./FacilityTab";
-import BRAND from '../config'
+import { useTranslation } from 'react-i18next';
+import BRAND from '../config';
 
 import { SafeAreaView } from "react-native-safe-area-context";
 import FormsScreen from "./FormsTab";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const TABS = [
-  'Guidelines &\nRules',
-  'MGT /\nFacility Team',
-  'Useful\nForms',
-];
-
-
 const MyComplexScreen = () => {
+  const { t } = useTranslation(); 
+  
+  // 1. Move TABS inside the component so it can access 't'
+  const TABS = [
+    t('Guidelines &\nRules'),
+    t('MGT /\nFacility Team'),
+    t('Useful\nForms'),
+  ];
+
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const scrollViewRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -47,7 +50,8 @@ const MyComplexScreen = () => {
     const offsetY = event.nativeEvent.contentOffset.y;
     const diff = offsetY - lastOffsetY.current;
 
-    // Scroll down = hide tabs (move up)
+    const TAB_HEIGHT = 50; // Ensure this is defined
+
     if (diff > 0) {
       Animated.timing(tabTranslateY, {
         toValue: -TAB_HEIGHT,
@@ -55,7 +59,6 @@ const MyComplexScreen = () => {
         useNativeDriver: true,
       }).start();
     }
-    // Scroll up = show tabs (move down)
     else if (diff < 0) {
       Animated.timing(tabTranslateY, {
         toValue: 0,
@@ -69,7 +72,8 @@ const MyComplexScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <AppHeader  title={"My Complex"}/>
+      <AppHeader title={t("My Complex")}/>
+      
       <Animated.View
         style={[
           styles.tabsContainer,
@@ -88,7 +92,7 @@ const MyComplexScreen = () => {
               animated: true,
             });
           }}
-          primaryColor= {BRAND.COLORS.primarydark}
+          primaryColor={BRAND.COLORS.primarydark}
           inactiveColor="#6B7280"
           scrollX={scrollX}
         />
@@ -122,6 +126,7 @@ const MyComplexScreen = () => {
 };
 
 export default MyComplexScreen;
+
 
 const styles = StyleSheet.create({
   container: {
