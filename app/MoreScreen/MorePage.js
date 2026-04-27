@@ -377,9 +377,6 @@ const ProfileScreen = () => {
       }
 
       await loadPermissions();
-
-      console.log("📲 Registering OneSignal for new user...");
-      await new Promise(res => setTimeout(res, 400));
       await RegisterAppOneSignal();
 
       console.log("✅ Switch account complete");
