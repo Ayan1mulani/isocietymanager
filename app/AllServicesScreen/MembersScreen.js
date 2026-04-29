@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   TouchableOpacity,
   Alert,
   RefreshControl,
@@ -11,12 +10,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added for caching
 import { useFocusEffect } from "@react-navigation/native";
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
 import AppHeader from "../components/AppHeader";
 import { visitorServices } from "../../services/visitorServices";
+
+const CACHE_KEY = '@family_members_cache'; // ✅ Cache Key added
 
 const MembersScreen = ({ navigation }) => {
   const { t } = useTranslation();
@@ -37,12 +39,31 @@ const MembersScreen = ({ navigation }) => {
 
   const loadMembers = async () => {
     try {
+      // 1. INSTANT LOAD: Check cache first
+      const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        setMembers(JSON.parse(cachedData));
+        setLoading(false); // Hide skeleton instantly!
+      } else {
+        setLoading(true); // Only show skeleton if no cache exists
+      }
+
+      // 2. BACKGROUND FETCH: Get fresh data from API
       const res = await visitorServices.getFamilyMembers();
       if (res?.status === "success") {
-        setMembers(res.data || []);
+        const freshData = res.data || [];
+        
+        // Update UI
+        setMembers(freshData);
+        
+        // 3. Update cache for next time
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(freshData));
+      } else if (!cachedData) {
+        setMembers([]);
       }
     } catch (error) {
       console.log("Members error:", error);
+      if (members.length === 0) setMembers([]);
     } finally {
       setLoading(false);
     }
@@ -66,7 +87,11 @@ const MembersScreen = ({ navigation }) => {
           onPress: async () => {
             try {
               await visitorServices.deleteFamilyMember(memberId);
-              setMembers(prev => prev.filter(m => m.id !== memberId));
+              // Update local state instantly
+              const updatedMembers = members.filter(m => m.id !== memberId);
+              setMembers(updatedMembers);
+              // Update cache instantly
+              await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(updatedMembers));
             } catch (error) {
               console.log(error);
             }
@@ -128,12 +153,36 @@ const MembersScreen = ({ navigation }) => {
     </View>
   );
 
+  // --- SKELETON LOADER UI ---
+  const renderSkeleton = () => (
+    <View style={{ padding: 16 }}>
+      {[1, 2, 3, 4, 5].map((key) => (
+        <View key={key} style={[styles.card, { elevation: 0, shadowOpacity: 0 }]}>
+          {/* Avatar Skeleton */}
+          <View style={[styles.avatar, { backgroundColor: "#E5E7EB" }]} />
+          
+          <View style={{ flex: 1 }}>
+            {/* Name Skeleton */}
+            <View style={{ width: '60%', height: 16, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 }} />
+            {/* Relation Skeleton */}
+            <View style={{ width: '40%', height: 12, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 }} />
+            {/* Phone Skeleton */}
+            <View style={{ width: '50%', height: 12, backgroundColor: "#E5E7EB", borderRadius: 4 }} />
+          </View>
+
+          {/* Menu Icon Skeleton */}
+          <View style={{ width: 4, height: 16, backgroundColor: "#E5E7EB", borderRadius: 2 }} />
+        </View>
+      ))}
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <AppHeader title={t("Family Members")} />
 
       {loading ? (
-        <ActivityIndicator size="large" style={{ marginTop: 40 }} />
+        renderSkeleton() // ✅ Render custom skeleton instead of spinner
       ) : (
         <FlatList
           data={members}
@@ -185,23 +234,20 @@ const MembersScreen = ({ navigation }) => {
 export default MembersScreen;
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     backgroundColor: "#F4F6F9",
   },
-
- card: {
-  flexDirection: "row",
-  alignItems: "center",
-  backgroundColor: "#fff",
-  padding: 14,
-  borderRadius: 10,
-  marginBottom: 12,
-  overflow: "visible",   // ✅ add this
-  zIndex: 1,             // ✅ add this
-},
-
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 12,
+    overflow: "visible",   
+    zIndex: 1,             
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -211,43 +257,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 12,
   },
-
   name: {
     fontSize: 15,
     fontWeight: "600",
     color: "#111827",
   },
-
   sub: {
     fontSize: 13,
     color: "#6B7280",
     marginTop: 2,
   },
-
-menu: {
-  position: "absolute",
-  top: 40,
-  right: 10,
-  backgroundColor: "#fff",
-  borderRadius: 8,
-  width: 130,
-  paddingVertical: 6,
-  elevation: 8,
-  zIndex: 999,     // ✅ important
-},
-
+  menu: {
+    position: "absolute",
+    top: 40,
+    right: 10,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    width: 130,
+    paddingVertical: 6,
+    elevation: 8,
+    zIndex: 999,     
+  },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 10,
   },
-
   menuText: {
     marginLeft: 8,
     fontSize: 13,
     color: "#111",
   },
-
   fab: {
     position: "absolute",
     bottom: 30,
@@ -261,44 +301,39 @@ menu: {
     elevation: 6,
   },
   emptyContainer: {
-  flex: 1,
-  justifyContent: "center",
-  alignItems: "center",
-  marginTop: 80,
-  paddingHorizontal: 20,
-},
-
-emptyTitle: {
-  fontSize: 16,
-  fontWeight: "600",
-  color: "#374151",
-  marginTop: 10,
-},
-
-emptySub: {
-  fontSize: 13,
-  color: "#6B7280",
-  marginTop: 4,
-  textAlign: "center",
-},
-
-emptyBtn: {
-  marginTop: 16,
-  backgroundColor: "#1565A9",
-  paddingHorizontal: 18,
-  paddingVertical: 10,
-  borderRadius: 8,
-},
-
-emptyBtnText: {
-  color: "#fff",
-  fontSize: 14,
-  fontWeight: "600",
-},
-avatarImage: {
-  width: "100%",
-  height: "100%",
-  borderRadius: 20,
-},
-
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 80,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 10,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  emptyBtn: {
+    marginTop: 16,
+    backgroundColor: "#1565A9",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  emptyBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 20,
+  },
 });

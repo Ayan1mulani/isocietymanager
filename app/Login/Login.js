@@ -87,7 +87,7 @@ const NewLoginScreen = () => {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   // ── Splash animation ───────────────────────────────────────────────────────
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -314,7 +314,10 @@ const NewLoginScreen = () => {
   if (isCheckingSession) {
     return (
       <View style={[styles.safeArea, styles.splashContainer]}>
-        <StatusBar barStyle="light-content" backgroundColor={BRAND.PRIMARY_COLOR} />
+        <StatusBar
+          backgroundColor="#1a2540"
+          barStyle="light-content"
+        />
         <Animated.Image
           source={BRAND.LOGO}
           style={[
@@ -333,7 +336,10 @@ const NewLoginScreen = () => {
 
   return (
     <View style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar
+        backgroundColor="#1a2540"
+        barStyle="light-content"
+      />
 
       <KeyboardAvoidingView
         style={styles.flex}

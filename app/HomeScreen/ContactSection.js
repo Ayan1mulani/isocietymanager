@@ -70,7 +70,6 @@ export default function ImportantContacts() {
   return (
     <View style={s.container}>
       <View style={s.sectionHeader}>
-        <Ionicons name="call" size={20} color={colors.icon} style={{ marginRight: 8 }} />
         <Text style={[s.headerText, { color: colors.header }]}>
           {t("Important Contacts")}
         </Text>

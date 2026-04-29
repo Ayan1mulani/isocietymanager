@@ -94,12 +94,6 @@ const HomeNoticeSection = () => {
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
         <View style={styles.headerTitleRow}>
-          <Ionicons
-            name="reader"
-            size={20}
-            color="#374151"
-            style={{ marginRight: 8 }}
-          />
           <Text style={styles.headerText}>{t("Important Information")}</Text>
         </View>
       </View>

@@ -126,12 +126,6 @@ const StaffSection = ({ refreshTrigger }) => {
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
         <View style={styles.headerTitleRow}>
-          <Ionicons
-            name="people"
-            size={20}
-            color={theme.textMain}
-            style={{ marginRight: 8 }}
-          />
           <Text style={[styles.headerText, { color: theme.textMain }]}>Staff</Text>
         </View>
 
@@ -186,6 +180,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
+    elevation:0.5
   },
 
   listContainer: {
@@ -239,6 +234,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 2,
     alignItems: 'center',
+    borderRadius:4,
+    borderColor: "#203e79", // Matches the card background for a cutout effect
     minWidth: 36,
   },
   badgeText: {

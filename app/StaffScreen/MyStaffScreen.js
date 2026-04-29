@@ -4,10 +4,10 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Image
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Added for caching
 import { otherServices } from "../../services/otherServices";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
@@ -26,6 +26,7 @@ const COLORS = {
     text: "#212529",
     textSecondary: "#6C757D",
     border: "#DEE2E6",
+    skeleton: "#E5E7EB", // Added skeleton color
   },
   dark: {
     background: "#121212",
@@ -33,8 +34,11 @@ const COLORS = {
     text: "#FFFFFF",
     textSecondary: "#9E9E9E",
     border: "#2C2C2C",
+    skeleton: "#334155", // Added skeleton color
   },
 };
+
+const CACHE_KEY = '@my_staff_list_cache';
 
 const MyStaffScreen = ({ nightMode }) => {
   const navigation = useNavigation();
@@ -55,21 +59,26 @@ const MyStaffScreen = ({ nightMode }) => {
 
   const fetchStaff = async () => {
     try {
-      setLoading(true);
+      // 1. INSTANT LOAD: Check cache first
+      const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        setStaffList(JSON.parse(cachedData));
+        setLoading(false); // Hide skeleton instantly!
+      } else {
+        setLoading(true); // Only show skeleton if no cache exists
+      }
 
+      // 2. BACKGROUND FETCH: Get fresh data from API
       const res = await otherServices.getAllStaffs();
 
       if (res?.status === "success") {
         const staffData = res.data.map((staff) => {
           let avgRating = null;
-
           try {
             let parsed = staff.avg_rating;
-
             if (typeof parsed === "string") {
               parsed = JSON.parse(parsed);
             }
-
             if (Array.isArray(parsed)) {
               avgRating = parsed?.[0]?.average_rating
                 ? parseFloat(parsed[0].average_rating)
@@ -78,50 +87,52 @@ const MyStaffScreen = ({ nightMode }) => {
           } catch {
             avgRating = null;
           }
-
           return { ...staff, avgRating };
         });
 
+        // 3. SEAMLESS UPDATE: This updates the UI if data changed in the background!
         setStaffList(staffData);
-      } else {
+        
+        // 4. Update the cache for next time
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(staffData));
+      } else if (!cachedData) {
         setStaffList([]);
       }
     } catch (error) {
       console.error("[MyStaffScreen] fetch error:", error);
-      setStaffList([]);
+      if (staffList.length === 0) setStaffList([]);
     } finally {
       setLoading(false);
     }
   };
 
   const filteredStaff = useMemo(() => {
-  const q = search.toLowerCase().trim();
+    const q = search.toLowerCase().trim();
 
-  return staffList.filter((s) => {
-    const translatedStatus = s.status?.toUpperCase() === "PRESENT" ? t("IN") : t("OUT");
-    return (
-      s.name?.toLowerCase().includes(q) ||
-      t(s.designation || s.category)?.toLowerCase().includes(q) ||
-      translatedStatus.toLowerCase().includes(q) || // Now searchable in Khmer!
-      String(s.code || "").includes(q)
-    );
-  }).sort((a, b) => {
-    const aPresent = a.status?.toUpperCase() === "PRESENT";
-    const bPresent = b.status?.toUpperCase() === "PRESENT";
+    return staffList.filter((s) => {
+      const translatedStatus = s.status?.toUpperCase() === "PRESENT" ? t("IN") : t("OUT");
+      return (
+        s.name?.toLowerCase().includes(q) ||
+        t(s.designation || s.category)?.toLowerCase().includes(q) ||
+        translatedStatus.toLowerCase().includes(q) ||
+        String(s.code || "").includes(q)
+      );
+    }).sort((a, b) => {
+      const aPresent = a.status?.toUpperCase() === "PRESENT";
+      const bPresent = b.status?.toUpperCase() === "PRESENT";
 
-    if (aPresent && !bPresent) return -1;
-    if (!aPresent && bPresent) return 1;
+      if (aPresent && !bPresent) return -1;
+      if (!aPresent && bPresent) return 1;
 
-    return a.name.localeCompare(b.name); // secondary sort
-  });
-}, [search, staffList, t]); 
-  
+      return a.name.localeCompare(b.name); 
+    });
+  }, [search, staffList, t]); 
 
   const renderStars = (rating) => {
     const rounded = Math.round(rating);
 
     return [1, 2, 3, 4, 5].map((star) => (
-      < Ionicons
+      <Ionicons
         key={star}
         name={star <= rounded ? "star" : "star-outline"}
         size={12}
@@ -155,10 +166,8 @@ const MyStaffScreen = ({ nightMode }) => {
               )}
             </View>
 
-            {/* FIX: flexShrink:1 prevents long names from pushing rightCol off screen */}
             <View style={{ flex: 1, flexShrink: 1 }}>
               <View style={styles.nameRow}>
-                {/* FIX: null fallback for item.name */}
                 <Text
                   numberOfLines={1}
                   style={[styles.name, { color: theme.text, flex: 1 }]}
@@ -189,7 +198,7 @@ const MyStaffScreen = ({ nightMode }) => {
               paddingHorizontal: 8,
               paddingVertical: 2,
               borderRadius: 6,
-              marginBottom: item.code ? 6 : 0, // Add spacing if code exists
+              marginBottom: item.code ? 6 : 0, 
             }}>
               <Text style={{
                 color: isPresent ? "#10B981" : "#5e5858",
@@ -200,7 +209,6 @@ const MyStaffScreen = ({ nightMode }) => {
               </Text>
             </View>
 
-            {/* Display Employee Code as intended by your styles */}
             {item.code ? (
               <Text style={[styles.empCode, { color: theme.textSecondary }]}>
                 ID: {item.code}
@@ -212,43 +220,71 @@ const MyStaffScreen = ({ nightMode }) => {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
+  // --- SKELETON UI ---
+  const renderSkeleton = () => (
+    <View style={{ padding: 16 }}>
+      {[1, 2, 3, 4, 5, 6].map((key) => (
+        <AppCard key={key} theme={theme}>
+          <View style={styles.cardContent}>
+            <View style={styles.leftRow}>
+              {/* Skeleton Avatar */}
+              <View style={[styles.avatar, { backgroundColor: theme.skeleton }]} />
+              
+              <View style={{ flex: 1, flexShrink: 1 }}>
+                {/* Skeleton Name */}
+                <View style={{ width: '70%', height: 16, backgroundColor: theme.skeleton, borderRadius: 4, marginBottom: 6 }} />
+                {/* Skeleton Role */}
+                <View style={{ width: '40%', height: 12, backgroundColor: theme.skeleton, borderRadius: 4, marginBottom: 6 }} />
+                {/* Skeleton Stars */}
+                <View style={{ width: '30%', height: 10, backgroundColor: theme.skeleton, borderRadius: 4 }} />
+              </View>
+            </View>
+
+            <View style={styles.rightCol}>
+              {/* Skeleton Badge */}
+              <View style={{ width: 40, height: 18, backgroundColor: theme.skeleton, borderRadius: 6, marginBottom: 6 }} />
+              {/* Skeleton ID */}
+              <View style={{ width: 50, height: 12, backgroundColor: theme.skeleton, borderRadius: 4 }} />
+            </View>
+          </View>
+        </AppCard>
+      ))}
+    </View>
+  );
 
   return (
     <View style={{ flex: 1 }}>
       <AppSearchBar
         value={search}
         onChangeText={setSearch}
-       placeholder={t("Search by name, role or ID...")}
+        placeholder={t("Search by name, role or ID...")}
         theme={theme}
       />
 
-      <FlatList
-        data={filteredStaff}
-        keyExtractor={(item, index) =>
-          item.id ? item.id.toString() : index.toString()
-        }
-        renderItem={renderItem}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        ListEmptyComponent={() => (
-          <EmptyState
-            icon="people-outline"
-            title={search ? t("No Results Found") : t("No Staff Found")}
-            subtitle={
-              search
-                ? `No staff matches "${search}"`
-                : t("Add staff to manage them here")
-            }
-            theme={theme}
-          />
-        )}
-      />
+      {loading ? (
+        renderSkeleton()
+      ) : (
+        <FlatList
+          data={filteredStaff}
+          keyExtractor={(item, index) =>
+            item.id ? item.id.toString() : index.toString()
+          }
+          renderItem={renderItem}
+          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+          ListEmptyComponent={() => (
+            <EmptyState
+              icon="people-outline"
+              title={search ? t("No Results Found") : t("No Staff Found")}
+              subtitle={
+                search
+                  ? `No staff matches "${search}"`
+                  : t("Add staff to manage them here")
+              }
+              theme={theme}
+            />
+          )}
+        />
+      )}
     </View>
   );
 };
@@ -262,15 +298,12 @@ const createStyles = (theme) =>
       justifyContent: "space-between",
       alignItems: "center",
     },
-
     leftRow: {
       flexDirection: "row",
       alignItems: "center",
-      // FIX: flex:1 so leftRow takes remaining space but doesn't crush rightCol
       flex: 1,
       marginRight: 12,
     },
-
     avatar: {
       width: 44,
       height: 44,
@@ -279,52 +312,35 @@ const createStyles = (theme) =>
       justifyContent: "center",
       alignItems: "center",
       marginRight: 12,
-      // Prevent avatar from shrinking
       flexShrink: 0,
     },
-
     nameRow: {
       flexDirection: "row",
       alignItems: "center",
       width: "100%",
     },
-
     name: {
       fontSize: 15,
       fontWeight: "600",
     },
-
     role: {
       fontSize: 12,
       marginTop: 3,
     },
-
     starsRow: {
       flexDirection: "row",
       alignItems: "center",
       marginTop: 5,
     },
-
     rightCol: {
       alignItems: "flex-end",
       justifyContent: "flex-start",
       alignSelf: "stretch",
       paddingTop: 2,
-      // Prevent rightCol from shrinking
       flexShrink: 0,
     },
-
     empCode: {
       fontSize: 11,
       fontWeight: "600",
     },
-
-    center: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      paddingTop: 60,
-    },
-
-
   });

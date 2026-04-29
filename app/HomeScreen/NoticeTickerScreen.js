@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from "react-native";
 import { ismServices } from "../../services/ismServices";
+import { useNavigation } from '@react-navigation/native';
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 // 1. ── NEW: Import your global Text component ──
@@ -18,12 +19,13 @@ import Text from '../components/TranslatedText'; // <--- ADJUST PATH IF NEEDED
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SPEED = 70; // adjust speed
 
-const NoticeTickerScreen = () => {
+const NoticeTickerScreen = () => { 
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedNotice, setSelectedNotice] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [textWidth, setTextWidth] = useState(0);
+  const navigation = useNavigation();
 
   const translateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
@@ -92,10 +94,18 @@ const NoticeTickerScreen = () => {
 
   return (
     <View style={styles.container}>
+      {/* Updated Title Row */}
       <View style={styles.titleRow}>
-        <Ionicons name="megaphone" size={20} color="#000" style={{ marginRight: 6 }} />
-        {/* 2. ── Automatically handled by global <Text> ── */}
         <Text style={styles.title}>Notices</Text>
+        
+        {/* NEW: View All Button */}
+        <TouchableOpacity 
+          onPress={() => {
+            navigation.navigate('MyNoticesScreen');
+          }}
+        >
+          <Text style={styles.viewAllText}>View All</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -114,7 +124,7 @@ const NoticeTickerScreen = () => {
           {/* Animated ticker */}
           <Animated.View
             style={{
-              flexDirection: "row", 
+              flexDirection: "row",
               position: "absolute",
               left: 0,
               transform: [{ translateX }],
@@ -160,10 +170,30 @@ export default NoticeTickerScreen;
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 10 },
-  titleRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  titleRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "space-between", // <-- Added to push "View All" to the right
+    marginBottom: 12 
+  },
   title: { fontSize: 16, fontWeight: "700", color: "#111827" },
-  tickerBox: { height: 40, borderRadius: 13, backgroundColor: "#FCEEED", justifyContent: "center", borderWidth: 1, borderColor: "#F8D7DA", overflow: "hidden", flexDirection: "row", alignItems: "center" },
-  tickerText: { fontSize: 14, color: "#1F2937", fontWeight: "500" },
+  viewAllText: { 
+    fontSize: 11, 
+    fontWeight: "600", 
+    color: "#16A34A" // <-- Standard green color
+  },
+  tickerText: { fontSize: 12, color: "#1F2937", fontWeight: "500" },
+  tickerBox: {
+    height: 40, 
+    borderRadius: 14,           
+    backgroundColor: "#fffbeb", 
+    borderWidth: 1,
+    borderColor: "#fde68a",     
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,      
+  },
   hiddenText: { position: "absolute", opacity: 0, top: -9999 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 20 },
   modalContainer: { backgroundColor: "#fff", borderRadius: 10, padding: 18, maxHeight: "80%" },

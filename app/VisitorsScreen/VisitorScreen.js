@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added caching
 import { usePermissions } from '../../Utils/ConetextApi';
 import { hasPermission } from '../../Utils/PermissionHelper';
 import VisitRequest from './VisitRequest';
@@ -23,6 +24,11 @@ import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ✅ Define Cache Keys
+const CACHE_VISITS = '@vms_visits_cache';
+const CACHE_PASSES = '@vms_passes_cache';
+const CACHE_PARKING = '@vms_parking_cache';
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
@@ -41,7 +47,7 @@ const COLORS = {
 };
 
 const VisitorScreen = () => {
-  const { t } = useTranslation(); // Add this line
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const { nightMode, permissions } = usePermissions();
   const theme = nightMode ? COLORS.dark : COLORS.light;
@@ -69,18 +75,30 @@ const VisitorScreen = () => {
   const scrollViewRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  // 👉 NEW: Refs to track if the first load has finished so we don't show the spinner again
+  // Refs to track if the first load has finished
   const initialVisitsLoaded = useRef(false);
   const initialPassesLoaded = useRef(false);
   const initialParkingLoaded = useRef(false);
 
-  // ── Loaders ──────────────────────────────────────────────────────────────
+  // ── Loaders with Caching ─────────────────────────────────────────────────
   const loadVisits = useCallback(async () => {
     try {
-      if (!initialVisitsLoaded.current) setVisitsLoading(true);
+      if (!initialVisitsLoaded.current) {
+        const cached = await AsyncStorage.getItem(CACHE_VISITS);
+        if (cached) {
+          setVisits(JSON.parse(cached));
+          initialVisitsLoaded.current = true; // Skip main spinner if we have cache
+        } else {
+          setVisitsLoading(true);
+        }
+      }
+
       const res = await visitorServices.getMyVisitors();
-      setVisits(res?.data?.visits || []);
-      initialVisitsLoaded.current = true; // Mark initial load as done
+      const freshData = res?.data?.visits || [];
+      
+      setVisits(freshData);
+      initialVisitsLoaded.current = true;
+      await AsyncStorage.setItem(CACHE_VISITS, JSON.stringify(freshData.slice(0, 50)));
     } catch (e) {
       console.log("Visits load error", e);
     } finally {
@@ -90,10 +108,22 @@ const VisitorScreen = () => {
 
   const loadPasses = useCallback(async () => {
     try {
-      if (!initialPassesLoaded.current) setPassesLoading(true);
+      if (!initialPassesLoaded.current) {
+        const cached = await AsyncStorage.getItem(CACHE_PASSES);
+        if (cached) {
+          setPasses(JSON.parse(cached));
+          initialPassesLoaded.current = true;
+        } else {
+          setPassesLoading(true);
+        }
+      }
+
       const res = await visitorServices.getMyPasses();
-      setPasses(res?.data || []);
-      initialPassesLoaded.current = true; // Mark initial load as done
+      const freshData = res?.data || [];
+      
+      setPasses(freshData);
+      initialPassesLoaded.current = true;
+      await AsyncStorage.setItem(CACHE_PASSES, JSON.stringify(freshData.slice(0, 50)));
     } catch (e) {
       console.log("Passes load error", e);
     } finally {
@@ -103,10 +133,22 @@ const VisitorScreen = () => {
 
   const loadParking = useCallback(async () => {
     try {
-      if (!initialParkingLoaded.current) setParkingLoading(true);
+      if (!initialParkingLoaded.current) {
+        const cached = await AsyncStorage.getItem(CACHE_PARKING);
+        if (cached) {
+          setParkingBookings(JSON.parse(cached));
+          initialParkingLoaded.current = true;
+        } else {
+          setParkingLoading(true);
+        }
+      }
+
       const res = await visitorServices.getParkingBookings();
-      setParkingBookings(res?.data || []);
-      initialParkingLoaded.current = true; // Mark initial load as done
+      const freshData = res?.data || [];
+      
+      setParkingBookings(freshData);
+      initialParkingLoaded.current = true;
+      await AsyncStorage.setItem(CACHE_PARKING, JSON.stringify(freshData.slice(0, 50)));
     } catch (e) {
       console.log("Parking load error", e);
     } finally {
@@ -147,7 +189,8 @@ const VisitorScreen = () => {
     return (
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: theme.textSecondary, marginTop: 12 }}>{t("Loading...")}</Text>      </View>
+        <Text style={{ color: theme.textSecondary, marginTop: 12 }}>{t("Loading...")}</Text>      
+      </View>
     );
   }
 

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react'; // ← remove useCallback
+import React, { useState, useEffect } from 'react';
 import {
-  View, FlatList, RefreshControl, Text, ActivityIndicator, StyleSheet,
+  View, FlatList, RefreshControl, StyleSheet, Dimensions,
+  StatusBar
 } from 'react-native';
 
-import ProfileRentCard from './RentSection';
+import ProfileRentCard from './RentSection'; // Maps to ResidentProfile
 import VisitorSection from './VisitorSection';
 import CarouselSection from './SocietyImage';
 import ServicesSection from './ServiceSection.js';
@@ -19,33 +20,38 @@ import { hasPermission } from '../../Utils/PermissionHelper';
 import { ismServices } from '../../services/ismServices';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { navigationRef } from '../../NavigationService';
-
+import { useIsFocused } from '@react-navigation/native'; 
+import AppHeader from '../components/AppHeader'; 
 
 const theme = BRAND.COLORS;
 
+const DARK_BG = "#020617";     
+const DARK_SHEET = "#0F172A";  
+const DARK_BORDER = "#1E293B"; 
+const LIGHT_BG = "#F1F5F9";    
+const LIGHT_SHEET = "#FFFFFF"; 
+
 const HomeScreen = () => {
   const { nightMode, permissions } = usePermissions();
+  const isFocused = useIsFocused(); 
 
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loading, setLoading] = useState(false);
+  
+  // State to track if the dashboard card is rendering
+  const [isRentCardVisible, setIsRentCardVisible] = useState(true);
 
   const canViewNotices = permissions && hasPermission(permissions, 'NTC', 'R');
   const canViewVisitors = permissions && hasPermission(permissions, 'VMS', 'R');
   const canViewStaff = permissions && hasPermission(permissions, 'VMSSTF', 'R');
 
-  /* -------------------------------------------------------
-     🔔 CHECK PENDING STAFF NAVIGATION
-     useEffect with [] — runs ONLY on mount, never on back press
-     Foreground case is handled directly by navigationRef in App.js
-  ------------------------------------------------------- */
   useEffect(() => {
     const checkPendingStaff = async () => {
       try {
         const flag = await AsyncStorage.getItem("PENDING_STAFF_NAVIGATE");
         if (flag === "true") {
-          await AsyncStorage.removeItem("PENDING_STAFF_NAVIGATE"); // clear first
-          console.log("🚀 HomeScreen → navigating to StaffScreen (root)");
+          await AsyncStorage.removeItem("PENDING_STAFF_NAVIGATE");
           setTimeout(() => {
             navigationRef.navigate("StaffScreen");
           }, 300);
@@ -55,11 +61,8 @@ const HomeScreen = () => {
       }
     };
     checkPendingStaff();
-  }, []); // ← mount only — never re-runs on back navigation
+  }, []);
 
-  /* -------------------------------------------------------
-     📦 LOAD USER DETAILS
-  ------------------------------------------------------- */
   useEffect(() => {
     const loadUserDetails = async () => {
       try {
@@ -77,9 +80,6 @@ const HomeScreen = () => {
     loadUserDetails();
   }, []);
 
-  /* -------------------------------------------------------
-     🔄 PULL TO REFRESH
-  ------------------------------------------------------- */
   const onRefresh = async () => {
     try {
       setRefreshing(true);
@@ -93,11 +93,16 @@ const HomeScreen = () => {
     }
   };
 
-  /* -------------------------------------------------------
-     UI
-  ------------------------------------------------------- */
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: nightMode ? DARK_BG : LIGHT_BG }]}>
+      {isFocused && (
+        <StatusBar
+          backgroundColor={nightMode ? DARK_BG : "#1a2540"}
+          barStyle={nightMode ? "light-content" : "dark-content"}
+          animated={true}
+        />
+      )}
+
       <FlatList
         data={[1]}
         renderItem={() => null}
@@ -108,16 +113,40 @@ const HomeScreen = () => {
         }
         ListHeaderComponent={
           <View>
-            <ProfileRentCard refreshTrigger={refreshTrigger} />
-            {canViewNotices && <NoticeTickerScreen refreshTrigger={refreshTrigger} />}
-            {canViewVisitors && <VisitorSection refreshTrigger={refreshTrigger} />}
-            <ServicesSection refreshTrigger={refreshTrigger} />
-            <Action />
-            <QuickActionsScreen />
-            <CarouselSection refreshTrigger={refreshTrigger} />
-             {canViewStaff && <StaffSection refreshTrigger={refreshTrigger} />}
-            <HomeNoticeSection />
-            <ImportantContacts />
+            <ProfileRentCard 
+               refreshTrigger={refreshTrigger} 
+               onSetVisible={setIsRentCardVisible} // Receives visibility status
+            />
+
+            <View
+              style={[
+                styles.sheetWrapper,
+                {
+                  backgroundColor: nightMode ? DARK_SHEET : LIGHT_SHEET,
+                  borderTopWidth: nightMode ? 1 : 0,
+                  borderColor: nightMode ? DARK_BORDER : 'transparent',
+                },
+                // If RentCard is hidden, remove top overlap & radiuses
+                !isRentCardVisible && {
+                  marginTop: 0,
+                  borderTopLeftRadius: 0,
+                  borderTopRightRadius: 0,
+                  elevation: 0,
+                  shadowOpacity: 0,
+                }
+              ]}
+            >
+              {canViewNotices && <NoticeTickerScreen refreshTrigger={refreshTrigger} />}
+              <CarouselSection refreshTrigger={refreshTrigger} />
+              <ServicesSection refreshTrigger={refreshTrigger} />
+              <Action />
+              <QuickActionsScreen />
+              {canViewVisitors && <VisitorSection refreshTrigger={refreshTrigger} />}
+              {canViewStaff && <StaffSection refreshTrigger={refreshTrigger} />}
+              <HomeNoticeSection />
+              <ImportantContacts />
+            </View>
+
           </View>
         }
       />
@@ -128,7 +157,21 @@ const HomeScreen = () => {
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffff', padding: 5 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  bodyText: { marginTop: 10, fontSize: 16, color: theme.text ?? '#333' },
+  container: {
+    flex: 1,
+  },
+  sheetWrapper: {
+    flex: 1,
+    paddingTop: 8,  
+    paddingHorizontal: 5,
+    paddingBottom: 40,
+    marginTop: -30, 
+    borderTopRightRadius: 28,
+    borderTopLeftRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -8 }, 
+    shadowOpacity: 0.06, 
+    shadowRadius: 16, 
+    elevation: 10,
+  },
 });

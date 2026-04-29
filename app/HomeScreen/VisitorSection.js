@@ -191,7 +191,6 @@ const VisitorSection = ({ refreshTrigger }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <Ionicons name="people" size={20} color={theme.textMain} style={{ marginRight: 8 }} />
           {/* 2. ── Automatically handled by global <Text> wrapper ── */}
           <Text style={[styles.title, { color: theme.textMain }]}>
             Arriving Today

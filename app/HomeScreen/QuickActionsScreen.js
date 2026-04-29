@@ -75,6 +75,7 @@ const styles = StyleSheet.create({
     justifyContent:"space-evenly",
     paddingHorizontal: 16,
     marginTop: 8,
+    
   },
   card: {
     alignItems: "center",
@@ -88,6 +89,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 6,
+    elevation:5
+
   },
   label: {
     fontSize: 10,

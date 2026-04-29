@@ -3,22 +3,22 @@ import {
   View,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
   Linking,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { ismServices } from "../../services/ismServices";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AppHeader from "./AppHeader";
 import BRAND from '../config'
 
-// ── Translation Imports ──
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
 const PRIMARY = BRAND.COLORS.icon;
+const NOTIFICATIONS_CACHE_KEY = '@my_notifications_cache';
 
 /* ───────── Helpers ───────── */
 
@@ -48,14 +48,11 @@ const stripHtml = (html) => {
     .trim();
 };
 
-/* 🔥 Only modify booking timing coloring */
 const humanizeMessage = (raw) => {
   if (!raw)
     return { before: "", date: null, time: null, rest: "" };
 
   let text = stripHtml(raw);
-
-  // 🔥 Remove OTP from main text
   text = text.replace(/\bOTP[:\s]+\d{4,6}\b/i, "");
 
   const match = text.match(
@@ -76,10 +73,7 @@ const humanizeMessage = (raw) => {
 
 const formatDateTime = (dateString, t) => {
   if (!dateString) return "";
-
-  // Treat backend time as UTC
   const date = new Date(dateString.replace(" ", "T") + "Z");
-
   const now = new Date();
 
   const isToday =
@@ -114,7 +108,7 @@ const formatDateTime = (dateString, t) => {
 /* ───────── Notification Card ───────── */
 
 const NotificationCard = ({ item }) => {
-  const { t } = useTranslation(); // 👈 Init translation
+  const { t } = useTranslation();
   
   const formatted = humanizeMessage(item.message);
   const url = extractUrl(item.message);
@@ -132,53 +126,25 @@ const NotificationCard = ({ item }) => {
       </View>
 
       <View style={styles.cardBody}>
-        {/* We do not use TranslatedText for formatted.before because it is dynamic API text */}
         <Text style={styles.message}>
           {formatted.before}
-
-          {formatted.date && (
-            <Text style={styles.inlineDate}>
-              {" "}{formatted.date}
-            </Text>
-          )}
-
-          {formatted.time && (
-            <Text style={styles.inlineTime}>
-              {" "}{formatted.time}
-            </Text>
-          )}
-
-          {otp && (
-            <Text style={styles.inlineOtp}>
-              {"  "} {formattedOtp}
-            </Text>
-          )}
+          {formatted.date && <Text style={styles.inlineDate}>{" "}{formatted.date}</Text>}
+          {formatted.time && <Text style={styles.inlineTime}>{" "}{formatted.time}</Text>}
+          {otp && <Text style={styles.inlineOtp}>{"  "} {formattedOtp}</Text>}
         </Text>
 
         <View style={styles.footerRow}>
           {url ? (
             <TouchableOpacity
               style={styles.linkRow}
-              onPress={() =>
-                Linking.openURL(
-                  url.startsWith("http") ? url : `https://${url}`
-                )
-              }
+              onPress={() => Linking.openURL(url.startsWith("http") ? url : `https://${url}`)}
             >
-              < Ionicons
-                name="open-outline"
-                size={12}
-                color={PRIMARY}
-              />
+              < Ionicons name="open-outline" size={12} color={PRIMARY} />
               <Text style={styles.linkText}>{t("Open Link")}</Text>
             </TouchableOpacity>
-          ) : (
-            <View />
-          )}
+          ) : <View />}
 
-          <Text style={styles.dateText}>
-            {formatDateTime(item.created_at, t)}
-          </Text>
+          <Text style={styles.dateText}>{formatDateTime(item.created_at, t)}</Text>
         </View>
       </View>
     </View>
@@ -188,15 +154,26 @@ const NotificationCard = ({ item }) => {
 /* ───────── Main Screen ───────── */
 
 const NotificationsScreen = () => {
-  const { t } = useTranslation(); // 👈 Init translation
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     try {
+      // 1. Instant Cache Load
+      const cachedData = await AsyncStorage.getItem(NOTIFICATIONS_CACHE_KEY);
+      if (cachedData) {
+        setNotifications(JSON.parse(cachedData));
+        setLoading(false); 
+      }
+
+      // 2. Background Refresh
       const res = await ismServices.getMyNotifications();
-      setNotifications(res?.data || []);
+      if (res?.data) {
+        setNotifications(res.data);
+        await AsyncStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify(res.data.slice(0, 50)));
+      }
     } catch (error) {
       console.log("Notification Error:", error);
     } finally {
@@ -209,21 +186,36 @@ const NotificationsScreen = () => {
     fetchNotifications();
   }, []);
 
+  // --- SKELETON LOADER (Original Design) ---
+  const renderSkeleton = () => (
+    <View style={styles.list}>
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <View key={i} style={styles.card}>
+          <View style={[styles.iconWrapper, { backgroundColor: '#F3F4F6' }]} />
+          <View style={styles.cardBody}>
+            <View style={{ width: '85%', height: 14, backgroundColor: '#F3F4F6', borderRadius: 4, marginBottom: 6 }} />
+            <View style={{ width: '60%', height: 14, backgroundColor: '#F3F4F6', borderRadius: 4 }} />
+            <View style={styles.footerRow}>
+              <View style={{ width: 75, height: 20, backgroundColor: '#F3F4F6', borderRadius: 10 }} />
+              <View style={{ width: 60, height: 10, backgroundColor: '#F3F4F6', borderRadius: 4 }} />
+            </View>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <AppHeader title={t("Notifications")} />
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={PRIMARY} />
-        </View>
+        renderSkeleton()
       ) : (
         <FlatList
           data={notifications}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <NotificationCard item={item} />
-          )}
+          renderItem={({ item }) => <NotificationCard item={item} />}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -234,9 +226,13 @@ const NotificationsScreen = () => {
           }
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => (
-            <View style={{ height: 8 }} />
-          )}
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          ListEmptyComponent={
+            <View style={styles.center}>
+                <Ionicons name="notifications-off-outline" size={50} color="#D1D5DB" />
+                <Text style={{ marginTop: 10, color: '#9CA3AF' }}>{t("No notifications yet")}</Text>
+            </View>
+          }
         />
       )}
     </SafeAreaView>
@@ -245,7 +241,7 @@ const NotificationsScreen = () => {
 
 export default NotificationsScreen;
 
-/* ───────── Styles ───────── */
+/* ───────── Styles (Back to Original) ───────── */
 
 const styles = StyleSheet.create({
   container: {
@@ -287,7 +283,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
 
-  /* 🔥 Only these are new */
   inlineDate: {
     color: "#475569",
     fontWeight: "500",

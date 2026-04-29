@@ -18,7 +18,7 @@ const AppHeader = ({
 
   const theme = {
     background: nightMode ? '#121212' : '#FFFFFF',
-    text: nightMode ? '#FFFFFF' : '#111827',
+    text: nightMode ? '#FFFFFF' : '#111827fd',
     border: nightMode ? '#2C2C2C' : '#E5E7EB',
   };
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
-  Text,
   FlatList,
   Image,
   TouchableOpacity,
@@ -12,7 +11,13 @@ import {
   Linking,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added caching
 import { ismServices } from "../../services/ismServices";
+
+// ✅ 1. Replaced native Text with your TranslatedText component
+import Text from '../components/TranslatedText'; 
+
+const CACHE_KEY = '@common_notices_cache'; // ✅ Defined cache key
 
 /* ─── Helpers ─── */
 
@@ -180,15 +185,36 @@ const CommonNoticesTab = () => {
     );
   }, [notices, activeGroup]);
 
+  // ✅ 2. Added robust fetching with Instant Cache Load
   const fetchNotices = useCallback(async () => {
     try {
       setError(null);
+      
+      // INSTANT LOAD: Check cache first
+      const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        setNotices(JSON.parse(cachedData));
+        setLoading(false); // Turn off the loader immediately
+      }
+
+      // BACKGROUND FETCH: Get fresh data from the server
       const response = await ismServices.getMyNotices("COMMON");
-      setNotices(response?.data || []);
+      const freshData = response?.data || [];
+      
+      setNotices(freshData);
+      
+      // STORAGE PROTECTION: Cache the latest 50 items
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(freshData.slice(0, 50)));
+
     } catch (err) {
       console.log("Notice Error:", err?.message);
-      setError("Failed to load notices");
-      setNotices([]);
+      // Only show the error screen if we also have no cached data to show
+      setNotices((prevNotices) => {
+        if (prevNotices.length === 0) {
+          setError("Failed to load notices");
+        }
+        return prevNotices;
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);

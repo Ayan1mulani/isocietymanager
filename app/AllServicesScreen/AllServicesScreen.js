@@ -26,34 +26,42 @@ const AllServicesScreen = () => {
   const { nightMode, permissions } = usePermissions();
   const searchInputRef = useRef(null);
 
-  // Initialize translation
   const { t } = useTranslation();
-
   const [search, setSearch] = useState("");
 
+  // 🎨 Premium Theme Palette
   const theme = {
-    surface: nightMode ? "#1F2937" : "#F9FAFB",
-    containerBg: nightMode ? "#0F172A" : "#FFFFFF",
-    text: nightMode ? "#F9FAFB" : "#111827",
-    textSecondary: nightMode ? "#9CA3AF" : "#6B7280",
-    inputBg: nightMode ? "#1F2937" : "#F3F4F6",
-    inputBorder: nightMode ? "#374151" : "#E5E7EB",
-    border: "#F3F4F6",
+    // Background behind everything
+    containerBg: nightMode ? "#020617" : "#F4F7FA", 
+    // Background for the actual list items (The Card)
+    listBg: nightMode ? "#0F172A" : "#FFFFFF",
+    
+    text: nightMode ? "#FFFFFF" : "#0F172A",
+    textSecondary: nightMode ? "#9CA3AF" : "#64748B",
+    
+    inputBg: nightMode ? "#0F172A" : "#FFFFFF",
+    inputBorder: nightMode ? "#1E293B" : "#E2E8F0",
+    
+    // Soft divider between rows
+    divider: nightMode ? "#1E293B" : "#F1F5F9", 
+    
+    iconBg: nightMode ? "rgba(96, 165, 250, 0.15)" : "rgba(37, 99, 235, 0.08)",
+    iconColor: nightMode ? "#60A5FA" : "#2563EB", // Premium Blue
   };
 
   const services = [
     { title: "Notices", icon: "notifications-outline", route: "MyNoticesScreen" },
     { title: "Book Amenities", icon: "bookmarks-outline", route: "AmenitiesListScreen" },
-    { title: "My Complex", icon: "notifications-outline", route: "Notices" },
+    { title: "My Complex", icon: "accessibility-outline", route: "Notices" },
     { title: "Settings", icon: "settings-outline", route: 'Settings' },
     { title: "My Vehicles", icon: "car-outline", route: "MyVehiclesScreen" },
     { title: "Staff", icon: "checkmark-circle-outline", route: "StaffScreen" },
-    { title: "Family members", icon: "person-add-outline", route: "FamilyMember" },
-    { title: "Add vehicle", icon: "car-outline", route: "AddVehicleScreen" },
+    { title: "Family members", icon: "people-outline", route: "FamilyMember" },
+    { title: "Add vehicle", icon: "add-circle-outline", route: "AddVehicleScreen" },
     { title: "Bills", icon: "receipt-outline", route: "bills" },
-    { title: "My Bookings", icon: "bookmark-outline", route: "MyBookings" },
+    { title: "My Bookings", icon: "calendar-outline", route: "MyBookings" },
     { title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
-    { title: 'Payment', icon: 'cash-outline', route: 'Payment' },
+    { title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { title: 'Bounced Cheque', icon: 'alert-circle-outline', route: 'BouncedCheques' },
     { title: 'Debit Credit Note', icon: 'time-outline', route: 'PaymentHistory' },
   ];
@@ -87,12 +95,11 @@ const AllServicesScreen = () => {
       if (item.title === "Family members") return hasPermission(permissions, "FMB", "R");
       if (item.title === "Settings") return hasPermission(permissions, "STG", "R");
       if (item.title === "Notices") return hasPermission(permissions, "NTC", "R");
+      if (item.title === "My Complex") return hasPermission(permissions, "NTC", "R");
 
       return true;
     })
     .filter((item) => {
-      // 🚀 THE FIX IS HERE 🚀
-      // Check if the search term matches EITHER the English title OR the translated title
       const searchTerm = search.toLowerCase();
       const englishTitle = item.title.toLowerCase();
       const translatedTitle = t(item.title).toLowerCase();
@@ -109,7 +116,7 @@ const AllServicesScreen = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.containerBg }]}>
       <AppHeader title={t("All Services")} />
 
-      <View style={[styles.searchContainer, { backgroundColor: theme.containerBg }]}>
+      <View style={styles.searchContainer}>
         <View
           style={[
             styles.searchBar,
@@ -119,7 +126,7 @@ const AllServicesScreen = () => {
             },
           ]}
         >
-          < Ionicons name="search-outline" size={20} color={BRAND.COLORS.icon} />
+          <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
           <TextInput
             ref={searchInputRef}
             style={[styles.searchInput, { color: theme.text }]}
@@ -131,17 +138,21 @@ const AllServicesScreen = () => {
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={clearSearch}>
-              < Ionicons name="close-circle" size={20} color={BRAND.COLORS.icon} />
+              <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled" // 🚀 ADD THIS LINE
+      >
         {filteredServices.length === 0 ? (
-          <View style={[styles.emptyContainer, { backgroundColor: theme.containerBg }]}>
-            < Ionicons name="search-outline" size={48} color={BRAND.COLORS.icon} />
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="search-outline" size={48} color={theme.textSecondary} />
+            <Text style={[styles.emptyText, { color: theme.text }]}>
               {t("No services found")}
             </Text>
             <Text style={[styles.emptySubText, { color: theme.textSecondary }]}>
@@ -149,43 +160,49 @@ const AllServicesScreen = () => {
             </Text>
           </View>
         ) : (
-          filteredServices.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.row,
-                {
-                  borderBottomColor: theme.inputBorder,
-                  backgroundColor: theme.containerBg,
-                },
-              ]}
-              onPress={() => {
-                Keyboard.dismiss();
-                item.route && navigation.navigate(item.route);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.leftSection}>
-                <View
+          // 💎 THE INSET GROUPED CARD 💎
+          <View 
+            style={[
+              styles.listCard, 
+              { backgroundColor: theme.listBg },
+              !nightMode && styles.listShadow
+            ]}
+          >
+            {filteredServices.map((item, index) => {
+              const isLast = index === filteredServices.length - 1;
+              return (
+                <TouchableOpacity
+                  key={index}
                   style={[
-                    styles.iconCircle,
-                    { backgroundColor: BRAND.COLORS.icon + "15" },
+                    styles.row,
+                    { borderBottomColor: theme.divider },
+                    isLast && { borderBottomWidth: 0 } // Hide border on last item
                   ]}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    item.route && navigation.navigate(item.route);
+                  }}
+                  activeOpacity={0.7}
                 >
-                  < Ionicons name={item.icon} size={20} color={BRAND.COLORS.icon} />
-                </View>
-                <Text style={[styles.text, { color: theme.text }]}>
-                  {item.title}
-                </Text>
-              </View>
+                  <View style={styles.leftSection}>
+                    {/* Modern Rounded Square Icon Container */}
+                    <View style={[styles.iconBox, { backgroundColor: theme.iconBg }]}>
+                      <Ionicons name={item.icon} size={20} color={theme.iconColor} />
+                    </View>
+                    <Text style={[styles.text, { color: theme.text }]}>
+                      {item.title}
+                    </Text>
+                  </View>
 
-              < Ionicons
-                name="chevron-forward-outline"
-                size={18}
-                color={BRAND.COLORS.icon}
-              />
-            </TouchableOpacity>
-          ))
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={theme.textSecondary}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -195,15 +212,91 @@ const AllServicesScreen = () => {
 export default AllServicesScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  searchContainer: { paddingHorizontal: 16, paddingVertical: 12 },
-  searchBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, gap: 10 },
-  searchInput: { flex: 1, fontSize: 15, fontWeight: "500", paddingVertical: 4, letterSpacing: 1 },
-  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1 },
-  leftSection: { flexDirection: "row", alignItems: "center", flex: 1 },
-  iconCircle: { width: 40, height: 40, borderRadius: 10, justifyContent: "center", alignItems: "center", marginRight: 12 },
-  text: { fontSize: 15, fontWeight: "500", textTransform: "capitalize" },
-  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 },
-  emptyText: { textAlign: "center", marginTop: 16, fontSize: 16, fontWeight: "600" },
-  emptySubText: { textAlign: "center", marginTop: 8, fontSize: 14 },
+  container: { 
+    flex: 1 
+  },
+  searchContainer: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 12 
+  },
+  searchBar: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    paddingHorizontal: 16, 
+    paddingVertical: 12, 
+    borderRadius: 16, // Smoother rounded pill
+    borderWidth: 1, 
+    gap: 10 
+  },
+  searchInput: { 
+    flex: 1, 
+    fontSize: 16, 
+    fontWeight: "500", 
+    paddingVertical: 0, 
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  
+  /* 💎 Premium Inset Card Styles */
+  listCard: {
+    borderRadius: 20,
+    overflow: "hidden",
+    marginTop: 8,
+  },
+  listShadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+  },
+
+  row: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    paddingVertical: 16, 
+    paddingHorizontal: 16, 
+    borderBottomWidth: 1, // Will be 0 on the last item automatically
+  },
+  leftSection: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    flex: 1 
+  },
+  
+  /* 💎 Modern Icon Box (Rounded Square) */
+  iconBox: { 
+    width: 38, 
+    height: 38, 
+    borderRadius: 12, // More modern than a full circle
+    justifyContent: "center", 
+    alignItems: "center", 
+    marginRight: 14 
+  },
+  
+  text: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    letterSpacing: 0.3 
+  },
+  
+  emptyContainer: { 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    paddingVertical: 80 
+  },
+  emptyText: { 
+    textAlign: "center", 
+    marginTop: 16, 
+    fontSize: 18, 
+    fontWeight: "700" 
+  },
+  emptySubText: { 
+    textAlign: "center", 
+    marginTop: 8, 
+    fontSize: 15 
+  },
 });

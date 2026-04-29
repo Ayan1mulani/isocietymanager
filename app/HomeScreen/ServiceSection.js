@@ -12,6 +12,7 @@ import {
   ScrollView
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 1. Added AsyncStorage
 import { usePermissions } from '../../Utils/ConetextApi';
 import { useNavigation } from '@react-navigation/native';
 import { otherServices } from '../../services/otherServices';
@@ -23,6 +24,9 @@ import Text from '../components/TranslatedText';
 import { useTranslation } from 'react-i18next';
 
 const { width: screenWidth } = Dimensions.get('window');
+
+// 2. Added Cache Key for Panic Contacts
+const CONTACTS_CACHE_KEY = '@panic_contacts_cache';
 
 const ServicesSection = () => {
   const { nightMode, permissions } = usePermissions();
@@ -45,14 +49,14 @@ const ServicesSection = () => {
 
   const allServices = [
     { id: '1', title: 'Accounts', icon: 'card-outline', route: 'Accounts' },
-    { id: '2', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
-    { id: '3', title: 'Services', icon: 'alert-circle-outline', route: 'Service Requests' },
+    { id: '2', title: "Notices", icon: "notifications-outline", route: "MyNoticesScreen" },
+    { id: '3', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
     { id: '4', title: 'SOS', icon: 'alert-circle', isPanic: true },
     { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
-    { id: '6', title: 'Family', icon: 'people-outline', route: 'FamilyMember' }, 
-    { id: '7', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
-    { id: '8', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
-    { id: '9', title: "Notices", icon: "notifications-outline", route: "MyNoticesScreen" },
+    { id: '6', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
+    { id: '7', title: 'Family', icon: 'people-outline', route: 'FamilyMember' },
+    { id: '8', title: 'Complaints', icon: 'construct-outline', route: 'Service Requests' },
+    { id: '9', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
     { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { id: '11', title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
     { id: '12', title: 'More', icon: 'ellipsis-horizontal-outline', route: 'AllServicesScreen' },
@@ -82,19 +86,39 @@ const ServicesSection = () => {
     }
   };
 
+  // 3. Updated fetchContacts to use Instant Cache Loading
   const fetchContacts = async () => {
     try {
-      setLoadingContacts(true);
+      // INSTANT LOAD: Check cache first
+      const cachedData = await AsyncStorage.getItem(CONTACTS_CACHE_KEY);
+      if (cachedData) {
+        setContacts(JSON.parse(cachedData));
+      } else {
+        // Only show loader if we have absolutely nothing to display
+        setLoadingContacts(true);
+      }
+
+      // BACKGROUND FETCH: Get fresh contacts from server
       const res = await otherServices.getPanicContacts();
       if (res?.status === 'success') {
         const phoneData = res.data?.phone_nos;
-        if (!phoneData) setContacts([]);
-        else if (Array.isArray(phoneData)) setContacts(phoneData);
-        else setContacts([phoneData]);
+        let freshContacts = [];
+        
+        if (phoneData) {
+          freshContacts = Array.isArray(phoneData) ? phoneData : [phoneData];
+        }
+        
+        // Update state with fresh data
+        setContacts(freshContacts);
+        
+        // Update cache
+        await AsyncStorage.setItem(CONTACTS_CACHE_KEY, JSON.stringify(freshContacts));
+      } else if (!cachedData) {
+        setContacts([]);
       }
     } catch (error) {
       console.log('Panic Contact Fetch Error:', error);
-      setContacts([]);
+      if (contacts.length === 0) setContacts([]);
     } finally {
       setLoadingContacts(false);
     }
@@ -117,7 +141,6 @@ const ServicesSection = () => {
         setSelectedReason(null);
         setNote('');
       } else {
-        // 3. ── NEW: Translate Alert messages ──
         Alert.alert(t('Error'), t('Failed to send alert'));
       }
     } catch (error) {
@@ -150,12 +173,6 @@ const ServicesSection = () => {
   return (
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
-        <Ionicons
-          name="grid"
-          size={20}
-          color={nightMode ? '#D1D5DB' : '#374151'}
-          style={{ marginRight: 8 }} 
-        />
         <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Services</Text>
       </View>
 
@@ -170,7 +187,7 @@ const ServicesSection = () => {
             <View
               style={[
                 styles.iconContainer,
-                { backgroundColor: service.isPanic ? '#FCEEED' : "#ffff" }, 
+                { backgroundColor: service.isPanic ? '#FCEEED' : "#f7fafd", borderColor: service.isPanic ? '#FEE2E2' : '#f2f7fb', borderWidth: 1 , elevation: 0.3},
               ]}
             >
               <Ionicons
@@ -224,7 +241,6 @@ const ServicesSection = () => {
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.messageInput}
-                // 4. ── NEW: Translate Placeholder ──
                 placeholder={t("Add an optional message")}
                 placeholderTextColor="#9CA3AF"
                 value={note}
@@ -296,24 +312,21 @@ const ServicesSection = () => {
 export default ServicesSection;
 
 const styles = StyleSheet.create({
-  // ── Modified to match the new standard ──
   container: {
-    marginBottom: 0, // Removed top/horizontal margins from wrapper
+    marginBottom: 0, 
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20, // Match Staff & Notices
-    marginTop: 20,        // Match Staff & Notices
+    marginHorizontal: 20, 
+    marginTop: 20,        
     marginBottom: 10
   },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: 10, // Gives the icons a slight inset so the leftmost icon aligns visually with the header text
+    marginHorizontal: 10, 
   },
-
-  // ── Kept exactly the same below ──
   inputContainer: { paddingHorizontal: 16, marginTop: 12 },
   messageInput: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 12, color: '#374151', minHeight: 45 },
   serviceItem: { width: '25%', alignItems: 'center', marginBottom: 20 },

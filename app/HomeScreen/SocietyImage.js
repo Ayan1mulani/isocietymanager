@@ -5,6 +5,9 @@ import {
   StyleSheet,
   Dimensions,
   Animated,
+  TouchableOpacity,
+  Modal,
+  SafeAreaView,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import FastImage from "@d11/react-native-fast-image";
@@ -18,8 +21,12 @@ const { width } = Dimensions.get("window");
 
 const SIDE_PADDING = 20;
 const SPACING = 14;
-const ITEM_WIDTH = width - SIDE_PADDING * 2 - 40;
-const SNAP_INTERVAL = ITEM_WIDTH + SPACING;
+// Width when multiple images (leaves space on right for the next card)
+const ITEM_WIDTH_MULTI = width - SIDE_PADDING * 2 - 40;
+// Width when only 1 image (takes full available space)
+const ITEM_WIDTH_SINGLE = width - SIDE_PADDING * 2;
+
+const SNAP_INTERVAL = ITEM_WIDTH_MULTI + SPACING;
 const CARD_HEIGHT = 120;
 
 /* ─── Shimmer Placeholder ─── */
@@ -61,12 +68,7 @@ const ShimmerCard = () => {
 };
 
 /* ─── Animated Dot ─── */
-/**
- * Each dot interpolates its own width and opacity directly from the shared
- * scrollX Animated.Value, so animations are perfectly in sync with the finger.
- */
-const AnimatedDot = ({ index, scrollX, total, theme }) => {
-  // Input range: one full page before, this page, one full page after
+const AnimatedDot = ({ index, scrollX, theme }) => {
   const inputRange = [
     (index - 1) * SNAP_INTERVAL,
     index * SNAP_INTERVAL,
@@ -85,7 +87,6 @@ const AnimatedDot = ({ index, scrollX, total, theme }) => {
     extrapolate: "clamp",
   });
 
-  // Scale for a subtle "pop" feel on the active dot
   const scale = scrollX.interpolate({
     inputRange,
     outputRange: [0.8, 1.15, 0.8],
@@ -112,22 +113,22 @@ const CarouselSection = () => {
   const { t } = useTranslation();
   const { nightMode } = usePermissions();
   const flatListRef = useRef(null);
-  const activeIndexRef = useRef(0);           // shadow ref — avoids stale closure in timer
-  const [activeIndex, setActiveIndex] = useState(0);
+  const activeIndexRef = useRef(0);
+  
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fullScreenImage, setFullScreenImage] = useState(null); // State for full screen modal
 
-  // Single Animated.Value that tracks horizontal scroll offset
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const theme = {
     background: nightMode ? "#111827" : "#FFFFFF",
     textMain: nightMode ? "#F9FAFB" : "#111827",
     textSub: nightMode ? "#9CA3AF" : "#6B7280",
-    pillBg: nightMode ? "#374151" : "#F3F4F6",
+    pillBg: nightMode ? "#1E293B" : "#F8FAFC", 
+    pillBorder: nightMode ? "#334155" : "#E2E8F0", 
   };
 
-  /* ── Fetch ── */
   const fetchImages = async () => {
     try {
       const res = await visitorServices.getSocietyImages();
@@ -150,7 +151,6 @@ const CarouselSection = () => {
     fetchImages();
   }, []);
 
-  /* ── Auto-scroll ── */
   useEffect(() => {
     if (images.length <= 1) return;
 
@@ -160,44 +160,27 @@ const CarouselSection = () => {
         offset: next * SNAP_INTERVAL,
         animated: true,
       });
-      // State update handled by onViewableItemsChanged; ref updated here for timer
       activeIndexRef.current = next;
     }, 4500);
 
     return () => clearInterval(interval);
   }, [images.length]);
 
-  /* ── Viewability ── */
   const onViewableItemsChanged = useCallback(({ viewableItems }) => {
     if (viewableItems.length > 0) {
       const idx = viewableItems[0].index ?? 0;
       activeIndexRef.current = idx;
-      setActiveIndex(idx);
     }
   }, []);
 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  const formatNumber = (num) => num.toString();
-
   if (images.length === 0 && !loading) return null;
+
+  const isSingleImage = images.length === 1;
 
   return (
     <View style={[styles.sectionWrapper, { backgroundColor: theme.background }]}>
-
-      {/* ── Header ── */}
-      <View style={styles.sectionHeader}>
-        <View style={styles.headerLeft}>
-          <View style={styles.iconBadge}>
-            <Ionicons name="albums" size={20} color="#111827" />
-          </View>
-          <Text style={[styles.headerText, { color: theme.textMain }]}>
-            {t("Society Snapshot")}
-          </Text>
-        </View>
-      </View>
-
-      {/* ── List ── */}
       {loading ? (
         <View style={styles.shimmerRow}>
           {[0, 1].map((i) => (
@@ -211,7 +194,7 @@ const CarouselSection = () => {
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
-          snapToInterval={SNAP_INTERVAL}
+          snapToInterval={isSingleImage ? width : SNAP_INTERVAL} // Disable snapping for single image
           snapToAlignment="start"
           decelerationRate="fast"
           disableIntervalMomentum={true}
@@ -219,19 +202,21 @@ const CarouselSection = () => {
           ItemSeparatorComponent={() => <View style={{ width: SPACING }} />}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewConfig}
-          // Drive scrollX from native thread — zero JS overhead while swiping
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: false }   // width interpolation needs JS driver
+            { useNativeDriver: false }
           )}
           scrollEventThrottle={16}
-          getItemLayout={(_, index) => ({
-            length: SNAP_INTERVAL,
-            offset: SNAP_INTERVAL * index,
-            index,
-          })}
-          renderItem={({ item, index }) => (
-            <View style={styles.card}>
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              activeOpacity={0.9} 
+              onPress={() => setFullScreenImage(item.uri)}
+              style={[
+                styles.card, 
+                // ✨ Dynamic width: full width if 1 image, cropped width if multiple
+                { width: isSingleImage ? ITEM_WIDTH_SINGLE : ITEM_WIDTH_MULTI }
+              ]}
+            >
               <FastImage
                 source={{
                   uri: item.uri,
@@ -241,36 +226,58 @@ const CarouselSection = () => {
                 style={StyleSheet.absoluteFill}
                 resizeMode={FastImage.resizeMode.cover}
               />
-              <LinearGradient
-                colors={["transparent", "rgba(0,0,0,0.5)"]}
-                style={styles.gradientOverlay}
-              />
-              <View style={styles.indexBadge}>
-                <Text style={styles.indexBadgeText}>
-                  {formatNumber(index + 1)}/{formatNumber(images.length)}
-                </Text>
-              </View>
-            </View>
+            </TouchableOpacity>
           )}
         />
       )}
 
-      {/* ── Pagination ── */}
       {!loading && images.length > 1 && (
         <View style={styles.paginationWrapper}>
-          <View style={[styles.paginationPill, { backgroundColor: theme.pillBg }]}>
+          <View style={[styles.paginationPill, {
+            backgroundColor: theme.pillBg,
+            borderColor: theme.pillBorder,
+            borderWidth: 1
+          }]}>
             {images.map((_, index) => (
               <AnimatedDot
                 key={index}
                 index={index}
                 scrollX={scrollX}
-                total={images.length}
                 theme={theme}
               />
             ))}
           </View>
         </View>
       )}
+
+      {/* 🔴 Full Screen Image Modal */}
+      <Modal
+        visible={!!fullScreenImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFullScreenImage(null)}
+        statusBarTranslucent
+      >
+        <View style={styles.modalBackground}>
+          <SafeAreaView style={styles.modalSafeArea}>
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={() => setFullScreenImage(null)}
+              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+            >
+              <Ionicons name="close-circle" size={36} color="#FFFFFF" />
+            </TouchableOpacity>
+            
+            {fullScreenImage && (
+              <FastImage
+                source={{ uri: fullScreenImage }}
+                style={styles.fullScreenImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            )}
+          </SafeAreaView>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -283,35 +290,8 @@ const styles = StyleSheet.create({
     paddingTop: 30,
   },
 
-  /* Header */
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginHorizontal: SIDE_PADDING,
-    marginBottom: 16,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  iconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  headerText: {
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 0.3,
-  },
-
   /* Card */
   card: {
-    width: ITEM_WIDTH,
     height: CARD_HEIGHT,
     borderRadius: 18,
     overflow: "hidden",
@@ -322,32 +302,6 @@ const styles = StyleSheet.create({
     elevation: 4,
     backgroundColor: "#E5E7EB",
   },
-  gradientOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: CARD_HEIGHT * 0.9,
-    zIndex: 1,
-  },
-  indexBadge: {
-    position: "absolute",
-    bottom: 12,
-    right: 12,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    zIndex: 3,
-  },
-  indexBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
 
   /* Shimmer */
   shimmerRow: {
@@ -356,7 +310,7 @@ const styles = StyleSheet.create({
     gap: SPACING,
   },
   shimmerCard: {
-    width: ITEM_WIDTH,
+    width: ITEM_WIDTH_MULTI,
     height: CARD_HEIGHT,
     borderRadius: 22,
     overflow: "hidden",
@@ -371,13 +325,33 @@ const styles = StyleSheet.create({
   paginationPill: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 20,
     gap: 6,
   },
   dot: {
     height: 6,
     borderRadius: 4,
+  },
+
+  /* Full Screen Modal */
+  modalBackground: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    justifyContent: "center",
+  },
+  modalSafeArea: {
+    flex: 1,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    zIndex: 10,
+  },
+  fullScreenImage: {
+    width: "100%",
+    height: "100%",
   },
 });

@@ -11,6 +11,7 @@ import {
 
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added import
 import { usePermissions } from '../../Utils/ConetextApi';
 import { hasPermission } from '../../Utils/PermissionHelper';
 import ComplaintListScreen from './ServiceRequestPage';
@@ -23,6 +24,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const TABS = ['Open', 'Closed', 'All'];
 const PER_PAGE = 15;
+const CACHE_KEY = '@service_requests_page_1'; // ✅ Define cache key
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
@@ -69,7 +71,6 @@ const ServiceRequestTabs = () => {
   const canCreateComplaint = permissionsLoaded && hasPermission(permissions, 'COM', 'C');
   const canReopen = permissionsLoaded && hasPermission(permissions, 'COM', 'REOPEN');
 
-  // ✅ Filter data
   const requests = useMemo(() => ({
     open: allComplaints.filter(i => !TERMINAL_STATUSES.includes(normalizeStatus(i.status))),
     closed: allComplaints.filter(i => TERMINAL_STATUSES.includes(normalizeStatus(i.status))),
@@ -82,14 +83,27 @@ const ServiceRequestTabs = () => {
     All: requests.all,
   }), [requests]);
 
-  // ✅ API Call
+  // ✅ API Call with Caching Logic
   const fetchServiceRequests = useCallback(async (page = 1, reset = false) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
 
     try {
-      reset ? setIsLoading(true) : setIsLoadingMore(true);
+      if (reset) {
+        setIsLoading(true);
+        // ✅ INSTANT LOAD: Check cache only for the first page
+        if (page === 1) {
+          const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+          if (cachedData) {
+            setAllComplaints(JSON.parse(cachedData));
+            setIsLoading(false); // Turn off main loader immediately
+          }
+        }
+      } else {
+        setIsLoadingMore(true);
+      }
 
+      // BACKGROUND FETCH: Get fresh data
       const res = await complaintService.getMyComplaints({ page, perPage: PER_PAGE });
       const pageData = Array.isArray(res?.data) ? res.data : [];
 
@@ -103,6 +117,10 @@ const ServiceRequestTabs = () => {
 
       if (reset) {
         setAllComplaints(cleaned);
+        // ✅ STORAGE PROTECTION: Only cache Page 1
+        if (page === 1) {
+          await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(cleaned));
+        }
       } else {
         setAllComplaints(prev => {
           const ids = new Set(prev.map(i => i.id ?? i.com_no));
@@ -120,65 +138,37 @@ const ServiceRequestTabs = () => {
     }
   }, []);
 
-  // ✅ Load More
   const handleLoadMore = useCallback(() => {
     if (hasMore && !isLoadingMore && !isLoading) {
       fetchServiceRequests(currentPage + 1, false);
     }
   }, [hasMore, isLoadingMore, isLoading, currentPage]);
 
-  // ✅ Refresh
   const handleRefresh = useCallback(() => {
     setHasMore(true);
     fetchServiceRequests(1, true);
   }, []);
 
-  // ✅ FIX: Auto load Closed tab
-  useEffect(() => {
-    const currentTab = TABS[activeTabIndex];
+  // ❌ The dangerous auto-load Closed tab useEffect has been permanently removed.
 
-    if (
-      currentTab === 'Closed' &&
-      requests.closed.length < PER_PAGE &&
-      hasMore &&
-      !isLoading &&
-      !isLoadingMore
-    ) {
-      fetchServiceRequests(currentPage + 1, false);
-    }
-  }, [
-    activeTabIndex,
-    requests.closed.length,
-    hasMore,
-    isLoading,
-    isLoadingMore,
-    currentPage,
-  ]);
-
-  // Initial Load
   useEffect(() => {
     if (canViewComplaints) {
       fetchServiceRequests(1, true);
     }
   }, [canViewComplaints]);
 
-const handleTabPress = useCallback((index) => {
-  setActiveTabIndex(index);
-
-  requestAnimationFrame(() => {
-    scrollViewRef.current?.scrollTo({
-      x: index * SCREEN_WIDTH,
-      animated: true,
+  const handleTabPress = useCallback((index) => {
+    setActiveTabIndex(index);
+    requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
     });
-  });
-}, []);
+  }, []);
 
   const handleMomentumScrollEnd = (e) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     setActiveTabIndex(index);
   };
 
-  // UI states
   if (!permissionsLoaded) {
     return (
       <View style={styles.centered}>
@@ -190,7 +180,7 @@ const handleTabPress = useCallback((index) => {
   if (!canViewComplaints) {
     return (
       <View style={styles.centered}>
-      <Text>{t("No Permission")}</Text>
+        <Text>{t("No Permission")}</Text>
       </View>
     );
   }
@@ -199,7 +189,7 @@ const handleTabPress = useCallback((index) => {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-       <Text>{t("Loading requests...")}</Text>
+        <Text>{t("Loading requests...")}</Text>
       </View>
     );
   }

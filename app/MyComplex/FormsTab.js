@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
-  Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
@@ -9,7 +8,13 @@ import {
   RefreshControl,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added caching
 import { ismServices } from "../../services/ismServices";
+
+// ✅ 1. Replaced native Text with your TranslatedText component
+import Text from '../components/TranslatedText'; 
+
+const CACHE_KEY = '@forms_screen_cache'; // ✅ Defined cache key
 
 const stripHtml = (html = "") =>
   html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
@@ -22,15 +27,36 @@ const FormsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
+  // ✅ 2. Added robust fetching with Instant Cache Load
   const fetchForms = useCallback(async () => {
     try {
       setError(null);
+      
+      // INSTANT LOAD: Check cache first
+      const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        setForms(JSON.parse(cachedData));
+        setLoading(false); // Turn off the loader immediately
+      }
+
+      // BACKGROUND FETCH: Get fresh data from the server
       const response = await ismServices.getMyNotices("FORMS");
-      setForms(response?.data || []);
+      const freshData = response?.data || [];
+      
+      setForms(freshData);
+      
+      // STORAGE PROTECTION: Cache the latest 50 items
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(freshData.slice(0, 50)));
+
     } catch (err) {
       console.log("Forms Error:", err?.message);
-      setError("Failed to load forms");
-      setForms([]);
+      // Only show the error screen if we also have no cached data to show
+      setForms((prevForms) => {
+        if (prevForms.length === 0) {
+          setError("Failed to load forms");
+        }
+        return prevForms;
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);

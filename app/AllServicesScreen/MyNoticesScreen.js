@@ -3,18 +3,20 @@ import {
   View,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppHeader from "../components/AppHeader";
 import { usePermissions } from "../../Utils/ConetextApi";
 import { otherServices } from "../../services/otherServices";
 import BRAND from '../config';
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
+
+const CACHE_KEY = '@my_notices_cache'; 
 
 const MyNoticesScreen = ({ navigation }) => {
   const { t, i18n } = useTranslation();
@@ -34,6 +36,7 @@ const MyNoticesScreen = ({ navigation }) => {
     calendarBody: nightMode ? "#334155" : "#FFFFFF",
     emptyText: nightMode ? "#F1F5F9" : "#111827",
     emptySubText: nightMode ? "#CBD5E1" : "#9CA3AF",
+    skeletonBase: nightMode ? "#334155" : "#E5E7EB", // Added for skeleton
   };
 
   const stripHtml = (html) => {
@@ -47,14 +50,32 @@ const MyNoticesScreen = ({ navigation }) => {
 
   const fetchNotices = async () => {
     try {
+      // 1. INSTANT LOAD: Check cache first so the screen isn't empty
+      const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        setNotices(JSON.parse(cachedData));
+        setLoading(false); // Turn off the loader instantly!
+      }
+
+      // 2. BACKGROUND FETCH: Get fresh data from the server
       const res = await otherServices.getMyNotices("");
+      
       if (res?.status === "success") {
-        setNotices(res.data || []);
-      } else {
-        setNotices([]);
+        const freshNotices = res.data || [];
+        
+        setNotices(freshNotices); // Update the UI with fresh data
+        
+        // 3. STORAGE PROTECTION: Only cache the latest 50 items to prevent bloat
+        const noticesToCache = freshNotices.slice(0, 50);
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(noticesToCache));
+      } else if (!cachedData) {
+        // If API fails and we have no cache, show empty
+        setNotices([]); 
       }
     } catch (error) {
-      setNotices([]);
+      console.error("Failed to fetch notices:", error);
+      // If error occurs and we don't have cache, ensure it's empty
+      if (notices.length === 0) setNotices([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,7 +95,6 @@ const MyNoticesScreen = ({ navigation }) => {
     const preview = stripHtml(item.notice)?.slice(0, 100);
     const dateObj = new Date(item.published_at);
     
-    // Internationalize Month and Date String
     const currentLang = i18n.language === 'km' ? 'km-KH' : 'en-US';
     const month = dateObj.toLocaleDateString(currentLang, { month: "short" });
     const day = dateObj.getDate();
@@ -125,11 +145,36 @@ const MyNoticesScreen = ({ navigation }) => {
     </View>
   );
 
+  // --- SKELETON LOADER UI ---
+  const renderSkeleton = () => (
+    <View style={styles.listContent}>
+      {[1, 2, 3, 4, 5].map((key) => (
+        <View key={key} style={[styles.card, { backgroundColor: theme.card, shadowColor: nightMode ? "#000" : "#999" }]}>
+          {/* Calendar Skeleton (Left side) */}
+          <View style={[styles.calendarContainer, { borderColor: 'transparent', backgroundColor: theme.skeletonBase }]} />
+          
+          {/* Content Skeleton (Right side) */}
+          <View style={styles.rightContent}>
+            <View style={[styles.topRow, { marginBottom: 8 }]}>
+              <View style={{ width: 60, height: 12, backgroundColor: theme.skeletonBase, borderRadius: 4 }} />
+              <View style={{ width: 80, height: 12, backgroundColor: theme.skeletonBase, borderRadius: 4 }} />
+            </View>
+            {/* Title Lines */}
+            <View style={{ width: '90%', height: 16, backgroundColor: theme.skeletonBase, borderRadius: 4, marginBottom: 6 }} />
+            <View style={{ width: '60%', height: 16, backgroundColor: theme.skeletonBase, borderRadius: 4, marginBottom: 12 }} />
+            {/* Preview Line */}
+            <View style={{ width: '100%', height: 12, backgroundColor: theme.skeletonBase, borderRadius: 4 }} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <AppHeader title={t("My Notices")} />
       {loading ? (
-        <View style={styles.loader}><ActivityIndicator size="large" color={theme.category} /></View>
+        renderSkeleton()
       ) : notices.length === 0 ? (
         renderEmptyComponent()
       ) : (
@@ -147,139 +192,24 @@ const MyNoticesScreen = ({ navigation }) => {
 };
 
 export default MyNoticesScreen;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
-  loader: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  listContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-
-  card: {
-    flexDirection: "row",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  /* Calendar */
-  calendarContainer: {
-    width: 50,
-    height:80,
-   
-    borderTopLeftRadius:12,
-    borderTopRightRadius:12,
-    overflow: "hidden",
-    marginRight: 14,
-    borderWidth: 1,
-    borderColor: "#1564a95d",
-  },
-
-  calendarHeader: {
-    height: 26,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  contentBlock: {
-  marginBottom: 6,
-},
-  calendarMonth: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-
-  calendarBody: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",    
-  },
-
-  calendarDay: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-
-  rightContent: {
-    flex: 1,
-  },
-
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-
-  category: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-  },
-
-  // unreadDot: {
-    
-  //   width: 8,
-  //   height: 8,
-  //   left:10,
-  //   top:7,
-  //   borderRadius: 4,
-  //   backgroundColor: "#FF3B30",
-   
-
-  // },
-
-  title: {
-    fontSize: 15,
-    fontWeight: "700",
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-
-  preview: {
-    fontSize: 13,
-    marginBottom: 6,
-    lineHeight: 18,
-  },
-
-date: {
-  fontSize: 12,
-  fontWeight: "500",
-  marginTop: 4,
-  textAlign: "right",
-},
-  /* EMPTY STATE */
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 32,
-  },
-
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 16,
-    textAlign: "center",
-  },
-
-  emptySubtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    textAlign: "center",
-  },
+  container: { flex: 1 },
+  listContent: { padding: 16, paddingBottom: 32 },
+  card: { flexDirection: "row", borderRadius: 14, padding: 14, marginBottom: 12, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  calendarContainer: { width: 50, height: 80, borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: "hidden", marginRight: 14, borderWidth: 1, borderColor: "#1564a95d" },
+  calendarHeader: { height: 26, justifyContent: "center", alignItems: "center" },
+  contentBlock: { marginBottom: 6 },
+  calendarMonth: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+  calendarBody: { flex: 1, justifyContent: "center", alignItems: "center" },
+  calendarDay: { fontSize: 20, fontWeight: "800" },
+  rightContent: { flex: 1 },
+  topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  category: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
+  title: { fontSize: 15, fontWeight: "700", marginBottom: 4, lineHeight: 20 },
+  preview: { fontSize: 13, marginBottom: 6, lineHeight: 18 },
+  date: { fontSize: 12, fontWeight: "500", marginTop: 4, textAlign: "right" },
+  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 18, fontWeight: "700", marginTop: 16, textAlign: "center" },
+  emptySubtitle: { marginTop: 8, fontSize: 14, textAlign: "center" }
 });
