@@ -7,14 +7,58 @@ import {
     RefreshControl,
     ScrollView,
     Modal,
-    TouchableOpacity
+    TouchableOpacity,
+    Animated // 👈 Added for skeleton pulse
 } from "react-native";
 import moment from "moment";
-import "moment/locale/km"; // Import Khmer locale for moment
+import "moment/locale/km"; 
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { ismServices } from "../../services/ismServices";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
+
+const CACHE_KEY = '@meter_readings_cache';
+
+/* ─────────────────────────────────────────
+   Helper: Skeleton Pulse Effect
+───────────────────────────────────────── */
+const SkeletonPulse = ({ style }) => {
+    const pulseAnim = useRef(new Animated.Value(0.4)).current;
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+                Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+            ])
+        ).start();
+    }, []);
+    return <Animated.View style={[style, { opacity: pulseAnim, backgroundColor: '#E5E7EB' }]} />;
+};
+
+const MeterSkeleton = () => (
+    <View style={styles.container}>
+        {/* Sync Card Skeleton */}
+        <View style={styles.syncCard}>
+            <SkeletonPulse style={{ width: '60%', height: 14, borderRadius: 4 }} />
+            <SkeletonPulse style={{ width: 60, height: 24, borderRadius: 20 }} />
+        </View>
+        {/* Table Header Skeleton */}
+        <View style={styles.tableHeaderRow}>
+            <SkeletonPulse style={{ flex: 2, height: 12, marginHorizontal: 16, borderRadius: 4 }} />
+            <SkeletonPulse style={{ flex: 1, height: 12, marginHorizontal: 10, borderRadius: 4 }} />
+            <SkeletonPulse style={{ flex: 1, height: 12, marginHorizontal: 10, borderRadius: 4 }} />
+        </View>
+        {/* Row Skeletons */}
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <View key={i} style={styles.row}>
+                <SkeletonPulse style={{ flex: 2, height: 14, marginLeft: 16, borderRadius: 4 }} />
+                <SkeletonPulse style={{ flex: 1, height: 14, marginHorizontal: 25, borderRadius: 4 }} />
+                <SkeletonPulse style={{ flex: 1, height: 14, marginHorizontal: 25, borderRadius: 4 }} />
+            </View>
+        ))}
+    </View>
+);
 
 const MeterReadingTab = () => {
     const { t, i18n } = useTranslation();
@@ -31,7 +75,6 @@ const MeterReadingTab = () => {
 
     const onEndReachedCalledDuringMomentum = useRef(false);
 
-    // Sync moment locale with app language
     useEffect(() => {
         moment.locale(i18n.language === 'km' ? 'km' : 'en');
     }, [i18n.language]);
@@ -42,14 +85,28 @@ const MeterReadingTab = () => {
 
     const loadData = async (page = 1) => {
         try {
-            if (page === 1) setLoading(true);
+            if (page === 1) {
+                const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+                if (cachedData) {
+                    const parsedData = JSON.parse(cachedData);
+                    setData(parsedData);
+                    setLoading(false); 
+                    
+                    if (parsedData.length > 0) {
+                        const latest = parsedData[0]?.updated_at || parsedData[0]?.date_time;
+                        setLastSync(moment(latest).format("D MMM YY, h:mm A"));
+                    }
+                } else {
+                    setLoading(true);
+                }
+            }
+
             const res = await ismServices.getMeterReadings(page);
 
             if (res?.status === "success") {
                 const newData = res.data || [];
                 const formatted = newData.map((item) => ({
                     ...item,
-                    // 🔥 Fixed to "en-IN" to keep numbers in English digits
                     grid: Number(item.grid).toLocaleString("en-IN"),
                     dg: Number(item.dg).toLocaleString("en-IN"),
                     time: moment(item.date_time).format("D MMM YY, h:mm A"),
@@ -57,6 +114,7 @@ const MeterReadingTab = () => {
 
                 if (page === 1) {
                     setData(formatted);
+                    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(formatted.slice(0, 50)));
                 } else {
                     setData((prev) => [...prev, ...formatted]);
                 }
@@ -105,6 +163,11 @@ const MeterReadingTab = () => {
         loadData(1);
     };
 
+    // UI RENDERING
+    if (loading && data.length === 0) {
+        return <MeterSkeleton />;
+    }
+
     if (!loading && data.length === 0) {
         return (
             <View style={styles.loader}>
@@ -145,15 +208,6 @@ const MeterReadingTab = () => {
         </View>
     );
 
-    if (loading) {
-        return (
-            <View style={styles.loader}>
-                <ActivityIndicator size="large" color="#2E8BC0" />
-                <Text style={styles.loadingText}>{t("Fetching readings...")}</Text>
-            </View>
-        );
-    }
-
     return (
         <View style={styles.container}>
             <FlatList
@@ -177,7 +231,7 @@ const MeterReadingTab = () => {
 
             <Modal visible={showInfo} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalBox}>
+                    <div style={styles.modalBox}>
                         <View style={styles.modalHeader}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <View style={styles.pulseDot} />
@@ -215,7 +269,7 @@ const MeterReadingTab = () => {
                                 <Text style={styles.okText}>{t("Done")}</Text>
                             </TouchableOpacity>
                         )}
-                    </View>
+                    </div>
                 </View>
             </Modal>
         </View>
@@ -225,218 +279,43 @@ const MeterReadingTab = () => {
 export default MeterReadingTab;
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "rgb(255, 255, 255)", // Soft modern background
-    },
-    loader: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#F4F6F9",
-    },
-    loadingText: {
-        marginTop: 12,
-        fontSize: 14,
-        color: "#6B7280",
-        fontWeight: "500",
-    },
-    emptyText: {
-        marginTop: 12,
-        fontSize: 15,
-        color: "#6B7280",
-        fontWeight: "500",
-    },
-    listContent: {
-        paddingBottom: 30,
-    },
-    headerContainer: {
-        backgroundColor: "#F4F6F9",
-        paddingTop: 12,
-    },
+    container: { flex: 1, backgroundColor: "#FFF" },
+    loader: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F4F6F9" },
+    loadingText: { marginTop: 12, fontSize: 14, color: "#6B7280", fontWeight: "500" },
+    emptyText: { marginTop: 12, fontSize: 15, color: "#6B7280", fontWeight: "500" },
+    listContent: { paddingBottom: 30 },
+    headerContainer: { backgroundColor: "#F4F6F9", paddingTop: 12 },
     syncCard: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        backgroundColor: "#FFFFFF",
-        marginHorizontal: 16,
-        marginBottom: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 12,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFFFFF",
+        marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12,
+        shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
-    syncLeft: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-    },
-    syncText: {
-        fontSize: 13,
-        fontWeight: "600",
-        color: "#374151",
-    },
-    liveButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: "#2E8BC0",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        gap: 4,
-    },
-    liveButtonText: {
-        color: "#FFF",
-        fontSize: 12,
-        fontWeight: "700",
-    },
-    tableHeaderRow: {
-        flexDirection: "row",
-        backgroundColor: "#b5a7e26b",
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: "#D1D5DB",
-    },
-    headerText: {
-        fontSize: 12,
-        fontWeight: "700",
-        color: "#4B5563",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        textAlign: "center",
-    },
-    row: {
-        flexDirection: "row",
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderColor: "#F1F5F9",
-    },
-    rowLight: {
-        backgroundColor: "#FFFFFF",
-    },
-    rowDark: {
-        backgroundColor: "#FAFAFA",
-    },
-    cell: {
-        fontSize: 13,
-        textAlign: "center",
-    },
-    timeCell: {
-        textAlign: 'left',
-        paddingLeft: 16,
-        color: "#4B5563",
-        fontWeight: "500",
-    },
-    valueCellWrapper: {
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    gridText: {
-        color: "#059669", // Emerald green for Grid
-        fontWeight: "700",
-    },
-    dgText: {
-        color: "#D97706", // Amber orange for DG
-        fontWeight: "700",
-    },
-    footerLoader: {
-        paddingVertical: 20,
-        alignItems: "center",
-    },
-
-    /* --- Modal Styles --- */
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: "rgba(17, 24, 39, 0.6)", // Darker, sleeker overlay
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    modalBox: {
-        width: "88%",
-        maxHeight: "85%",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
-        overflow: "hidden",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.15,
-        shadowRadius: 20,
-        elevation: 10,
-    },
-    modalHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingHorizontal: 20,
-        paddingVertical: 18,
-        borderBottomWidth: 1,
-        borderColor: "#F3F4F6",
-        backgroundColor: "#FAFAFA",
-    },
-    pulseDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#10B981", // Success green
-        marginRight: 8,
-    },
-    modalTitle: {
-        fontSize: 17,
-        fontWeight: "700",
-        color: "#111827",
-    },
-    modalDataContainer: {
-        paddingHorizontal: 20,
-        paddingTop: 10,
-        paddingBottom: 20,
-    },
-    infoRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderColor: "#F3F4F6",
-    },
-    label: {
-        fontSize: 13,
-        color: "#6B7280",
-        fontWeight: "500",
-    },
-    value: {
-        fontSize: 14,
-        color: "#111827",
-        fontWeight: "600",
-        textAlign: "right",
-        flex: 1,
-        marginLeft: 20,
-    },
-    modalLoader: {
-        paddingVertical: 40,
-        alignItems: "center",
-    },
-    modalLoaderText: {
-        marginTop: 12,
-        color: "#6B7280",
-        fontSize: 14,
-        fontWeight: "500",
-    },
-    okButton: {
-        backgroundColor: "#2E8BC0",
-        marginHorizontal: 20,
-        marginBottom: 20,
-        paddingVertical: 14,
-        borderRadius: 12,
-        alignItems: "center",
-    },
-    okText: {
-        color: "#FFFFFF",
-        fontWeight: "700",
-        fontSize: 15,
-    },
+    syncLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
+    syncText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+    liveButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#2E8BC0", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 4 },
+    liveButtonText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
+    tableHeaderRow: { flexDirection: "row", backgroundColor: "#b5a7e26b", paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#D1D5DB" },
+    headerText: { fontSize: 12, fontWeight: "700", color: "#4B5563", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" },
+    row: { flexDirection: "row", paddingVertical: 14, borderBottomWidth: 1, borderColor: "#F1F5F9" },
+    rowLight: { backgroundColor: "#FFFFFF" },
+    rowDark: { backgroundColor: "#FAFAFA" },
+    cell: { fontSize: 13, textAlign: "center" },
+    timeCell: { textAlign: 'left', paddingLeft: 16, color: "#4B5563", fontWeight: "500" },
+    valueCellWrapper: { alignItems: "center", justifyContent: "center" },
+    gridText: { color: "#059669", fontWeight: "700" },
+    dgText: { color: "#D97706", fontWeight: "700" },
+    footerLoader: { paddingVertical: 20, alignItems: "center" },
+    modalOverlay: { flex: 1, backgroundColor: "rgba(17, 24, 39, 0.6)", justifyContent: "center", alignItems: "center" },
+    modalBox: { width: "88%", maxHeight: "85%", backgroundColor: "#FFFFFF", borderRadius: 20, overflow: "hidden", elevation: 10 },
+    modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 18, borderBottomWidth: 1, borderColor: "#F3F4F6", backgroundColor: "#FAFAFA" },
+    pulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#10B981", marginRight: 8 },
+    modalTitle: { fontSize: 17, fontWeight: "700", color: "#111827" },
+    modalDataContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
+    infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderColor: "#F3F4F6" },
+    label: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
+    value: { fontSize: 14, color: "#111827", fontWeight: "600", textAlign: "right", flex: 1, marginLeft: 20 },
+    modalLoader: { paddingVertical: 40, alignItems: "center" },
+    modalLoaderText: { marginTop: 12, color: "#6B7280", fontSize: 14, fontWeight: "500" },
+    okButton: { backgroundColor: "#2E8BC0", marginHorizontal: 20, marginBottom: 20, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+    okText: { color: "#FFFFFF", fontWeight: "700", fontSize: 15 },
 });

@@ -1,4 +1,3 @@
-// PassPage.js
 import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import {
   View,
@@ -10,6 +9,7 @@ import {
   TextInput,
   Image,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Added for cache
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 
@@ -17,6 +17,10 @@ import BRAND from '../config';
 import EmptyState from '../components/EmptyState';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
+
+// Storage Keys
+const CACHE_KEY_PASSES = 'vms_cached_passes';
+const CACHE_KEY_PARKING = 'vms_cached_parking';
 
 const BASE_URL = "https://ism-vms.s3.amazonaws.com/company-logo/";
 const DEFAULT_GUEST_URI = "https://app.factech.co.in/user/assets/images/visitor/default-guest.png";
@@ -46,36 +50,21 @@ const COLORS = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// getPassImage — pure function, returns STABLE references
-// ─────────────────────────────────────────────────────────────────────────────
+// ... (getPassImageSource, PassAvatar, PassCard remain identical to your current code)
 const getPassImageSource = (pass) => {
   const purpose = (pass.purpose || '').toLowerCase();
   const name = (pass.company_name || pass.name || '').toLowerCase();
-
-  if (purpose === 'guest') {
-    return DEFAULT_GUEST_URI;
-  }
-
+  if (purpose === 'guest') return DEFAULT_GUEST_URI;
   if (purpose === 'cab' || purpose === 'delivery') {
-    if (!name) {
-      return LOCAL_IMAGES[purpose];
-    }
+    if (!name) return LOCAL_IMAGES[purpose];
     return `${BASE_URL}${name.replace(/\s+/g, '-')}.png`;
   }
-
   return DEFAULT_GUEST_URI;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PassAvatar — handles stable image loading
-// ─────────────────────────────────────────────────────────────────────────────
 const PassAvatar = memo(({ source, purpose, style }) => {
   const isRemote = typeof source === 'string';
-  const [imgSrc, setImgSrc] = useState(
-    isRemote ? { uri: source } : source
-  );
-
+  const [imgSrc, setImgSrc] = useState(isRemote ? { uri: source } : source);
   const prevSource = useRef(source);
 
   useEffect(() => {
@@ -91,30 +80,16 @@ const PassAvatar = memo(({ source, purpose, style }) => {
     else setImgSrc({ uri: DEFAULT_GUEST_URI });
   }, [purpose]);
 
-  return (
-    <Image
-      source={imgSrc}
-      style={style}
-      resizeMode="cover"
-      onError={handleError}
-    />
-  );
+  return <Image source={imgSrc} style={style} resizeMode="cover" onError={handleError} />;
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PassCard — isolated memo component
-// ─────────────────────────────────────────────────────────────────────────────
 const PassCard = memo(({ pass, theme, parkingBooking, onPress }) => {
-  const { t } = useTranslation(); // Add this
-
+  const { t } = useTranslation();
   const formatDate = (ds) => {
     try {
-      return new Date(ds).toLocaleDateString('en-US', {
-        year: 'numeric', month: 'short', day: 'numeric',
-      });
+      return new Date(ds).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     } catch { return ds; }
   };
-
   const smartDate = useMemo(() => {
     if (!pass.date_time) return null;
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -129,74 +104,35 @@ const PassCard = memo(({ pass, theme, parkingBooking, onPress }) => {
   const imgSource = useMemo(() => getPassImageSource(pass), [pass.purpose, pass.company_name, pass.name]);
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.cardHeader}>
         <View style={styles.leftSection}>
-          <View style={styles.iconContainer}>
-            <PassAvatar source={imgSource} purpose={pass.purpose} style={styles.passImage} />
-          </View>
+          <View style={styles.iconContainer}><PassAvatar source={imgSource} purpose={pass.purpose} style={styles.passImage} /></View>
           <View style={styles.passInfo}>
             <Text style={[styles.passTitle, { color: theme.text }]} numberOfLines={1}>
              {pass.purpose ? t(pass.purpose.charAt(0).toUpperCase() + pass.purpose.slice(1)) : ''} {t("Pass")}
             </Text>
             {!isCabOrDelivery && (
               <>
-                <Text style={[styles.passName, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {pass.name}
-                </Text>
-                <Text style={[styles.passPhone, { color: theme.textSecondary }]}>
-                  {pass.mobile}
-                </Text>
+                <Text style={[styles.passName, { color: theme.textSecondary }]} numberOfLines={1}>{pass.name}</Text>
+                <Text style={[styles.passPhone, { color: theme.textSecondary }]}>{pass.mobile}</Text>
               </>
             )}
-            {isCabOrDelivery && (
-              <Text style={[styles.companyName, { color: COLORS.primary }]} numberOfLines={1}>
-                {pass.company_name || pass.name}
-              </Text>
-            )}
+            {isCabOrDelivery && <Text style={[styles.companyName, { color: COLORS.primary }]} numberOfLines={1}>{pass.company_name || pass.name}</Text>}
           </View>
         </View>
-
         <View style={styles.rightSection}>
-          {pass.pass_no && purposeLower !== 'delivery' && (
-            <Text style={[styles.passNumber, { color: COLORS.primary }]}>
-              #{pass.pass_no}
-            </Text>
-          )}
-          {parkingBooking && (
-            <View style={styles.parkingIndicator}>
-              <Ionicons name="car" size={18} color={COLORS.primary} />
-            </View>
-          )}
+          {pass.pass_no && purposeLower !== 'delivery' && <Text style={[styles.passNumber, { color: COLORS.primary }]}>#{pass.pass_no}</Text>}
+          {parkingBooking && <View style={styles.parkingIndicator}><Ionicons name="car" size={18} color={COLORS.primary} /></View>}
         </View>
       </View>
-
       <View style={[styles.cardFooter, { borderTopColor: theme.border }]}>
-        <View>
-          {smartDate && (
-            <Text style={{ fontSize: 12, color: smartDate.color, fontWeight: '600' }}>
-              {t("Visit")}: {t(smartDate.label)}
-            </Text>
-          )}
-        </View>
-
-        <View>
-          <Text style={[styles.createdDate, { color: theme.textSecondary }]}>
-            {t("Created")}: {formatDate(pass.created_at)}
-          </Text>
-        </View>
+        <View>{smartDate && <Text style={{ fontSize: 12, color: smartDate.color, fontWeight: '600' }}>{t("Visit")}: {t(smartDate.label)}</Text>}</View>
+        <View><Text style={[styles.createdDate, { color: theme.textSecondary }]}>{t("Created")}: {formatDate(pass.created_at)}</Text></View>
       </View>
-
       {!!pass.remarks && (
         <View style={[styles.remarksSection, { borderTopColor: theme.border }]}>
-          <Ionicons name="chatbubble-outline" size={14} color={theme.textSecondary} />
-          <Text style={[styles.remarksText, { color: theme.textSecondary }]} numberOfLines={2}>
-            {pass.remarks}
-          </Text>
+          <Ionicons name="chatbubble-outline" size={14} color={theme.textSecondary} /><Text style={[styles.remarksText, { color: theme.textSecondary }]} numberOfLines={2}>{pass.remarks}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -204,7 +140,7 @@ const PassCard = memo(({ pass, theme, parkingBooking, onPress }) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main component
+// Main component with Caching
 // ─────────────────────────────────────────────────────────────────────────────
 const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }) => {
   const { t } = useTranslation();
@@ -214,68 +150,94 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [showFilters, setShowFilters] = useState(false);
 
+  // 1. Caching State
+  const [displayPasses, setDisplayPasses] = useState([]);
+  const [displayParking, setDisplayParking] = useState([]);
+
   const navigation = useNavigation();
   const route = useRoute();
   const theme = nightMode ? COLORS.dark : COLORS.light;
 
+  // 2. Load Cache on Mount
+  useEffect(() => {
+    const loadCache = async () => {
+      try {
+        const cachedP = await AsyncStorage.getItem(CACHE_KEY_PASSES);
+        const cachedPark = await AsyncStorage.getItem(CACHE_KEY_PARKING);
+        
+        if (cachedP) setDisplayPasses(JSON.parse(cachedP));
+        if (cachedPark) setDisplayParking(JSON.parse(cachedPark));
+        
+        // If we have cache, we can hide the big spinner early to show the old data
+        if (cachedP) setIsInitialLoading(false);
+      } catch (e) {
+        console.log("Cache load error", e);
+      }
+    };
+    loadCache();
+  }, []);
+
+  // 3. Sync Props to Display State & Storage
+  useEffect(() => {
+    if (passData) {
+      setDisplayPasses(passData);
+      AsyncStorage.setItem(CACHE_KEY_PASSES, JSON.stringify(passData));
+    }
+    if (parkingBookings) {
+      setDisplayParking(parkingBookings);
+      AsyncStorage.setItem(CACHE_KEY_PARKING, JSON.stringify(parkingBookings));
+    }
+  }, [passData, parkingBookings]);
+
   const parkingMap = useMemo(() => {
     const map = new Map();
-    (parkingBookings || []).forEach(b => {
+    (displayParking || []).forEach(b => {
       if (b.reference_id != null) map.set(String(b.reference_id), b);
     });
     return map;
-  }, [parkingBookings]);
+  }, [displayParking]);
 
   const filteredData = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return (passData || [])
+    return (displayPasses || [])
       .filter(pass => {
-      const text = [t(pass.name), pass.mobile, t(pass.purpose), t(pass.company_name)]
-       .filter(Boolean).join(' ').toLowerCase();
+        const text = [t(pass.name), pass.mobile, t(pass.purpose), t(pass.company_name)]
+          .filter(Boolean).join(' ').toLowerCase();
         const matchSearch = !q || text.includes(q);
-        const matchType =
-          selectedStatus === 'ALL' ||
-          (pass.purpose || '').toLowerCase() === selectedStatus.toLowerCase();
+        const matchType = selectedStatus === 'ALL' || (pass.purpose || '').toLowerCase() === selectedStatus.toLowerCase();
         return matchSearch && matchType;
       })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  }, [passData, searchQuery, selectedStatus]);
+  }, [displayPasses, searchQuery, selectedStatus, t]);
 
-  // 👉 FIXED: Support three distinct loading modes
   const handleRefresh = useCallback(async (refreshType = 'silent') => {
-    if (refreshType === 'initial') {
+    if (refreshType === 'initial' && displayPasses.length === 0) {
       setIsInitialLoading(true);
     } else if (refreshType === 'pull') {
       setIsRefreshing(true);
     }
-    // If refreshType is 'silent', we don't trigger ANY loading spinners
-
-    if (onRefresh) {
-      await onRefresh();
-    }
+    
+    if (onRefresh) await onRefresh();
 
     setIsInitialLoading(false);
     setIsRefreshing(false);
-  }, [onRefresh]);
+  }, [onRefresh, displayPasses.length]);
 
-  // Handle Initial Load
   useEffect(() => {
     handleRefresh('initial');
   }, [handleRefresh]);
 
-  // 👉 FIXED: Handle Focus Load (Silent update on background return)
   const isFirstMount = useRef(true);
   useFocusEffect(
     useCallback(() => {
       if (isFirstMount.current) {
         isFirstMount.current = false;
-        return; // Skip the first focus because useEffect handles the 'initial' load
+        return;
       }
-      handleRefresh('silent'); // Invisible background refresh
+      handleRefresh('silent');
     }, [handleRefresh])
   );
 
-  // Handle route param refreshes
   useEffect(() => {
     if (route.params?.refreshStamp) {
       handleRefresh('silent');
@@ -291,63 +253,48 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
       pass={pass}
       theme={theme}
       parkingBooking={parkingMap.get(String(pass.id))}
-      onPress={() =>
-        navigation.navigate('PassDetails', { pass, onGoBack: () => handleRefresh('silent') })
-      }
+      onPress={() => navigation.navigate('PassDetails', { pass, onGoBack: () => handleRefresh('silent') })}
     />
   ), [theme, parkingMap, handleRefresh, navigation]);
 
   const keyExtractor = useCallback((item) => item.id.toString(), []);
 
-  if (isInitialLoading) {
+  if (isInitialLoading && displayPasses.length === 0) {
     return (
       <View style={[styles.loadingState, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-     <Text style={[styles.loadingText, { color: theme.text }]}>{t("Loading passes...")}</Text>
+        <Text style={[styles.loadingText, { color: theme.text }]}>{t("Loading passes...")}</Text>
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
-      {/* Search bar */}
       <View style={styles.searchContainer}>
         <View style={[styles.searchBar, { backgroundColor: theme.surface }]}>
           <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
-           placeholder={t("Search name, purpose or phone")}
+            placeholder={t("Search name, purpose or phone")}
             placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery !== '' && (
-            <TouchableOpacity onPress={handleClearSearch}>
-              <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
-            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClearSearch}><Ionicons name="close-circle" size={20} color={theme.textSecondary} /></TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            { backgroundColor: showFilters ? COLORS.primary : theme.surface },
-          ]}
-          onPress={handleToggleFilters}
-        >
+        <TouchableOpacity style={[styles.filterButton, { backgroundColor: showFilters ? COLORS.primary : theme.surface }]} onPress={handleToggleFilters}>
           <Ionicons name="filter" size={20} color={showFilters ? '#fff' : theme.textSecondary} />
         </TouchableOpacity>
       </View>
 
-      {/* Filter chips */}
       {showFilters && (
         <View style={styles.filterContainer}>
           {['ALL', 'guest', 'delivery', 'cab'].map(type => (
             <TouchableOpacity
               key={type}
-              style={[
-                styles.filterChip,
-                { backgroundColor: selectedStatus === type ? COLORS.primary : theme.surface },
-              ]}
+              style={[styles.filterChip, { backgroundColor: selectedStatus === type ? COLORS.primary : theme.surface }]}
               onPress={() => setSelectedStatus(type)}
             >
               <Text style={{ color: selectedStatus === type ? '#fff' : theme.text, fontWeight: '600' }}>
@@ -358,7 +305,6 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
         </View>
       )}
 
-      {/* List */}
       <View style={styles.container}>
         <FlatList
           data={filteredData}
@@ -370,27 +316,11 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
           updateCellsBatchingPeriod={30}
           windowSize={7}
           initialNumToRender={10}
-          contentContainerStyle={
-            filteredData.length === 0
-              ? { flexGrow: 1, paddingTop: 120, paddingHorizontal: 16 }
-              : styles.listContent
-          }
+          contentContainerStyle={filteredData.length === 0 ? { flexGrow: 1, paddingTop: 120, paddingHorizontal: 16 } : styles.listContent}
           refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={() => handleRefresh('pull')} // 👉 Tells handleRefresh to explicitly show the pull spinner
-              colors={[COLORS.primary]}               // 👉 Restored visibility so you can see it on Android
-              tintColor={COLORS.primary}              // 👉 Restored visibility so you can see it on iOS
-            />
+            <RefreshControl refreshing={isRefreshing} onRefresh={() => handleRefresh('pull')} colors={[COLORS.primary]} tintColor={COLORS.primary} />
           }
-          ListEmptyComponent={
-            <EmptyState
-              icon="card-outline"
-              title={t("No Passes Found")}
-              subtitle={t("Create a new pass to get started")}
-              theme={theme}
-            />
-          }
+          ListEmptyComponent={<EmptyState icon="card-outline" title={t("No Passes Found")} subtitle={t("Create a new pass to get started")} theme={theme} />}
         />
       </View>
     </View>
@@ -399,9 +329,6 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
 
 export default SingleEntryPassPage;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingState: { flex: 1, justifyContent: 'center', alignItems: 'center' },

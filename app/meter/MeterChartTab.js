@@ -1,18 +1,86 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { View, ActivityIndicator, StyleSheet, ScrollView } from "react-native";
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { 
+  View, 
+  ActivityIndicator, 
+  StyleSheet, 
+  ScrollView, 
+  Animated, 
+  Dimensions 
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // Added for cache
 import { BarChart } from "react-native-gifted-charts";
 import { ismServices } from "../../services/ismServices";
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
 
+const CACHE_KEY = '@meter_chart_cache';
+
+/* ─────────────────────────────────────────
+   Helper: Skeleton Pulse Effect
+───────────────────────────────────────── */
+const SkeletonPulse = ({ style }) => {
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return <Animated.View style={[style, { opacity: pulseAnim, backgroundColor: '#E5E7EB' }]} />;
+};
+
+const ChartSkeleton = () => (
+  <View style={styles.container}>
+    <View style={styles.header}>
+      <SkeletonPulse style={{ width: 140, height: 18, borderRadius: 4, marginBottom: 6 }} />
+      <SkeletonPulse style={{ width: 100, height: 12, borderRadius: 4 }} />
+    </View>
+    {/* Chart Card Skeleton */}
+    <View style={[styles.chartCard, { height: 260, justifyContent: 'center', alignItems: 'center' }]}>
+      <SkeletonPulse style={{ width: '90%', height: 180, borderRadius: 8 }} />
+      <View style={styles.legend}>
+        <SkeletonPulse style={{ width: 50, height: 10, borderRadius: 4 }} />
+        <SkeletonPulse style={{ width: 50, height: 10, borderRadius: 4 }} />
+      </View>
+    </View>
+    {/* Stats Grid Skeleton */}
+    <View style={styles.statsGrid}>
+      {[1, 2, 3, 4].map((i) => (
+        <View key={i} style={styles.statBox}>
+          <SkeletonPulse style={{ width: 60, height: 10, borderRadius: 4, marginBottom: 8 }} />
+          <SkeletonPulse style={{ width: 80, height: 18, borderRadius: 4 }} />
+        </View>
+      ))}
+    </View>
+  </View>
+);
+
+/* ─────────────────────────────────────────
+   Main Component
+───────────────────────────────────────── */
 const MeterChartTab = () => {
   const { t, i18n } = useTranslation();
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(null);
 
+  // 1. Initial Load: Check Cache first
   useEffect(() => {
-    loadData();
+    const init = async () => {
+      try {
+        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        if (cached) {
+          setRawData(JSON.parse(cached));
+          setLoading(false); // Hide global loader if cache exists
+        }
+      } catch (e) {
+        console.log("Cache load error:", e);
+      }
+      loadData(); // Background fetch
+    };
+    init();
   }, []);
 
   const loadData = async () => {
@@ -20,9 +88,11 @@ const MeterChartTab = () => {
       const res = await ismServices.getMeterConsumption();
       if (res?.status === "success" && res?.data?.length > 0) {
         setRawData(res.data);
+        // 2. Save fresh data to Cache
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(res.data));
       }
     } catch (e) {
-      console.log("Error fetching data:", e);
+      console.log("Error fetching chart data:", e);
     } finally {
       setLoading(false);
     }
@@ -48,7 +118,6 @@ const MeterChartTab = () => {
       const day = item.time.slice(6, 8);
       const month = parseInt(item.time.slice(4, 6));
       
-      // Localized month name
       const monthName = new Date(2026, month - 1).toLocaleString(i18n.language === 'km' ? 'km-KH' : 'en-US', { month: 'short' });
       const label = `${day} ${monthName}`;
 
@@ -63,7 +132,6 @@ const MeterChartTab = () => {
       const gridBarIndex = index * 2;
       const dgBarIndex = index * 2 + 1;
 
-      // Grid bar
       barData.push({
         value: gridVal,
         label: label,
@@ -82,7 +150,6 @@ const MeterChartTab = () => {
           ) : null,
       });
 
-      // DG bar
       barData.push({
         value: dgVal,
         frontColor: '#F59E0B',
@@ -102,14 +169,11 @@ const MeterChartTab = () => {
       chartData: barData,
       stats: { grid: totalGrid, dg: totalDg, ahu: totalAhu }
     };
-  }, [rawData, selectedIndex, i18n.language]); // Re-calculate when language changes
+  }, [rawData, selectedIndex, i18n.language]);
 
-  if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#2E8BC0" />
-      </View>
-    );
+  // ── Show Skeleton only if there is zero data and we are loading ──
+  if (loading && rawData.length === 0) {
+    return <ChartSkeleton />;
   }
 
   if (chartData.length === 0) {
@@ -150,6 +214,7 @@ const MeterChartTab = () => {
           yAxisLabelSuffix=" kW"
           showScrollIndicator={false}
           initialSpacing={20}
+          paddingRight={20}
           endSpacing={20}
           nestedScrollEnabled={true}
           topLabelContainerStyle={{ marginBottom: 10 }}
@@ -171,17 +236,14 @@ const MeterChartTab = () => {
           <Text style={styles.statLabel}>{t("Grid Supply")}</Text>
           <Text style={[styles.statValue, { color: '#10B981' }]}>{stats.grid.toFixed(1)} {t("kWh")}</Text>
         </View>
-
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>{t("DG Supply")}</Text>
           <Text style={[styles.statValue, { color: '#F59E0B' }]}>{stats.dg.toFixed(1)} {t("kWh")}</Text>
         </View>
-
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>{t("AHU Usage")}</Text>
           <Text style={styles.statValue}>{stats.ahu.toFixed(1)} {t("kWh")}</Text>
         </View>
-
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>{t("Total Usage")}</Text>
           <Text style={styles.statValue}>{(stats.grid + stats.dg).toFixed(1)} {t("kWh")}</Text>
@@ -190,114 +252,26 @@ const MeterChartTab = () => {
     </ScrollView>
   );
 };
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F6F9',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  loading: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F4F6F9',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  chartCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    borderRadius: 16,
-    paddingVertical: 20,
-    paddingLeft: 4,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  
-  // ✅ ADDED BACK AND MODIFIED TOOLTIP STYLES
-  tooltip: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
 
-    width: 60, 
-  },
-  tooltipValue: {
-    color: '#111827',
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
-    marginTop: 20,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  legendText: {
-    fontSize: 12,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: 12,
-    marginTop: 16,
-    justifyContent: 'space-between',
-  },
-  statBox: {
-    backgroundColor: '#FFFFFF',
-    width: '47%', 
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 6,
-  },
-  statValue: {
-    fontSize: 18,
-    color: '#111827',
-    fontWeight: '700',
-  },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F4F6F9' },
+  scrollContent: { paddingBottom: 40 },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F4F6F9' },
+  emptyText: { fontSize: 14, color: '#6B7280' },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+  title: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  subtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  chartCard: { backgroundColor: '#FFFFFF', marginHorizontal: 16, borderRadius: 16, paddingVertical: 20, paddingLeft: 4, borderWidth: 1, borderColor: '#E5E7EB' },
+  tooltip: { paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, alignItems: 'center', justifyContent: 'center', width: 60 },
+  tooltipValue: { color: '#111827', fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  legend: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 20 },
+  legendItem: { flexDirection: 'row', alignItems: 'center' },
+  dot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  legendText: { fontSize: 12, color: '#4B5563', fontWeight: '500' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 12, marginTop: 16, justifyContent: 'space-between' },
+  statBox: { backgroundColor: '#FFFFFF', width: '47%', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  statLabel: { fontSize: 12, color: '#6B7280', fontWeight: '500', marginBottom: 6 },
+  statValue: { fontSize: 18, color: '#111827', fontWeight: '700' },
 });
 
 export default MeterChartTab;

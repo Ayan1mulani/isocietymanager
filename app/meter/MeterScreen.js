@@ -13,7 +13,6 @@ import MeterChartTab from "./MeterChartTab";
 import AppHeader from "../components/AppHeader";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
-import Text from "../components/TranslatedText";
 
 const screenWidth = Dimensions.get("window").width;
 

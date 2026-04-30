@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -27,16 +27,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const BASE = 375;
-const scale = (size) => Math.round((SCREEN_WIDTH / BASE) * size);
+// --- UPDATED SCALING LOGIC ---
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const BASE_WIDTH = 375;
+const BASE_HEIGHT = 812; // Standard modern phone height
+
+// This ensures the scale adapts to both width AND height, preventing vertical overflow on small devices
+const scaleFactor = Math.min(SCREEN_WIDTH / BASE_WIDTH, SCREEN_HEIGHT / BASE_HEIGHT);
+const scale = (size) => Math.round(scaleFactor * size);
+
 const CARD_WIDTH = SCREEN_WIDTH - scale(40);
 const PERSPECTIVE = 900;
 const MAX_ROTATE = 18;
 
 const PROFILE_CACHE_KEY = '@user_profile_cache';
 
-// ── Smart Skeleton Component ──
 const SkeletonLine = ({ width = 100, height = 12, style }) => (
   <View style={[{ width, height, backgroundColor: '#E2E8F0', borderRadius: 4 }, style]} />
 );
@@ -80,7 +85,6 @@ const ResidentIdCardScreen = () => {
     if (h > 0) cardHeight.value = h;
   }, [cardHeight]);
 
-  // ── Restore the getUserField logic ──
   const getUserField = (main, alt) => {
     return user?.tenant == 1 ? (alt || main) : main;
   };
@@ -129,19 +133,23 @@ const ResidentIdCardScreen = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppHeader title={t("Digital ID")} />
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#F0F4F8" }}>
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-          
+      {/* SafeAreaView handles device notches and home bars automatically */}
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F0F4F8" }} edges={['bottom', 'left', 'right']}>
+
+        {/* UPDATED: Added flexGrow: 1 and justifyContent: 'center' to properly contain the card */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           <GestureDetector gesture={panGesture}>
             <Animated.View style={[styles.cardWrapper, cardAnimatedStyle]}>
               <View style={styles.card} onLayout={onCardLayout}>
 
-                {/* TOP HEADER BAR (Static) */}
                 <View style={styles.cardHeader}>
                   <Text style={styles.headerText} numberOfLines={1}>{t("OFFICIAL RESIDENT ID")}</Text>
                 </View>
 
-                {/* MAIN INFO */}
                 <View style={styles.mainInfo}>
                   <View style={styles.avatarRing}>
                     <View style={styles.avatarContainer}>
@@ -182,7 +190,6 @@ const ResidentIdCardScreen = () => {
                   </View>
                 </View>
 
-                {/* QR CODE SECTION */}
                 <View style={styles.qrSection}>
                   <View style={styles.qrFrame}>
                     {loading && !user ? (
@@ -198,7 +205,6 @@ const ResidentIdCardScreen = () => {
 
                 <View style={styles.divider} />
 
-                {/* DETAILS GRID */}
                 <View style={styles.detailsGrid}>
                   <Detail icon="call-outline" label={t("Phone")} value={getUserField(user?.phone_no, user?.alt_phone_no)} loading={loading && !user} half />
                   <Detail icon="home-outline" label={t("Unit")} value={user?.display_unit_no || user?.flat_no} loading={loading && !user} half />
@@ -207,7 +213,6 @@ const ResidentIdCardScreen = () => {
                   <Detail icon="key-outline" label={t("unit-id")} value={user?.unit_id} loading={loading && !user} half />
                 </View>
 
-                {/* FOOTER (Static) */}
                 <View style={styles.footer}>
                   <Ionicons name="shield-checkmark" size={scale(12)} color="#94A3B8" />
                   <Text style={styles.footerText}>{t("iSocietyManager Digital ID")}</Text>
@@ -217,7 +222,6 @@ const ResidentIdCardScreen = () => {
               </View>
             </Animated.View>
           </GestureDetector>
-
         </ScrollView>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -241,7 +245,13 @@ const Detail = ({ icon, label, value, half, loading }) => (
 );
 
 const styles = StyleSheet.create({
-  container: { padding: scale(20), alignItems: "center", paddingBottom: scale(60) },
+  // UPDATED container style
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: scale(20)
+  },
   cardWrapper: { width: CARD_WIDTH },
   card: { width: "100%", backgroundColor: "#fff", borderRadius: scale(24), paddingBottom: scale(8), overflow: "hidden" },
   cardHeader: { backgroundColor: "#1996D3", paddingVertical: scale(12), paddingHorizontal: scale(16) },

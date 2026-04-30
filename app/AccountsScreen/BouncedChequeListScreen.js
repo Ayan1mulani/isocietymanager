@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -6,7 +6,9 @@ import {
   ActivityIndicator,
   StyleSheet,
   RefreshControl,
+  Animated,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -19,10 +21,54 @@ import BRAND from '../config';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
+const CACHE_KEY = '@bounced_cheques_cache';
 const PRIMARY = BRAND.COLORS.primary;
 const DANGER = '#EF4444';
 const SUCCESS = '#10B981';
 
+/* ─────────────────────────────────────────
+   Helper: Skeleton Pulse Effect
+───────────────────────────────────────── */
+const SkeletonPulse = ({ style }) => {
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return <Animated.View style={[style, { opacity: pulseAnim, backgroundColor: '#E5E7EB' }]} />;
+};
+
+const BouncedChequeSkeleton = () => (
+  <View style={{ padding: 16 }}>
+    {/* Summary Card Skeleton */}
+    <SkeletonPulse style={{ width: '100%', height: 100, borderRadius: 14, marginBottom: 16 }} />
+    {/* List Items Skeleton */}
+    {[1, 2, 3, 4].map((i) => (
+      <View key={i} style={[styles.card, { marginBottom: 10, elevation: 0, borderColor: '#F3F4F6' }]}>
+        <SkeletonPulse style={{ width: 46, height: 46, borderRadius: 12, marginRight: 12 }} />
+        <View style={{ flex: 1, gap: 8 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <SkeletonPulse style={{ width: '60%', height: 14, borderRadius: 4 }} />
+            <SkeletonPulse style={{ width: 60, height: 14, borderRadius: 4 }} />
+          </View>
+          <SkeletonPulse style={{ width: '40%', height: 10, borderRadius: 4 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+            <SkeletonPulse style={{ width: 70, height: 20, borderRadius: 6 }} />
+            <SkeletonPulse style={{ width: 80, height: 14, borderRadius: 4 }} />
+          </View>
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+/* ─────────────────────────────────────────
+   Utility: Formatter
+───────────────────────────────────────── */
 const formatCurrency = (amount) => {
   const num = parseFloat(amount);
   return `₹${(isNaN(num) ? 0 : Math.abs(num)).toLocaleString('en-IN')}`;
@@ -35,10 +81,13 @@ const formatDate = (dateStr) => {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+/* ─────────────────────────────────────────
+   Main Component
+───────────────────────────────────────── */
 export default function BouncedChequeListScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation(); // Fixed syntax error
   const { nightMode } = usePermissions();
-  const { t } = useTranslation(); // 👈 Init translation
+  const { t } = useTranslation();
 
   const theme = {
     bg: nightMode ? '#0F1117' : '#F0F4F8',
@@ -57,16 +106,39 @@ export default function BouncedChequeListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState({ count: 0, total: 0 });
 
-  const fetchData = async (silent = false) => {
+  // 1. Initial Load Logic: Cache first then Fresh Fetch
+  useEffect(() => {
+    const initializeData = async () => {
+      try {
+        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const list = JSON.parse(cached);
+          setData(list);
+          const total = list.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0);
+          setSummary({ count: list.length, total });
+          setLoading(false); // Disable skeleton if cache is available
+        }
+      } catch (e) { console.log("Cache load error:", e); }
+      
+      fetchData(data.length === 0); // Background refresh
+    };
+    initializeData();
+  }, []);
+
+  const fetchData = async (showLoading = false) => {
     try {
-      if (!silent) setLoading(true);
+      if (showLoading) setLoading(true);
       const res = await otherServices.getBouncedCheques();
       const list = res?.data || [];
       setData(list);
+      
       const total = list.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0);
       setSummary({ count: list.length, total });
+      
+      // 2. Persist to Cache
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(list));
     } catch (e) {
-      console.log(e);
+      console.log("Fetch error:", e);
     } finally {
       setLoading(false);
     }
@@ -74,11 +146,9 @@ export default function BouncedChequeListScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchData(true);
+    await fetchData(false);
     setRefreshing(false);
   };
-
-  useEffect(() => { fetchData(); }, []);
 
   const ListHeader = () => (
     <View style={[styles.summaryCard, { backgroundColor: DANGER }]}>
@@ -115,12 +185,10 @@ export default function BouncedChequeListScreen() {
       onPress={() => navigation.navigate('BouncedChequeDetail', { id: item.id })}
       activeOpacity={0.75}
     >
-      {/* Left icon */}
       <View style={[styles.cardIconBox, { backgroundColor: theme.iconBg }]}>
         <Ionicons name="document-text-outline" size={22} color={DANGER} />
       </View>
 
-      {/* Main content */}
       <View style={styles.cardContent}>
         <View style={styles.cardTopRow}>
           <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
@@ -162,14 +230,11 @@ export default function BouncedChequeListScreen() {
     </TouchableOpacity>
   );
 
-  if (loading) {
+  if (loading && data.length === 0) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
         <AppHeader title={t("Bounced Cheques")} nightMode={nightMode} showBack />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={DANGER} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>{t("Loading...")}</Text>
-        </View>
+        <BouncedChequeSkeleton />
       </SafeAreaView>
     );
   }
@@ -202,8 +267,6 @@ export default function BouncedChequeListScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  // Summary banner
   summaryCard: {
     borderRadius: 14, padding: 16, marginBottom: 16, elevation: 2,
     shadowColor: '#EF4444', shadowOffset: { width: 0, height: 4 },
@@ -218,12 +281,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center', alignItems: 'center',
   },
-
-  // Card
   card: {
     flexDirection: 'row', borderRadius: 14, padding: 14,
-    borderWidth: 1,
-    elevation: 1,
+    borderWidth: 1, elevation: 1,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4,
   },
@@ -236,11 +296,9 @@ const styles = StyleSheet.create({
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   cardTitle: { fontSize: 14, fontWeight: '700', flex: 1, marginRight: 8 },
   cardAmount: { fontSize: 15, fontWeight: '800' },
-
   cardMidRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
   metaChip: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   metaChipText: { fontSize: 11 },
-
   cardBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bouncedTag: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -248,11 +306,8 @@ const styles = StyleSheet.create({
   },
   bouncedDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#EF4444' },
   bouncedTagText: { fontSize: 10, fontWeight: '700', color: '#EF4444', letterSpacing: 0.5 },
-
   viewDetail: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   viewDetailText: { fontSize: 12, fontWeight: '600' },
-
-  // Empty
   emptyBox: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40 },
   emptyIconCircle: {
     width: 80, height: 80, borderRadius: 40,

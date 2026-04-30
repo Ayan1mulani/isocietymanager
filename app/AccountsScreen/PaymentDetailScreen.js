@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   ScrollView,
-  ActivityIndicator,
   StyleSheet,
   TouchableOpacity,
   Linking,
+  Animated,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +20,63 @@ const PRIMARY = BRAND.COLORS.primary;
 const SUCCESS = '#10B981';
 const DANGER = '#EF4444';
 const WARNING = '#F59E0B';
+
+/* ─────────────────────────────────────────
+   Helper: Skeleton Pulse Effect
+───────────────────────────────────────── */
+const SkeletonPulse = ({ style }) => {
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return <Animated.View style={[style, { opacity: pulseAnim, backgroundColor: '#E5E7EB' }]} />;
+};
+
+const DetailSkeleton = ({ theme }) => (
+  <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+    {/* Hero Banner Skeleton */}
+    <SkeletonPulse style={{ width: '100%', height: 120, borderRadius: 16, marginBottom: 14 }} />
+    
+    {/* Section Card Skeleton 1 */}
+    <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border, padding: 14 }]}>
+      <SkeletonPulse style={{ width: 120, height: 15, borderRadius: 4, marginBottom: 15 }} />
+      <View style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <SkeletonPulse style={{ width: '30%', height: 12, borderRadius: 4 }} />
+          <SkeletonPulse style={{ width: '40%', height: 12, borderRadius: 4 }} />
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <SkeletonPulse style={{ width: '30%', height: 12, borderRadius: 4 }} />
+          <SkeletonPulse style={{ width: '40%', height: 12, borderRadius: 4 }} />
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <SkeletonPulse style={{ width: '30%', height: 12, borderRadius: 4 }} />
+          <SkeletonPulse style={{ width: '40%', height: 12, borderRadius: 4 }} />
+        </View>
+      </View>
+    </View>
+
+    {/* Section Card Skeleton 2 */}
+    <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border, padding: 14, marginTop: 5 }]}>
+      <SkeletonPulse style={{ width: 100, height: 15, borderRadius: 4, marginBottom: 15 }} />
+      <View style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <SkeletonPulse style={{ width: '30%', height: 12, borderRadius: 4 }} />
+          <SkeletonPulse style={{ width: '40%', height: 12, borderRadius: 4 }} />
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <SkeletonPulse style={{ width: '30%', height: 12, borderRadius: 4 }} />
+          <SkeletonPulse style={{ width: '40%', height: 12, borderRadius: 4 }} />
+        </View>
+      </View>
+    </View>
+  </ScrollView>
+);
 
 // --- Reusable Components ---
 const DetailRow = ({ label, value, isLast, theme, valueStyle }) => (
@@ -111,10 +168,7 @@ export default function PaymentDetailScreen({ route }) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
         <AppHeader title={t("Payment Details")} nightMode={nightMode} showBack />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={PRIMARY} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>{t("Loading details...")}</Text>
-        </View>
+        <DetailSkeleton theme={theme} />
       </SafeAreaView>
     );
   }
@@ -214,8 +268,6 @@ export default function PaymentDetailScreen({ route }) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  // Hero banner
   heroBanner: {
     borderRadius: 16, padding: 20, marginBottom: 14,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -235,8 +287,6 @@ const styles = StyleSheet.create({
     width: 64, height: 64, borderRadius: 32,
     justifyContent: 'center', alignItems: 'center', marginLeft: 12,
   },
-
-  // Section card
   sectionCard: {
     borderRadius: 14, borderWidth: 1, marginBottom: 5,
     overflow: 'hidden',
@@ -248,16 +298,12 @@ const styles = StyleSheet.create({
   sectionIconBox: { width: 28, height: 28, borderRadius: 7, justifyContent: 'center', alignItems: 'center' },
   sectionTitle: { fontSize: 13, fontWeight: '700', letterSpacing: 0.2 },
   sectionDivider: { height: 1 },
-
-  // Detail rows
   detailRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'flex-start', paddingVertical: 13, paddingHorizontal: 14, gap: 12,
   },
   detailLabel: { fontSize: 13, flex: 1 },
   detailValue: { fontSize: 13, fontWeight: '600', flex: 1.4, textAlign: 'right' },
-
-  // Note box
   noteBox: {
     flexDirection: 'row', gap: 8, alignItems: 'flex-start',
     borderRadius: 10, borderWidth: 1, padding: 12,

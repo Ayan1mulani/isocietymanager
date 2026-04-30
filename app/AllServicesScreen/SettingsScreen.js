@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, Switch,
-  ScrollView, ActivityIndicator, Platform, TextInput, TouchableOpacity
+  ScrollView, ActivityIndicator, Platform, TextInput, TouchableOpacity,
+  Animated // Added for skeleton pulse
 } from "react-native";
 import DefaultPreference from 'react-native-default-preference';
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -30,6 +31,22 @@ import {
   getCachedUser
 } from '../../services/settingsCache';
 
+/* ─────────────────────────────────────────
+   Helper: Skeleton Pulse Component
+───────────────────────────────────────── */
+const SkeletonPulse = ({ style }) => {
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return <Animated.View style={[style, { opacity: pulseAnim, backgroundColor: '#E5E7EB' }]} />;
+};
+
 const SettingsScreen = () => {
   const navigation = useNavigation();
   
@@ -40,7 +57,7 @@ const SettingsScreen = () => {
   const canToggleAway = permissions && hasPermission(permissions, 'RESHOMAWY', 'C');
 
   const [loading, setLoading] = useState(false);
-  const [changingLang, setChangingLang] = useState(null); // 👈 Added loading state for language
+  const [changingLang, setChangingLang] = useState(null); 
   const [isAway, setIsAway] = useState(false);
   const [visitSound, setVisitSound] = useState(true);
   const [staffNotification, setStaffNotification] = useState(true);
@@ -265,36 +282,39 @@ const SettingsScreen = () => {
   const handlePrimaryChange = (text) => setPrimaryNumber(text.replace(/[^0-9]/g, ''));
   const handleSecondaryChange = (text) => setSecondaryNumber(text.replace(/[^0-9]/g, ''));
 
-  // ── Handle Language Switch ──
-  // ── Handle Language Switch (Fixed for UI freezing) ──
   const handleLanguageChange = (langCode) => {
     if (i18n.language === langCode) return; 
-
-    // 1. Turn on the spinner immediately
     setChangingLang(langCode); 
-    
-    // 2. Wait just 50ms so React has time to paint the spinner on the screen
     setTimeout(async () => {
       try {
-        await i18n.changeLanguage(langCode); // 3. Now do the heavy language swap
+        await i18n.changeLanguage(langCode);
       } catch (error) {
         console.log("Error changing language:", error);
       } finally {
-        setChangingLang(null); // 4. Turn off the spinner
+        setChangingLang(null);
       }
     }, 50);
   };
+
+  // ── Render Skeleton for Cards ──
+  const CardSkeleton = ({ rows = 1 }) => (
+    <View style={styles.card}>
+      {[...Array(rows)].map((_, i) => (
+        <View key={i}>
+          <View style={[styles.row, { height: 50 }]}>
+            <SkeletonPulse style={{ width: '40%', height: 14, borderRadius: 4 }} />
+            <SkeletonPulse style={{ width: 40, height: 22, borderRadius: 11 }} />
+          </View>
+          {i < rows - 1 && <View style={styles.divider} />}
+        </View>
+      ))}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <AppHeader title={t("Settings")} />
       <View style={{ flex: 1 }}>
-        {loading && (
-          <View style={styles.loaderOverlay}>
-            <ActivityIndicator size="large" color="#1996D3" />
-            <Text style={styles.loaderText}>{t("Loading settings...")}</Text>
-          </View>
-        )}
         {permissionWarning && (
           <View style={styles.permissionWarning}>
             <Text style={styles.permissionText}>
@@ -310,18 +330,15 @@ const SettingsScreen = () => {
                 <Ionicons name="person-outline" size={16} color="#6B7280" />
                 <Text style={styles.sectionTitle}>{t("Personal")}</Text>
               </View>
-              <View style={styles.card}>
-                <View style={styles.row}>
-                  <Text style={styles.label}>{t("I am Away")}</Text>
-                  
-                  <Switch 
-                    value={isAway} 
-                    onValueChange={toggleAway}
-                    trackColor={{ false: "#ddd", true: "#1996D3" }} 
-                    thumbColor="#fff" 
-                  />
+              {loading ? <CardSkeleton /> : (
+                <View style={styles.card}>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>{t("I am Away")}</Text>
+                    <Switch value={isAway} onValueChange={toggleAway}
+                      trackColor={{ false: "#ddd", true: "#1996D3" }} thumbColor="#fff" />
+                  </View>
                 </View>
-              </View>
+              )}
             </>
           )}
 
@@ -329,68 +346,71 @@ const SettingsScreen = () => {
             <Ionicons name="notifications-outline" size={16} color="#6B7280" />
             <Text style={styles.sectionTitle}>{t("Notifications")}</Text>
           </View>
-          <View style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.label}>{t("Visit Sound")}</Text>
-              <Switch value={visitSound} onValueChange={toggleVisitSound}
-                trackColor={{ false: "#ddd", true: "#1996D3" }} />
+          {loading ? <CardSkeleton rows={2} /> : (
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.label}>{t("Visit Sound")}</Text>
+                <Switch value={visitSound} onValueChange={toggleVisitSound}
+                  trackColor={{ false: "#ddd", true: "#1996D3" }} />
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.row}>
+                <Text style={styles.label}>{t("Staff")}</Text>
+                <Switch value={staffNotification} onValueChange={toggleStaffSound}
+                  trackColor={{ false: "#ddd", true: "#1996D3" }} />
+              </View>
             </View>
-            <View style={styles.divider} />
-            <View style={styles.row}>
-              <Text style={styles.label}>{t("Staff")}</Text>
-              <Switch value={staffNotification} onValueChange={toggleStaffSound}
-                trackColor={{ false: "#ddd", true: "#1996D3" }} />
-            </View>
-          </View>
+          )}
+
           <View style={styles.sectionHeader}>
             <Ionicons name="call-outline" size={16} color="#6B7280" />
             <Text style={styles.sectionTitle}>{t("IVR Settings")}</Text>
           </View>
-          
-          {/* Added a custom bottom margin to reduce space when IVR is enabled */}
-          <View style={[styles.card, { marginBottom: ivrEnabled ? 4 : 10 }]}>
-            <View style={styles.row}>
-              <Text style={styles.label}>{t("Enable IVR")}</Text>
-              <Switch value={ivrEnabled} onValueChange={toggleIvr}
-                trackColor={{ false: "#ddd", true: "#1996D3" }} />
-            </View>
-            {ivrEnabled && (
-              <>
-                <View style={styles.divider} />
-                <View style={styles.inputSection}>
-                  <Text style={styles.inputLabel}>{t("Primary Number")}</Text>
-                  <TextInput
-                    style={[styles.phoneInput, primaryNumber && !isValidPhone(primaryNumber) && styles.phoneInputError]}
-                    placeholder={t("Enter 10-digit number")} keyboardType="phone-pad"
-                    maxLength={10} placeholderTextColor="#9CA3AF"
-                    value={primaryNumber} onChangeText={handlePrimaryChange} />
-                  {primaryNumber && !isValidPhone(primaryNumber) && (
-                    <Text style={styles.errorText}>{t("Must be 10 digits starting with 6-9")}</Text>
-                  )}
-                </View>
-                <View style={styles.inputSection}>
-                  <Text style={styles.inputLabel}>{t("Secondary Number")}</Text>
-                  <TextInput
-                    style={[styles.phoneInput, secondaryNumber && !isValidPhone(secondaryNumber) && styles.phoneInputError]}
-                    placeholder={t("Enter 10-digit number (optional)")} maxLength={10}
-                    keyboardType="phone-pad" placeholderTextColor="#9CA3AF"
-                    value={secondaryNumber} onChangeText={handleSecondaryChange} />
-                  {secondaryNumber && !isValidPhone(secondaryNumber) && (
-                    <Text style={styles.errorText}>{t("Must be 10 digits starting with 6-9")}</Text>
-                  )}
-                </View>
-                {phoneChanged && (
-                  <View style={styles.saveButtonContainer}>
-                    <SubmitButton title={t("Save Numbers")} onPress={handleSave}
-                      disabled={
-                        (primaryNumber && !isValidPhone(primaryNumber)) ||
-                        (secondaryNumber && !isValidPhone(secondaryNumber))
-                      } />
+          {loading ? <CardSkeleton /> : (
+            <View style={[styles.card, { marginBottom: ivrEnabled ? 4 : 10 }]}>
+              <View style={styles.row}>
+                <Text style={styles.label}>{t("Enable IVR")}</Text>
+                <Switch value={ivrEnabled} onValueChange={toggleIvr}
+                  trackColor={{ false: "#ddd", true: "#1996D3" }} />
+              </View>
+              {ivrEnabled && (
+                <>
+                  <View style={styles.divider} />
+                  <View style={styles.inputSection}>
+                    <Text style={styles.inputLabel}>{t("Primary Number")}</Text>
+                    <TextInput
+                      style={[styles.phoneInput, primaryNumber && !isValidPhone(primaryNumber) && styles.phoneInputError]}
+                      placeholder={t("Enter 10-digit number")} keyboardType="phone-pad"
+                      maxLength={10} placeholderTextColor="#9CA3AF"
+                      value={primaryNumber} onChangeText={handlePrimaryChange} />
+                    {primaryNumber && !isValidPhone(primaryNumber) && (
+                      <Text style={styles.errorText}>{t("Must be 10 digits starting with 6-9")}</Text>
+                    )}
                   </View>
-                )}
-              </>
-            )}
-          </View>
+                  <View style={styles.inputSection}>
+                    <Text style={styles.inputLabel}>{t("Secondary Number")}</Text>
+                    <TextInput
+                      style={[styles.phoneInput, secondaryNumber && !isValidPhone(secondaryNumber) && styles.phoneInputError]}
+                      placeholder={t("Enter 10-digit number (optional)")} maxLength={10}
+                      keyboardType="phone-pad" placeholderTextColor="#9CA3AF"
+                      value={secondaryNumber} onChangeText={handleSecondaryChange} />
+                    {secondaryNumber && !isValidPhone(secondaryNumber) && (
+                      <Text style={styles.errorText}>{t("Must be 10 digits starting with 6-9")}</Text>
+                    )}
+                  </View>
+                  {phoneChanged && (
+                    <View style={styles.saveButtonContainer}>
+                      <SubmitButton title={t("Save Numbers")} onPress={handleSave}
+                        disabled={
+                          (primaryNumber && !isValidPhone(primaryNumber)) ||
+                          (secondaryNumber && !isValidPhone(secondaryNumber))
+                        } />
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+          )}
           
           {ivrEnabled && (
             <View style={styles.noteOuterContainer}>
@@ -404,35 +424,33 @@ const SettingsScreen = () => {
             </View>
           )}
 
-          {/* ── Language Preferences Section ── */}
           <View style={styles.sectionHeader}>
             <Ionicons name="language-outline" size={16} color="#6B7280" />
             <Text style={styles.sectionTitle}>{t("Language")}</Text>
           </View>
-          <View style={[styles.card, { marginBottom: 20 }]}>
-            {availableLanguages.map((lang, index) => (
-              <View key={lang.code}>
-                <TouchableOpacity
-                  style={styles.languageRow}
-                  onPress={() => handleLanguageChange(lang.code)}
-                  disabled={changingLang !== null} // Disable while changing
-                >
-                  <Text style={[styles.label, i18n.language === lang.code && styles.activeLanguageText]}>
-                    {lang.label}
-                  </Text>
-                  
-                  {/* Show loader if switching to this language, otherwise checkmark if active */}
-                  {changingLang === lang.code ? (
-                    <ActivityIndicator size="small" color="#1996D3" />
-                  ) : i18n.language === lang.code ? (
-                    <Ionicons name="checkmark" size={20} color="#1996D3" />
-                  ) : null}
-
-                </TouchableOpacity>
-                {index < availableLanguages.length - 1 && <View style={styles.divider} />}
-              </View>
-            ))}
-          </View>
+          {loading ? <CardSkeleton rows={4} /> : (
+            <View style={[styles.card, { marginBottom: 20 }]}>
+              {availableLanguages.map((lang, index) => (
+                <View key={lang.code}>
+                  <TouchableOpacity
+                    style={styles.languageRow}
+                    onPress={() => handleLanguageChange(lang.code)}
+                    disabled={changingLang !== null}
+                  >
+                    <Text style={[styles.label, i18n.language === lang.code && styles.activeLanguageText]}>
+                      {lang.label}
+                    </Text>
+                    {changingLang === lang.code ? (
+                      <ActivityIndicator size="small" color="#1996D3" />
+                    ) : i18n.language === lang.code ? (
+                      <Ionicons name="checkmark" size={20} color="#1996D3" />
+                    ) : null}
+                  </TouchableOpacity>
+                  {index < availableLanguages.length - 1 && <View style={styles.divider} />}
+                </View>
+              ))}
+            </View>
+          )}
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -465,22 +483,10 @@ const styles = StyleSheet.create({
   loaderText: { marginTop: 10, color: "#6B7280", fontSize: 14 },
   permissionWarning: { margin: 15, padding: 12, borderRadius: 10, backgroundColor: "#FEF3C7", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   permissionText: { color: "#92400E", flex: 1 },
-  
-  // ── FIX: Adjusted Spacing to pull the Note up tightly under the IVR box ──
   noteOuterContainer: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 15, marginTop: 0 },
   noteTitle: { fontSize: 14, fontWeight: "600", color: "#111827", lineHeight: 20, textAlign: "center" },
   noteSubtitle: { fontSize: 13, fontWeight: "500", color: "#4B5563", lineHeight: 18, textAlign: "center", marginTop: 6 },
   noteText: { marginTop: 8, fontSize: 13, color: "#9CA3AF", lineHeight: 18, textAlign: "center" },
-  
-  languageRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  activeLanguageText: {
-    color: "#1996D3",
-    fontWeight: "700",
-  }
+  languageRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 15 },
+  activeLanguageText: { color: "#1996D3", fontWeight: "700" }
 });

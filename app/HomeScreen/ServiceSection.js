@@ -49,7 +49,7 @@ const ServicesSection = () => {
 
   const allServices = [
     { id: '1', title: 'Accounts', icon: 'card-outline', route: 'Accounts' },
-    { id: '2', title: "Notices", icon: "notifications-outline", route: "MyNoticesScreen" },
+    { id: '2', title: "Notices", icon: "megaphone-outline", route: "MyNoticesScreen" },
     { id: '3', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
     { id: '4', title: 'SOS', icon: 'alert-circle', isPanic: true },
     { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },

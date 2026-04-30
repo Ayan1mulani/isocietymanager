@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   FlatList,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
+  TouchableOpacity,
+  Animated, // Added for Skeleton
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Added for cache
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +17,8 @@ import AppHeader from '../components/AppHeader';
 import BRAND from '../config';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
+
+const CACHE_KEY = 'cached_payments_data';
 
 const THEME = {
   primary:      BRAND.COLORS.primary,
@@ -27,6 +31,48 @@ const THEME = {
   darkCard:     '#1A1D27',
 };
 
+/* ─────────────────────────────────────────
+   Helper: Skeleton Pulse Effect
+───────────────────────────────────────── */
+const SkeletonPulse = ({ style }) => {
+  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return <Animated.View style={[style, { opacity: pulseAnim, backgroundColor: '#E5E7EB' }]} />;
+};
+
+const PaymentSkeleton = ({ theme }) => (
+  <View style={{ padding: 16 }}>
+    {/* Summary Card Skeleton */}
+    <SkeletonPulse style={{ width: '100%', height: 130, borderRadius: 14, marginBottom: 20 }} />
+    {/* List Header Skeleton */}
+    <SkeletonPulse style={{ width: 150, height: 20, borderRadius: 4, marginBottom: 15 }} />
+    {/* List Items Skeleton */}
+    {[1, 2, 3, 4, 5].map((i) => (
+      <View key={i} style={[styles.card, { backgroundColor: theme.card, marginBottom: 8, elevation: 0 }]}>
+        <SkeletonPulse style={{ width: 40, height: 40, borderRadius: 10 }} />
+        <View style={{ flex: 1, gap: 6 }}>
+          <SkeletonPulse style={{ width: '60%', height: 14, borderRadius: 4 }} />
+          <SkeletonPulse style={{ width: '40%', height: 10, borderRadius: 4 }} />
+        </View>
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+          <SkeletonPulse style={{ width: 60, height: 14, borderRadius: 4 }} />
+          <SkeletonPulse style={{ width: 40, height: 12, borderRadius: 4 }} />
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+/* ─────────────────────────────────────────
+   Main Component
+───────────────────────────────────────── */
 const Payment = () => {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation();
@@ -46,12 +92,32 @@ const Payment = () => {
   const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadPayments(); }, []);
+  // 1. Initial Load Logic: Check Cache first
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+        if (cachedData) {
+          setData(JSON.parse(cachedData));
+          setLoading(false); // Hide global loader if cache exists
+        }
+      } catch (e) {
+        console.log("Cache load error:", e);
+      }
+      loadPayments(); // Fetch fresh data in background
+    };
+    init();
+  }, []);
 
   const loadPayments = async () => {
     try {
       const res = await ismServices.getPayments();
-      if (res?.status === 'success') setData(res.data || []);
+      if (res?.status === 'success') {
+        const payments = res.data || [];
+        setData(payments);
+        // 2. Save to Cache
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(payments));
+      }
     } catch (e) {
       console.log(e);
     } finally {
@@ -62,7 +128,6 @@ const Payment = () => {
   const formatCurrency = (amount) => {
     const num = parseFloat(amount);
     const isKhmer = i18n.language === 'km';
-    // Use Riel for Khmer, Rupee for English
     const symbol = isKhmer ? '៛' : '₹';
     const locale = isKhmer ? 'km-KH' : 'en-IN';
     return `${symbol}${(isNaN(num) ? 0 : num).toLocaleString(locale)}`;
@@ -79,22 +144,25 @@ const Payment = () => {
     });
   };
 
-  // ── Loading ────────────────────────────────────────────────────────────────
-  if (loading) {
+  const totalCredit = data
+    .filter((i) => i.type === 'CREDIT' || i.p_type === 'CR')
+    .reduce((s, i) => s + parseFloat(i.amount || 0), 0);
+
+  const totalDebit = data
+    .filter((i) => i.type !== 'CREDIT' && i.p_type !== 'CR')
+    .reduce((s, i) => s + parseFloat(i.amount || 0), 0);
+
+  // ── Skeleton State ──
+  if (loading && data.length === 0) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
         <AppHeader title={t("Payments")} nightMode={nightMode} showBack />
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={THEME.primary} />
-          <Text style={{ color: theme.sub, marginTop: 12, fontSize: 14 }}>
-            {t("Loading payments...")}
-          </Text>
-        </View>
+        <PaymentSkeleton theme={theme} />
       </SafeAreaView>
     );
   }
 
-  // ── Empty ──────────────────────────────────────────────────────────────────
+  // ── Empty State ──
   if (data.length === 0) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -111,14 +179,6 @@ const Payment = () => {
       </SafeAreaView>
     );
   }
-
-  const totalCredit = data
-    .filter((i) => i.type === 'CREDIT' || i.p_type === 'CR')
-    .reduce((s, i) => s + parseFloat(i.amount || 0), 0);
-
-  const totalDebit = data
-    .filter((i) => i.type !== 'CREDIT' && i.p_type !== 'CR')
-    .reduce((s, i) => s + parseFloat(i.amount || 0), 0);
 
   const renderItem = ({ item }) => {
     const isCredit  = item.type === 'CREDIT' || item.p_type === 'CR';
@@ -217,8 +277,6 @@ export default Payment;
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-  /* Summary banner */
   summaryCard:        { borderRadius: 14, padding: 16, marginBottom: 16, elevation: 2 },
   summaryInner:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   summaryLabel:       { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
@@ -230,47 +288,20 @@ const styles = StyleSheet.create({
   summarySplitDivider:{ width: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
   summarySplitLabel:  { fontSize: 11, color: 'rgba(255,255,255,0.75)' },
   summarySplitValue:  { fontSize: 12, fontWeight: '700', color: '#fff' },
-
-  /* Section header */
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   sectionTitle:  { fontSize: 14, fontWeight: '600' },
   badge:         { borderRadius: 12, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 },
   badgeText:     { fontSize: 11, fontWeight: '600' },
-
-  /* ── Compact card ── */
   card: {
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    elevation: 0.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
+    borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10,
+    elevation: 0.5, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3,
   },
-
-  /* Icon box — same size as stmtIconBox in AccountsScreen */
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  /* Middle */
+  iconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   mid:     { flex: 1 },
   remarks: { fontSize: 13, fontWeight: '600', marginBottom: 3 },
   date:    { fontSize: 11 },
-
-  /* Right — amount + badge stacked */
   right:  { alignItems: 'flex-end', gap: 4 },
   amount: { fontSize: 14, fontWeight: '700', letterSpacing: -0.3 },
-
-  /* Type badge */
   typeBadge:     { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 5 },
   typeBadgeText: { fontSize: 9, fontWeight: '700' },
 });

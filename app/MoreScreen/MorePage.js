@@ -15,9 +15,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UnRegisterOneSignal } from '../../services/oneSignalService';
 import { OneSignal } from 'react-native-onesignal';
 import { usePermissions } from '../../Utils/ConetextApi';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import AccountSelectorModal from '../Login/SelectUserMode';
 import { LoginSrv } from '../../services/LoginSrv';
+import { CommonActions } from '@react-navigation/native';
 import { ismServices } from '../../services/ismServices';
 import StatusModal from "../components/StatusModal";
 import BRAND from '../config';
@@ -36,11 +37,16 @@ const buildNumber = DeviceInfo.getBuildNumber();
 const PROFILE_CACHE_KEY = '@user_profile_cache';
 const DETAILS_CACHE_KEY = '@user_details_cache';
 
-// ── Skeleton Placeholder Component ──
+/* ─────────────────────────────────────────
+   Skeleton Placeholder
+───────────────────────────────────────── */
 const SkeletonText = ({ width = 80, height = 14, theme }) => (
   <View style={{ width, height, backgroundColor: theme.skeleton, borderRadius: 4 }} />
 );
 
+/* ─────────────────────────────────────────
+   InfoRow — RESTORED: adjustsFontSizeToFit, minimumFontScale, ellipsizeMode, marginRight
+───────────────────────────────────────── */
 const InfoRow = ({ label, value, theme, loading }) => (
   <View style={[styles.infoRow, { borderBottomColor: theme.divider }]}>
     <Text style={[styles.infoLabel, { color: theme.textSub }]} numberOfLines={1}>
@@ -50,7 +56,13 @@ const InfoRow = ({ label, value, theme, loading }) => (
       {loading ? (
         <SkeletonText width={100} theme={theme} />
       ) : (
-        <Text style={[styles.infoValue, { color: theme.textMain }]} numberOfLines={1}>
+        <Text
+          style={[styles.infoValue, { color: theme.textMain }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          ellipsizeMode="tail"
+        >
           {value || 'N/A'}
         </Text>
       )}
@@ -68,6 +80,7 @@ const ProfileScreen = () => {
   const [ownerOpen, setOwnerOpen] = useState(false);
   const [unitOpen, setUnitOpen] = useState(true);
   const [meterOpen, setMeterOpen] = useState(false);
+  const [vehicleOpen, setVehicleOpen] = useState(false); // RESTORED
 
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -103,23 +116,49 @@ const ProfileScreen = () => {
     cardBg: nightMode ? '#1F2937' : '#F9FAFB',
     danger: '#EF4444',
     primary: BRAND.COLORS.primary,
-    skeleton: nightMode ? '#374151' : '#E5E7EB',
+    skeleton: nightMode ? '#374151' : '#E5E7EB', // kept from Doc 4
   }), [nightMode]);
 
   useEffect(() => { loadUserProfile(); }, []);
 
+  /* ─────────────────────────────────────────
+     loadUserProfile
+     RESTORED: role validation + storedUser null check + full cache + parallel fetch
+  ───────────────────────────────────────── */
   const loadUserProfile = async () => {
     try {
+      setLoading(true);
+
+      // RESTORED: null-guard — crash prevention
+      const storedUser = await AsyncStorage.getItem('userInfo');
+      if (!storedUser) { setUserProfile(null); setLoading(false); return; }
+
+      // Doc 4 cache logic — keep for fast load
       const cachedProfile = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
       const cachedDetails = await AsyncStorage.getItem(DETAILS_CACHE_KEY);
-      
       if (cachedProfile) setUserProfile(JSON.parse(cachedProfile));
       if (cachedDetails) setUserDetails(JSON.parse(cachedDetails));
       if (cachedProfile) setLoading(false);
 
+      // RESTORED: role check — blocks non-resident roles from accessing the app
+      const parsedUser = JSON.parse(storedUser);
+      const ALLOWED = ['member', 'resident', 'tenant'];
+      const userRole = (parsedUser?.role || '').toLowerCase();
+
+      if (!ALLOWED.includes(userRole)) {
+        showAlert({
+          title: t('Access Denied'),
+          message: `${t('This app is not for')} ${parsedUser.role}`,
+          buttons: [{ text: t('OK') }],
+        });
+        await AsyncStorage.clear();
+        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+        return;
+      }
+
       const [res, res2] = await Promise.all([
         ismServices.getUserProfileData(),
-        ismServices.getUserDetails()
+        ismServices.getUserDetails(),
       ]);
 
       if (res?.status === 'success') {
@@ -131,187 +170,572 @@ const ProfileScreen = () => {
         await AsyncStorage.setItem(DETAILS_CACHE_KEY, JSON.stringify(res2));
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error loading profile:', e);
     } finally {
       setLoading(false);
     }
   };
 
+  /* ─────────────────────────────────────────
+     handleChangeProfileImage — with statusModal (Doc 3 pattern)
+  ───────────────────────────────────────── */
   const handleChangeProfileImage = async () => {
     try {
       ImagePicker.launchImageLibrary(
         { mediaType: 'photo', quality: 0.7, includeBase64: true },
         async (response) => {
-          if (response.didCancel || !response.assets?.[0]?.base64) return;
+          if (response.didCancel) return;
+          if (response.errorCode) { console.log("ImagePicker Error:", response.errorMessage); return; }
 
-          setStatusModal({ visible: true, type: 'loading', title: t('Uploading'), subtitle: t('Please wait...') });
-          const res = await otherServices.changeProfilePicture(`data:image/jpeg;base64,${response.assets[0].base64}`);
+          const base64 = response.assets?.[0]?.base64;
+          if (!base64) {
+            showAlert({ title: t('Error'), message: t('Unable to read image'), buttons: [{ text: t('OK') }] });
+            return;
+          }
+
+          setStatusModal({ visible: true, type: 'loading', title: t('Uploading Image'), subtitle: t('Please wait...') });
+          const res = await otherServices.changeProfilePicture(`data:image/jpeg;base64,${base64}`);
 
           if (res?.status === "success") {
-            setStatusModal({ visible: true, type: 'success', title: t('Success'), subtitle: t('Updated successfully') });
+            setStatusModal({ visible: true, type: 'success', title: t('Success'), subtitle: t('Profile picture updated') });
             await loadUserProfile();
           } else {
             setStatusModal({ visible: true, type: 'error', title: t('Failed'), subtitle: t('Upload failed') });
           }
         }
       );
-    } catch (e) { console.log(e); }
+    } catch (e) { console.log("Upload Error:", e); }
   };
 
+  /* ─────────────────────────────────────────
+     handleLogout
+     RESTORED: OneSignal cleanup + VisitorModule.clearAll
+  ───────────────────────────────────────── */
+  const handleLogout = useCallback(() => {
+    showAlert({
+      title: t('Logout'),
+      message: t('Are you sure you want to logout?'),
+      buttons: [
+        { text: t('Cancel'), style: 'cancel' },
+        {
+          text: t('Logout'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // RESTORED: push notification cleanup
+              OneSignal.User.pushSubscription.optOut();
+              OneSignal.logout();
+              await UnRegisterOneSignal();
+
+              // RESTORED: native module cleanup
+              if (VisitorModule?.clearAll) {
+                await VisitorModule.clearAll();
+              }
+
+              await AsyncStorage.clear();
+              navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+            } catch (e) {
+              console.log('Logout error:', e);
+            }
+          },
+        },
+      ],
+    });
+  }, [showAlert, navigation, t]);
+
+  /* ─────────────────────────────────────────
+     handleChangePassword
+     RESTORED: statusModal flow, field validation, state resets, eye icon resets
+  ───────────────────────────────────────── */
   const handleChangePassword = useCallback(async () => {
-    if (!newPassword || newPassword !== confirmPassword) {
-      setPassError(t('Passwords do not match'));
+    setPassError('');
+
+    if (!newPassword || !confirmPassword) {
+      setPassError(t('Please fill all password fields.'));
       return;
     }
+    if (newPassword !== confirmPassword) {
+      setPassError(t('Passwords do not match.'));
+      return;
+    }
+
     try {
       setChangingPassword(true);
-      const res = await ismServices.changePassword({ old_password: '', new_password: newPassword, cpassword: confirmPassword });
-      if (res?.status === 'success' || res?.data?.status === 'success') {
-        setChangePassModal(false);
-        setNewPassword(''); setConfirmPassword('');
-        showAlert({ title: t('Success'), message: t('Password changed'), buttons: [{ text: t('OK') }] });
-      }
-    } catch (e) { console.log(e); } finally { setChangingPassword(false); }
-  }, [newPassword, confirmPassword, t, showAlert]);
+      setChangePassModal(false);
 
+      setStatusModal({ visible: true, type: 'loading', title: t('Updating Password'), subtitle: t('Please wait...') });
+
+      const res = await ismServices.changePassword({
+        old_password: '',
+        new_password: newPassword,
+        cpassword: confirmPassword,
+      });
+      const status = res?.status || res?.data?.status;
+
+      if (status === 'success') {
+        setStatusModal({ visible: true, type: 'success', title: t('Password Updated'), subtitle: t('Your password was changed successfully.') });
+        setNewPassword('');
+        setConfirmPassword('');
+        setPassError('');
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
+      } else {
+        setStatusModal({ visible: true, type: 'error', title: t('Failed'), subtitle: t('Unable to change password.') });
+      }
+    } catch (e) {
+      setStatusModal({ visible: true, type: 'error', title: t('Error'), subtitle: t('Something went wrong. Please try again.') });
+    } finally {
+      setChangingPassword(false);
+    }
+  }, [newPassword, confirmPassword, t]);
+
+  /* ─────────────────────────────────────────
+     handleFetchAccounts
+     RESTORED: identity null guard + "No other accounts" alert for non-multipleLogin
+  ───────────────────────────────────────── */
   const handleFetchAccounts = async () => {
     try {
       setIsSwitching(true);
       const identity = await AsyncStorage.getItem("loginIdentity");
-      const response = await LoginSrv.login({ identity: identity.trim(), password: '', tenant: 0, user_id: null });
+
+      // RESTORED: null guard
+      if (!identity) {
+        showAlert({ title: t('Error'), message: t('Session expired. Please login again.'), buttons: [{ text: t('OK') }] });
+        return;
+      }
+
+      const response = await LoginSrv.login({
+        identity: identity.trim(),
+        password: '',
+        tenant: 0,
+        user_id: null,
+      });
+
       if (response.status === 'multipleLogin') {
         setAccounts(response.data);
         setModalVisible(true);
+      } else {
+        // RESTORED: feedback for single-account users
+        showAlert({ title: t('Notice'), message: t('No other accounts linked to your details.'), buttons: [{ text: t('OK') }] });
       }
-    } catch (e) { console.log(e); } finally { setIsSwitching(false); }
+    } catch (e) {
+      showAlert({ title: t('Error'), message: t('No accounts found!'), buttons: [{ text: t('OK') }] });
+    } finally {
+      setIsSwitching(false);
+    }
   };
 
+  /* ─────────────────────────────────────────
+     handleAccountSelect — RESTORED: delay + state resets
+  ───────────────────────────────────────── */
+  const handleAccountSelect = (selectedUser) => {
+    setModalVisible(false);
+    setSelectedUserId(selectedUser.user_id);
+    setPassword('');
+    setShowSwitchPassword(false);
+    setSwitchPassError('');
+    setTimeout(() => { setPasswordModal(true); }, 350);
+  };
+
+  /* ─────────────────────────────────────────
+     confirmSwitchLogin
+     RESTORED: OneSignal cleanup, complex user.id parsing,
+               VisitorModule.saveAuthDetails, loadPermissions, RegisterAppOneSignal
+  ───────────────────────────────────────── */
   const confirmSwitchLogin = async () => {
-    if (!password.trim()) { setSwitchPassError(t('Enter password')); return; }
+    if (!password.trim()) { setSwitchPassError(t('Please enter your password.')); return; }
+
     try {
       setIsSwitching(true);
       const identity = await AsyncStorage.getItem("loginIdentity");
-      const response = await LoginSrv.login({ identity, password, tenant: 0, user_id: selectedUserId });
-      if (response.status === 'success') {
-        await AsyncStorage.multiRemove(["userInfo", "permissions", "userDetails"]);
-        await AsyncStorage.setItem("userInfo", JSON.stringify(response.data));
-        navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "MainApp" }] }));
-      } else {
-        setSwitchPassError(t("Incorrect password"));
-      }
-    } catch (e) { console.log(e); } finally { setIsSwitching(false); }
-  };
 
-  const handleLogout = useCallback(() => {
-    showAlert({
-      title: t('Logout'), message: t('Are you sure?'),
-      buttons: [
-        { text: t('Cancel'), style: 'cancel' },
-        { text: t('Logout'), style: 'destructive', onPress: async () => {
-          await AsyncStorage.clear();
-          navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
-        }}
-      ]
-    });
-  }, [t, showAlert, navigation]);
+      const response = await LoginSrv.login({
+        identity: identity?.trim(),
+        password: password,
+        tenant: 0,
+        user_id: selectedUserId,
+      });
+
+      if (response.status !== 'success') {
+        setSwitchPassError(response.message || t('Incorrect password.'));
+        return;
+      }
+
+      // RESTORED: full cleanup before switching
+      try {
+        OneSignal.User.pushSubscription.optOut();
+        OneSignal.logout();
+        await UnRegisterOneSignal();
+        if (VisitorModule?.clearAll) await VisitorModule.clearAll();
+        await AsyncStorage.multiRemove(["userInfo", "permissions", "userDetails"]);
+      } catch (cleanupError) {
+        console.log("⚠️ Cleanup error:", cleanupError);
+      }
+
+      // RESTORED: complex user.id parsing for encoded responses
+      let user = response.data;
+      if (typeof user.id === "string" && user.id.includes("user_id")) {
+        const parsed = JSON.parse(user.id);
+        user = {
+          ...user,
+          id: parsed.user_id,
+          unit_id: parsed.unit_id,
+          role_id: parsed.group_id,
+          flat_no: parsed.flat_no,
+          societyId: parsed.society_id,
+        };
+      }
+
+      await AsyncStorage.setItem("userInfo", JSON.stringify(user));
+
+      // RESTORED: native module auth save
+      if (VisitorModule?.saveAuthDetails) {
+        await VisitorModule.saveAuthDetails({
+          apiToken: user.api_token || "",
+          userId: String(user.id || ""),
+          societyId: String(user.societyId || user.society_id || ""),
+          roleId: String(user.role_id || user.group_id || ""),
+          unitId: String(user.unit_id || ""),
+          flatNo: String(user.flat_no || ""),
+        });
+      }
+
+      // RESTORED: permissions reload + OneSignal re-register
+      await loadPermissions();
+      await new Promise(res => setTimeout(res, 400));
+      await RegisterAppOneSignal();
+
+      setPasswordModal(false);
+      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: "MainApp" }] }));
+    } catch (error) {
+      setSwitchPassError(t('Unable to connect to server.'));
+    } finally {
+      setIsSwitching(false);
+    }
+  };
 
   const avatarSource = useMemo(() => {
     if (userProfile?.image_src) return { uri: userProfile.image_src };
-    return { uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile?.name || 'U')}&background=3B82F6&color=fff` };
-  }, [userProfile]);
+    return { uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile?.name || 'User')}&background=3B82F6&color=fff&size=200` };
+  }, [userProfile?.image_src, userProfile?.name]);
+
+  // Only bail out if loading is fully done and there is genuinely no data
+  if (!loading && !userProfile) return null;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Profile Header */}
+        {/* ── Profile Header ───────────────────────────────────────────── */}
         <View style={[styles.profileCard, { backgroundColor: theme.cardBg }]}>
           <View style={{ alignItems: 'center' }}>
-            <Image source={avatarSource} style={styles.avatar} />
-            <TouchableOpacity onPress={handleChangeProfileImage}>
-              <Text style={styles.changeText}>{t("Change")}</Text>
+            {/* Skeleton circle while no profile yet; real avatar once data arrives */}
+            {loading && !userProfile ? (
+              <View style={[styles.avatar, { backgroundColor: theme.skeleton }]} />
+            ) : (
+              <Image source={avatarSource} style={styles.avatar} />
+            )}
+            <TouchableOpacity onPress={handleChangeProfileImage} disabled={!userProfile}>
+              <Text style={[styles.changeText, !userProfile && { opacity: 0 }]}>{t("Change")}</Text>
             </TouchableOpacity>
           </View>
+          {/* RESTORED: overflow hidden on profileInfo */}
           <View style={styles.profileInfo}>
+            {/* Show skeleton when loading with no data at all (no cache either) */}
             {loading && !userProfile ? (
-              <View style={{ gap: 8 }}><SkeletonText width="80%" height={18} theme={theme} /><SkeletonText width="60%" theme={theme} /></View>
+              <View style={{ gap: 8 }}>
+                <SkeletonText width="80%" height={18} theme={theme} />
+                <SkeletonText width="60%" height={13} theme={theme} />
+                <SkeletonText width="70%" height={13} theme={theme} />
+              </View>
             ) : (
-              <><Text style={[styles.userName, { color: theme.textMain }]}>{userProfile?.name}</Text>
-                <Text style={[styles.userSub, { color: theme.textSub }]}>{userProfile?.phone_no}</Text>
-                <Text style={[styles.userSub, { color: theme.textSub }]}>{userProfile?.email}</Text></>
+              <>
+                <Text style={[styles.userName, { color: theme.textMain }]} numberOfLines={1}>
+                  {userProfile?.name}
+                </Text>
+                <Text style={[styles.userSub, { color: theme.textSub }]} numberOfLines={1}>
+                  {userProfile?.phone_no}
+                </Text>
+                <Text style={[styles.userSub, { color: theme.textSub }]} numberOfLines={1}>
+                  {userProfile?.email}
+                </Text>
+              </>
             )}
           </View>
         </View>
 
-        {/* Virtual ID */}
-        <TouchableOpacity style={[styles.virtualIdCard, { backgroundColor: theme.cardBg }]} onPress={() => navigation.navigate('ResidentIdCard')}>
+        {/* ── Virtual ID Card ──────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={[styles.virtualIdCard, { backgroundColor: theme.cardBg }]}
+          onPress={() => navigation.navigate('ResidentIdCard')}
+          activeOpacity={0.8}
+        >
           <View style={styles.virtualIdLeft}>
-            <View style={[styles.virtualIdIcon, { backgroundColor: theme.primary + '18' }]}><Ionicons name="card-outline" size={22} color={theme.primary} /></View>
+            <View style={[styles.virtualIdIcon, { backgroundColor: theme.primary + '18' }]}>
+              <Ionicons name="card-outline" size={22} color={theme.primary} />
+            </View>
             <View style={styles.virtualIdText}>
-              <Text style={[styles.virtualIdTitle, { color: theme.textMain }]}>{t("Virtual ID Card")}</Text>
-              <Text style={[styles.virtualIdSub, { color: theme.textSub }]}>{t("View identity card")}</Text>
+              <Text style={[styles.virtualIdTitle, { color: theme.textMain }]} numberOfLines={1}>
+                {t("Virtual ID Card")}
+              </Text>
+              <Text style={[styles.virtualIdSub, { color: theme.textSub }]} numberOfLines={1}>
+                {t("View your resident identity card")}
+              </Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.textSub} />
         </TouchableOpacity>
 
-        {/* Unit Details */}
+        {/* ── Unit Details ─────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <TouchableOpacity style={styles.dropdownHeader} onPress={() => setUnitOpen(p => !p)}>
             <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Unit Details")}</Text>
-            <Ionicons name={unitOpen ? 'chevron-up' : 'chevron-down'} size={20} color={theme.textSub} />
+            <Ionicons name={unitOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color={theme.textSub} />
           </TouchableOpacity>
           {unitOpen && (
             <View style={styles.dropdownContent}>
               <InfoRow label={t("Tower")} value={userDetails?.tower} theme={theme} loading={loading && !userDetails} />
               <InfoRow label={t("Flat No")} value={userDetails?.flat_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Area (Sq Ft)")} value={userDetails?.size_sf} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Category")} value={userDetails?.fc_name} theme={theme} loading={loading && !userDetails} />
             </View>
           )}
         </View>
 
-        {/* Static Settings */}
+        {/* ── Owner Details — RESTORED ─────────────────────────────────── */}
+        {userProfile?.tenant == 1 && (
+          <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
+            <TouchableOpacity style={styles.dropdownHeader} onPress={() => setOwnerOpen(p => !p)}>
+              <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Owner Details")}</Text>
+              <Ionicons name={ownerOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color={theme.textSub} />
+            </TouchableOpacity>
+            {ownerOpen && (
+              <View style={styles.dropdownContent}>
+                <InfoRow label={t("Owner Name")} value={userDetails?.name} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Phone")} value={userDetails?.phone_no || userDetails?.owner_alt_phone_no} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Email")} value={userDetails?.email || userDetails?.owner_alt_email} theme={theme} loading={loading && !userDetails} />
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Meter Details — RESTORED ─────────────────────────────────── */}
+        <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
+          <TouchableOpacity style={styles.dropdownHeader} onPress={() => setMeterOpen(p => !p)}>
+            <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Meter Details")}</Text>
+            <Ionicons name={meterOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color={theme.textSub} />
+          </TouchableOpacity>
+          {meterOpen && (
+            <View style={styles.dropdownContent}>
+              <InfoRow label={t("Grid Meter No")} value={userDetails?.grid_meter_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Grid Demand Load")} value={userDetails?.grid_demand_load} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("DG Meter No")} value={userDetails?.dg_meter_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("DG Demand Load")} value={userDetails?.dg_demand_load} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Meter Seal No")} value={userDetails?.meter_seal_no} theme={theme} loading={loading && !userDetails} />
+            </View>
+          )}
+        </View>
+
+        {/* ── Settings ─────────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Settings")}</Text>
+
           <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')}>
-            <Ionicons name="settings-outline" size={20} color={theme.textMain} /><Text style={[styles.actionText, { color: theme.textMain }]}>{t("App Settings")}</Text>
+            <Ionicons name="settings-outline" size={20} color={theme.textMain} />
+            <Text style={[styles.actionText, { color: theme.textMain }]} numberOfLines={1}>
+              {t("App Settings")}
+            </Text>
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionRow} onPress={() => setChangePassModal(true)}>
-            <Ionicons name="lock-closed-outline" size={20} color={theme.textMain} /><Text style={[styles.actionText, { color: theme.textMain }]}>{t("Change Password")}</Text>
+            <Ionicons name="lock-closed-outline" size={20} color={theme.textMain} />
+            <Text style={[styles.actionText, { color: theme.textMain }]} numberOfLines={1}>
+              {t("Change Password")}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionRow} onPress={handleFetchAccounts}>
-            <Ionicons name="swap-horizontal-outline" size={20} color={theme.textMain} /><Text style={[styles.actionText, { color: theme.textMain }]}>{t("Switch Account")}</Text>
+
+          {/* RESTORED: loading spinner + "Fetching Accounts…" text */}
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={handleFetchAccounts}
+            disabled={isSwitching && !passwordModal}
+          >
+            {isSwitching && !passwordModal ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <Ionicons name="swap-horizontal-outline" size={20} color={theme.textMain} />
+            )}
+            <Text style={[styles.actionText, { color: theme.textMain }]} numberOfLines={1}>
+              {isSwitching && !passwordModal ? t('Fetching Accounts...') : t('Switch Account')}
+            </Text>
           </TouchableOpacity>
+
           <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color={theme.danger} /><Text style={[styles.actionText, { color: theme.danger }]}>{t("Logout")}</Text>
+            <Ionicons name="log-out-outline" size={20} color={theme.danger} />
+            <Text style={[styles.actionText, { color: theme.danger }]} numberOfLines={1}>
+              {t("Logout")}
+            </Text>
           </TouchableOpacity>
         </View>
-        <Text style={[styles.versionText, { color: theme.textSub }]}>v{version} ({buildNumber})</Text>
+
+        <Text style={[styles.versionText, { color: theme.textSub }]}>
+          v{version} ({buildNumber})
+        </Text>
+
       </ScrollView>
 
-      {/* Modals */}
-      <Modal visible={changePassModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}><View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>{t("Change Password")}</Text>
-          <TextInput placeholder={t("New Password")} secureTextEntry value={newPassword} onChangeText={setNewPassword} style={styles.passwordInput} />
-          <TextInput placeholder={t("Confirm Password")} secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} style={styles.passwordInput} />
-          <TouchableOpacity style={[styles.modalPrimaryBtn, { backgroundColor: theme.primary }]} onPress={handleChangePassword}><Text style={styles.modalPrimaryBtnText}>{t("Update")}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setChangePassModal(false)} style={styles.modalCancelBtn}><Text style={styles.modalCancelText}>{t("Cancel")}</Text></TouchableOpacity>
-        </View></View>
+      {/* ── Change Password Modal — RESTORED: eye icons, error border, state resets ── */}
+      <Modal
+        visible={changePassModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setChangePassModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{t("Change Password")}</Text>
+
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                placeholder={t("New Password")}
+                secureTextEntry={!showNewPassword}
+                value={newPassword}
+                onChangeText={(text) => { setNewPassword(text); setPassError(''); }}
+                placeholderTextColor="#9CA3AF"
+                style={[styles.passwordInput, passError ? { borderColor: '#EF4444' } : null]}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {/* RESTORED: eye icon toggle */}
+              <TouchableOpacity onPress={() => setShowNewPassword(p => !p)} style={styles.eyeIcon}>
+                <Ionicons name={showNewPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                placeholder={t("Confirm Password")}
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={(text) => { setConfirmPassword(text); setPassError(''); }}
+                placeholderTextColor="#9CA3AF"
+                style={[styles.passwordInput, passError ? { borderColor: '#EF4444' } : null]}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {/* RESTORED: eye icon toggle */}
+              <TouchableOpacity onPress={() => setShowConfirmPassword(p => !p)} style={styles.eyeIcon}>
+                <Ionicons name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+
+            {passError ? <Text style={styles.inlineError}>{passError}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.modalPrimaryBtn, { backgroundColor: theme.primary, marginTop: passError ? 10 : 0 }]}
+              onPress={handleChangePassword}
+              disabled={changingPassword}
+            >
+              <Text style={styles.modalPrimaryBtnText}>
+                {changingPassword ? t('Updating...') : t('Update Password')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => {
+                setChangePassModal(false);
+                setNewPassword('');
+                setConfirmPassword('');
+                setPassError('');
+                setShowNewPassword(false);
+                setShowConfirmPassword(false);
+              }}
+            >
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
-      <AccountSelectorModal visible={modalVisible} accounts={accounts} onSelect={(u) => { setModalVisible(false); setSelectedUserId(u.user_id); setPasswordModal(true); }} onClose={() => setModalVisible(false)} />
-      
-      <Modal visible={passwordModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}><View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>{t("Verify")}</Text>
-          <TextInput placeholder={t("Password")} secureTextEntry value={password} onChangeText={setPassword} style={styles.passwordInput} />
-          {switchPassError ? <Text style={styles.inlineError}>{switchPassError}</Text> : null}
-          <TouchableOpacity style={[styles.modalPrimaryBtn, { backgroundColor: theme.primary }]} onPress={confirmSwitchLogin}><Text style={styles.modalPrimaryBtnText}>{t("Login")}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setPasswordModal(false)} style={styles.modalCancelBtn}><Text style={styles.modalCancelText}>{t("Cancel")}</Text></TouchableOpacity>
-        </View></View>
+      {/* ── Account Selector Modal ────────────────────────────────────── */}
+      <AccountSelectorModal
+        visible={modalVisible}
+        accounts={accounts}
+        onSelect={handleAccountSelect}
+        onClose={() => setModalVisible(false)}
+      />
+
+      {/* ── Switch Account Password Modal — RESTORED: eye icon, description text, error border ── */}
+      <Modal
+        visible={passwordModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{t("Verify Account")}</Text>
+            {/* RESTORED: description text */}
+            <Text style={{ color: '#6B7280', fontSize: 13, marginBottom: 15 }}>
+              {t("Please enter your password to switch to this account.")}
+            </Text>
+
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                placeholder={t("Password")}
+                secureTextEntry={!showSwitchPassword}
+                placeholderTextColor="#9CA3AF"
+                value={password}
+                onChangeText={(text) => { setPassword(text); setSwitchPassError(''); }}
+                style={[styles.passwordInput, switchPassError ? { borderColor: '#EF4444' } : null]}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {/* RESTORED: eye icon toggle */}
+              <TouchableOpacity onPress={() => setShowSwitchPassword(p => !p)} style={styles.eyeIcon}>
+                <Ionicons name={showSwitchPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+
+            {switchPassError ? <Text style={styles.inlineError}>{switchPassError}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.modalPrimaryBtn, { backgroundColor: theme.primary, marginTop: switchPassError ? 10 : 0 }]}
+              onPress={confirmSwitchLogin}
+              disabled={isSwitching}
+            >
+              {isSwitching ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.modalPrimaryBtnText}>{t("Login")}</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCancelBtn}
+              onPress={() => {
+                setPasswordModal(false);
+                setPassword('');
+                setShowSwitchPassword(false);
+                setSwitchPassError('');
+              }}
+              disabled={isSwitching}
+            >
+              <Text style={styles.modalCancelText}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
-      <StatusModal visible={statusModal.visible} type={statusModal.type} title={statusModal.title} subtitle={statusModal.subtitle} onClose={() => setStatusModal(p => ({...p, visible: false}))} />
+      <StatusModal
+        visible={statusModal.visible}
+        type={statusModal.type}
+        title={statusModal.title}
+        subtitle={statusModal.subtitle}
+        onClose={() => setStatusModal(prev => ({ ...prev, visible: false }))}
+      />
+
       <AlertComponent />
     </View>
   );
@@ -322,35 +746,81 @@ export default ProfileScreen;
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 120 },
-  profileCard: { flexDirection: 'row', alignItems: 'center', padding: 18, borderRadius: 18, marginBottom: 16 },
-  avatar: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#E5E7EB' },
-  profileInfo: { flex: 1, marginLeft: 14 },
-  userName: { fontSize: 18, fontWeight: '700' },
+
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 18,
+    borderRadius: 18,
+    marginBottom: 16,
+  },
+  avatar: { width: 70, height: 70, borderRadius: 35, flexShrink: 0, backgroundColor: '#E5E7EB' },
+  // RESTORED: overflow hidden to prevent long names from overflowing
+  profileInfo: { flex: 1, marginLeft: 14, overflow: 'hidden' },
+  userName: { fontSize: 18, fontWeight: '700', marginBottom: 2 },
   userSub: { fontSize: 13, marginTop: 3 },
   changeText: { marginTop: 6, fontSize: 13, fontWeight: '600', color: BRAND.COLORS.primary, textAlign: 'center' },
-  virtualIdCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, marginBottom: 16 },
-  virtualIdLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  virtualIdIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  virtualIdText: { flex: 1 },
+
+  virtualIdCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  // RESTORED: marginRight on virtualIdLeft to avoid chevron overlap
+  virtualIdLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, marginRight: 8 },
+  virtualIdIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+  virtualIdText: { flex: 1, overflow: 'hidden' },
   virtualIdTitle: { fontSize: 15, fontWeight: '600' },
   virtualIdSub: { fontSize: 12, marginTop: 2 },
+
   card: { borderRadius: 18, padding: 18, marginBottom: 16 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   dropdownHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dropdownContent: { marginTop: 10 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 0.5 },
-  infoLabel: { fontSize: 14, flex: 5 },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+  },
+  // RESTORED: marginRight on infoLabel to prevent label/value collision
+  infoLabel: { fontSize: 14, flex: 5, marginRight: 8 },
   infoValue: { fontSize: 14, fontWeight: '500', textAlign: 'right' },
+
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
   actionText: { fontSize: 15, flex: 1 },
-  versionText: { textAlign: 'center', fontSize: 13, marginTop: 20 },
+
+  // RESTORED: marginBottom
+  versionText: { textAlign: 'center', fontSize: 13, marginTop: 10, marginBottom: 10, fontWeight: '500' },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalCard: { backgroundColor: '#fff', width: '85%', padding: 20, borderRadius: 16 },
   modalTitle: { fontWeight: 'bold', fontSize: 16, marginBottom: 12 },
-  passwordInput: { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 10, padding: 12, marginBottom: 14 },
-  modalPrimaryBtn: { padding: 14, borderRadius: 10, alignItems: 'center' },
-  modalPrimaryBtnText: { color: '#fff', fontWeight: '600' },
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    padding: 12,
+    paddingRight: 45, // RESTORED: space for eye icon
+    marginBottom: 14,
+    fontSize: 14,
+    color: '#111827',
+  },
+  // RESTORED: eye icon absolute position
+  eyeIcon: { position: 'absolute', right: 15, top: 13 },
+  inlineError: { color: '#EF4444', fontSize: 13, marginTop: -8, marginBottom: 10, paddingLeft: 2 },
+  modalPrimaryBtn: {
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  modalPrimaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
   modalCancelBtn: { marginTop: 15, alignItems: 'center' },
-  modalCancelText: { color: '#EF4444' },
-  inlineError: { color: '#EF4444', fontSize: 12, marginBottom: 10 }
+  modalCancelText: { color: '#EF4444', fontSize: 14, fontWeight: '500' },
 });
