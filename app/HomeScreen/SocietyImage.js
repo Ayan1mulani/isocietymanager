@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   View,
-  FlatList,
   StyleSheet,
   Dimensions,
   Animated,
@@ -21,9 +20,7 @@ const { width } = Dimensions.get("window");
 
 const SIDE_PADDING = 20;
 const SPACING = 14;
-// Width when multiple images (leaves space on right for the next card)
 const ITEM_WIDTH_MULTI = width - SIDE_PADDING * 2 - 40;
-// Width when only 1 image (takes full available space)
 const ITEM_WIDTH_SINGLE = width - SIDE_PADDING * 2;
 
 const SNAP_INTERVAL = ITEM_WIDTH_MULTI + SPACING;
@@ -109,7 +106,8 @@ const AnimatedDot = ({ index, scrollX, theme }) => {
   );
 };
 
-const CarouselSection = () => {
+// 🚀 1. Accept refreshTrigger as a prop
+const CarouselSection = ({ refreshTrigger }) => {
   const { t } = useTranslation();
   const { nightMode } = usePermissions();
   const flatListRef = useRef(null);
@@ -117,7 +115,7 @@ const CarouselSection = () => {
   
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [fullScreenImage, setFullScreenImage] = useState(null); // State for full screen modal
+  const [fullScreenImage, setFullScreenImage] = useState(null);
 
   const scrollX = useRef(new Animated.Value(0)).current;
 
@@ -131,6 +129,7 @@ const CarouselSection = () => {
 
   const fetchImages = async () => {
     try {
+      setLoading(true); // Ensure loading state shows when refreshing
       const res = await visitorServices.getSocietyImages();
       if (res?.status === "success" && Array.isArray(res?.data)) {
         const formatted = res.data.map((url, index) => ({
@@ -147,9 +146,10 @@ const CarouselSection = () => {
     }
   };
 
+  // 🚀 2. Listen to refreshTrigger and remove the setTimeout
   useEffect(() => {
     fetchImages();
-  }, []);
+  }, [refreshTrigger]);
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -194,7 +194,7 @@ const CarouselSection = () => {
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
-          snapToInterval={isSingleImage ? width : SNAP_INTERVAL} // Disable snapping for single image
+          snapToInterval={isSingleImage ? width : SNAP_INTERVAL}
           snapToAlignment="start"
           decelerationRate="fast"
           disableIntervalMomentum={true}
@@ -213,7 +213,6 @@ const CarouselSection = () => {
               onPress={() => setFullScreenImage(item.uri)}
               style={[
                 styles.card, 
-                // ✨ Dynamic width: full width if 1 image, cropped width if multiple
                 { width: isSingleImage ? ITEM_WIDTH_SINGLE : ITEM_WIDTH_MULTI }
               ]}
             >
@@ -221,9 +220,11 @@ const CarouselSection = () => {
                 source={{
                   uri: item.uri,
                   priority: FastImage.priority.high,
-                  cache: FastImage.cacheControl.immutable,
+                  // 🚀 FIX 1: Remove the "cache: web" line entirely. 
+                  // Let FastImage use its default caching, which is much safer and matches your Modal!
                 }}
-                style={StyleSheet.absoluteFill}
+                // 🚀 FIX 2: Change absoluteFill to explicitly take up 100% of the parent card
+                style={{ width: "100%", height: "100%" }}
                 resizeMode={FastImage.resizeMode.cover}
               />
             </TouchableOpacity>
@@ -250,7 +251,7 @@ const CarouselSection = () => {
         </View>
       )}
 
-      {/* 🔴 Full Screen Image Modal */}
+      {/* Full Screen Image Modal */}
       <Modal
         visible={!!fullScreenImage}
         transparent={true}
@@ -289,8 +290,6 @@ const styles = StyleSheet.create({
   sectionWrapper: {
     paddingTop: 30,
   },
-
-  /* Card */
   card: {
     height: CARD_HEIGHT,
     borderRadius: 18,
@@ -302,8 +301,6 @@ const styles = StyleSheet.create({
     elevation: 4,
     backgroundColor: "#E5E7EB",
   },
-
-  /* Shimmer */
   shimmerRow: {
     flexDirection: "row",
     paddingHorizontal: SIDE_PADDING,
@@ -316,8 +313,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#E5E7EB",
   },
-
-  /* Pagination */
   paginationWrapper: {
     alignItems: "center",
     marginTop: 15,
@@ -334,8 +329,6 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 4,
   },
-
-  /* Full Screen Modal */
   modalBackground: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.92)",

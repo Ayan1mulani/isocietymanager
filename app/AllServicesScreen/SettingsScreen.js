@@ -248,6 +248,7 @@ const SettingsScreen = () => {
     setStaffNotification(value);
     updateCache({ staffNotification: value });
     try {
+      await DefaultPreference.set("NATIVE_STAFF_SOUND_ENABLED", value ? "true" : "false");
       otherServices.setNotificationSound("STAFF", value);
       const stored = await AsyncStorage.getItem("notificationSoundSettings");
       let data = stored ? JSON.parse(stored) : [];

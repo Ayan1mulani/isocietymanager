@@ -107,8 +107,14 @@ function BillPaymentScreen({ navigation, route }) {
       setOutstanding(outList);
 
       // Step 2: get all bill types
-      const btRes = await ismServices.getBillTypes();
-      let allTypes = Array.from((btRes?.data ?? btRes ?? []).values());
+   // Step 2: Check params FIRST before making an API call
+      let allTypes = [];
+      if (route?.params?.allBillTypes && route.params.allBillTypes.length > 0) {
+        allTypes = route.params.allBillTypes; // 🚀 Use data from previous screen (Instant!)
+      } else {
+        const btRes = await ismServices.getBillTypes(); // Only fetch if we really have to
+        allTypes = Array.from((btRes?.data ?? btRes ?? []).values());
+      }
 
       // Step 3: sort by display_order
       allTypes = allTypes.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
@@ -300,6 +306,8 @@ function BillPaymentScreen({ navigation, route }) {
       ) : (
         <ScrollView
           contentContainerStyle={styles.content}
+     // 🚀 CHANGE THIS
+
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >

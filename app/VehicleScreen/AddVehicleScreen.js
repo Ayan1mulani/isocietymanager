@@ -26,10 +26,10 @@ import AppHeader from "../components/AppHeader";
 /* ---------- VEHICLE TYPES ---------- */
 
 const VEHICLE_TYPES = [
-  { key: "vehicle.car", value: "Car" },
-  { key: "vehicle.bike", value: "Bike" },
-  { key: "vehicle.two_wheeler", value: "2 Wheeler" },
-  { key: "vehicle.other", value: "Other" },
+  { key: "car", value: "Car" },
+  { key: "bike", value: "Bike" },
+  { key: "two-wheeler", value: "2 Wheeler" },
+  { key: "other", value: "Other" },
 ];
 
 const getKeyFromValue = (value) => {

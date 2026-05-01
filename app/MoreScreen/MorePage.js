@@ -233,6 +233,15 @@ const ProfileScreen = () => {
               }
 
               await AsyncStorage.clear();
+              await AsyncStorage.multiRemove([
+                'userInfo',
+                'permissions',
+                'userDetails',
+                '@user_profile_cache',
+                '@user_details_cache',
+                'CACHED_OUTSTANDING', // from your rent card
+                'RENT_CARD_VISIBLE'   // from home screen
+              ]);
               navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
             } catch (e) {
               console.log('Logout error:', e);

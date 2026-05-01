@@ -75,7 +75,7 @@ const PendingStatusScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B7C" />
+      <StatusBar barStyle="dark-content"  />
 
       {/* Header */}
       <View style={styles.header}>

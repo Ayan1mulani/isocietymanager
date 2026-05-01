@@ -229,49 +229,72 @@ const MeterReadingTab = () => {
                 contentContainerStyle={styles.listContent}
             />
 
-            <Modal visible={showInfo} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <div style={styles.modalBox}>
-                        <View style={styles.modalHeader}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <View style={styles.pulseDot} />
-                                <Text style={styles.modalTitle}>{t("Live Meter Status")}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setShowInfo(false)}><Ionicons name="close" size={24} color="#6B7280" /></TouchableOpacity>
-                        </View>
-
-                        <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                            {loadingLive ? (
-                                <View style={styles.modalLoader}>
-                                    <ActivityIndicator size="large" color="#2E8BC0" />
-                                    <Text style={styles.modalLoaderText}>{t("Contacting meter...")}</Text>
-                                </View>
-                            ) : selectedItem ? (
-                                <View style={styles.modalDataContainer}>
-                                    <View style={styles.infoRow}><Text style={styles.label}>{t("Meter ID")}</Text><Text style={styles.value}>{selectedItem.id}</Text></View>
-                                    <View style={styles.infoRow}><Text style={styles.label}>{t("Unit Number")}</Text><Text style={styles.value}>{selectedItem.unit_no}</Text></View>
-                                    <View style={styles.infoRow}><Text style={styles.label}>{t("Grid Reading")}</Text><Text style={[styles.value, { color: '#059669' }]}>{selectedItem.grid} kW</Text></View>
-                                    <View style={styles.infoRow}><Text style={styles.label}>{t("DG Reading")}</Text><Text style={[styles.value, { color: '#D97706' }]}>{selectedItem.dg} kW</Text></View>
-                                    <View style={styles.infoRow}><Text style={styles.label}>{t("AHU")}</Text><Text style={styles.value}>{selectedItem.ahu}</Text></View>
-                                    <View style={styles.infoRow}><Text style={styles.label}>{t("Date Time")}</Text><Text style={styles.value}>{moment(selectedItem.date_time).format("D MMM YY, h:mm A")}</Text></View>
-                                    <View style={[styles.infoRow, { borderBottomWidth: 0 }]}><Text style={styles.label}>{t("Last Updated")}</Text><Text style={styles.value}>{moment(selectedItem.updated_at).format("D MMM YY, h:mm A")}</Text></View>
-                                </View>
-                            ) : (
-                                <View style={styles.modalLoader}>
-                                    <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
-                                    <Text style={styles.modalLoaderText}>{t("No live data available")}</Text>
-                                </View>
-                            )}
-                        </ScrollView>
-
-                        {!loadingLive && (
-                            <TouchableOpacity style={styles.okButton} onPress={() => setShowInfo(false)}>
-                                <Text style={styles.okText}>{t("Done")}</Text>
-                            </TouchableOpacity>
-                        )}
-                    </div>
+<Modal visible={showInfo} transparent animationType="fade">
+    <View style={styles.modalOverlay}>
+        <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={styles.pulseDot} />
+                    <Text style={styles.modalTitle}>{t("Live Meter Status")}</Text>
                 </View>
-            </Modal>
+                <TouchableOpacity onPress={() => setShowInfo(false)}>
+                    <Ionicons name="close" size={24} color="#6B7280" />
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                {loadingLive ? (
+                    <View style={styles.modalLoader}>
+                        <ActivityIndicator size="large" color="#2E8BC0" />
+                        <Text style={styles.modalLoaderText}>{t("Contacting meter...")}</Text>
+                    </View>
+                ) : selectedItem ? (
+                    <View style={styles.modalDataContainer}>
+                        <View style={styles.infoRow}>
+                            <Text style={styles.label}>{t("Meter ID")}</Text>
+                            <Text style={styles.value}>{selectedItem.id}</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Text style={styles.label}>{t("Unit Number")}</Text>
+                            <Text style={styles.value}>{selectedItem.unit_no}</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Text style={styles.label}>{t("Grid Reading")}</Text>
+                            <Text style={[styles.value, { color: '#059669' }]}>{selectedItem.grid} kW</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Text style={styles.label}>{t("DG Reading")}</Text>
+                            <Text style={[styles.value, { color: '#D97706' }]}>{selectedItem.dg} kW</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Text style={styles.label}>{t("AHU")}</Text>
+                            <Text style={styles.value}>{selectedItem.ahu}</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Text style={styles.label}>{t("Date Time")}</Text>
+                            <Text style={styles.value}>{moment(selectedItem.date_time).format("D MMM YY, h:mm A")}</Text>
+                        </View>
+                        <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                            <Text style={styles.label}>{t("Last Updated")}</Text>
+                            <Text style={styles.value}>{moment(selectedItem.updated_at).format("D MMM YY, h:mm A")}</Text>
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.modalLoader}>
+                        <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
+                        <Text style={styles.modalLoaderText}>{t("No live data available")}</Text>
+                    </View>
+                )}
+            </ScrollView>
+
+            {!loadingLive && (
+                <TouchableOpacity style={styles.okButton} onPress={() => setShowInfo(false)}>
+                    <Text style={styles.okText}>{t("Done")}</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    </View>
+</Modal>
         </View>
     );
 };

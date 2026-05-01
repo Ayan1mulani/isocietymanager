@@ -315,8 +315,7 @@ const NewLoginScreen = () => {
     return (
       <View style={[styles.safeArea, styles.splashContainer]}>
         <StatusBar
-          backgroundColor="#1a2540"
-          barStyle="light-content"
+          barStyle="dark-content"
         />
         <Animated.Image
           source={BRAND.LOGO}
@@ -337,8 +336,7 @@ const NewLoginScreen = () => {
   return (
     <View style={styles.safeArea}>
       <StatusBar
-        backgroundColor="#1a2540"
-        barStyle="light-content"
+        barStyle="dark-content"
       />
 
       <KeyboardAvoidingView

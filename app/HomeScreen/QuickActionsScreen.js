@@ -22,7 +22,7 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 const ACTIONS = [
   { id: "1", title: "Pass", icon: "create-outline", screen: "Visitors", module: "VMS", action: "R" },
   { id: "2", title: "Amenities", icon: "bookmark-outline", screen: "AmenitiesListScreen", module: "FBK", action: "R" },
-  { id: "3", title: "Notice", icon: "megaphone-outline", screen: "MyNoticesScreen", module: "NTC", action: "R" },
+  { id: "3", title: "ID Card", icon: "id-card-outline", screen: "ResidentIdCard" },
   { id: "4", title: "Bookings", icon: "calendar-outline", screen: "MyBookings", module: "FBK", action: "R" },
   { id: "5", title: "My Vehicles", icon: "car-outline", screen: "MyVehiclesScreen", module: "VEH", action: "R" },
 ];
