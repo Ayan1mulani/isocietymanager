@@ -76,6 +76,7 @@ const SettingsScreen = () => {
   // ── Available Languages List ──
   const availableLanguages = [
     { code: 'en', label: 'English' },
+    { code: 'hi', label: 'Hindi (हिंदी)' },
     { code: 'km', label: 'Khmer (ភាសាខ្មែរ)' },
     { code: 'zh', label: 'Chinese (中文)' }, 
     { code: 'vi', label: 'Vietnamese (Tiếng Việt)' }

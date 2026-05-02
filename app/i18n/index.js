@@ -7,12 +7,14 @@ import en from '../locales/en.json';
 import vi from '../locales/vi.json';
 import zh from '../locales/zh.json';
 import km from '../locales/km.json';
+import hi from '../locales/hi.json'; 
 
 const resources = {
   en: { translation: en },
   vi: { translation: vi },
   zh: { translation: zh },
   km: { translation: km },
+  hi: { translation: hi },
 };
 
 // 2. Create a plugin to load/save the language from device storage

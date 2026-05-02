@@ -365,13 +365,13 @@ export default function AccountsScreen() {
           <View style={styles.stmtAmountItem}>
             <Text style={[styles.stmtAmtLabel, { color: theme.secondary }]}>{t('Amount')}</Text>
             <Text style={[styles.stmtAmtValue, { color: theme.text }]}>
-              {fmt(Math.abs(current))} {isDr ? 'Dr' : 'Cr'}
+              {fmt(Math.abs(current))}
             </Text>
           </View>
           <View style={[styles.stmtAmountItem, { alignItems: 'center' }]}>
             <Text style={[styles.stmtAmtLabel, { color: theme.secondary }]}>{t('Balance')}</Text>
             <Text style={[styles.stmtAmtValue, { color: BRAND.COLORS.icon }]}>
-              {fmt(Math.abs(balance))} {balance < 0 ? 'Dr' : 'Cr'}
+             {fmt(Math.abs(balance))}
             </Text>
           </View>
           <View style={[styles.stmtAmountItem, { alignItems: 'flex-end' }]}>
@@ -441,7 +441,7 @@ export default function AccountsScreen() {
             <View style={styles.summaryInner}>
               <View>
                 <Text style={styles.summaryLabel}>{t('Total Outstanding')}</Text>
-                <Text style={styles.summaryAmount}>{fmt(Math.abs(totalOutstanding))} Dr</Text>
+                <Text style={styles.summaryAmount}>{fmt(Math.abs(totalOutstanding))}</Text>
                 <Text style={styles.summaryNote}>
                   {plansWithDue.length} {plansWithDue.length === 1 ? t('plan') : t('plans')} {t('with dues')}
                 </Text>
@@ -512,9 +512,7 @@ export default function AccountsScreen() {
                       }]}>
                         {balance === 0
                           ? fmt(0)   // ✅ just show ₹0
-                          : isAdv
-                            ? `${fmt(Math.abs(balance))} Cr`
-                            : `${fmt(balance)} Dr`}
+                          : fmt(Math.abs(balance))}
                       </Text>
                     </Text>
                   </View>
