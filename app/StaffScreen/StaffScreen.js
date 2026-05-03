@@ -16,7 +16,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get("window");
-const CACHE_KEY = '@staff_categories_cache';
+const getCacheKey = (userId) => `@staff_categories_cache_${userId}`;
 
 const StaffScreen = () => {
   const { t } = useTranslation();
@@ -50,6 +50,10 @@ const StaffScreen = () => {
 
   const loadCategories = async () => {
     try {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+      const CACHE_KEY = getCacheKey(userId);
       // 1. Check local storage first for an instant load
       const cachedData = await AsyncStorage.getItem(CACHE_KEY);
       if (cachedData) {

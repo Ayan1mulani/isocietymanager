@@ -18,9 +18,9 @@ import EmptyState from '../components/EmptyState';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
-// Storage Keys
-const CACHE_KEY_PASSES = 'vms_cached_passes';
-const CACHE_KEY_PARKING = 'vms_cached_parking';
+// Storage Key Generators
+const getPassesCacheKey = (userId) => `vms_cached_passes_${userId}`;
+const getParkingCacheKey = (userId) => `vms_cached_parking_${userId}`;
 
 const BASE_URL = "https://ism-vms.s3.amazonaws.com/company-logo/";
 const DEFAULT_GUEST_URI = "https://app.factech.co.in/user/assets/images/visitor/default-guest.png";
@@ -162,6 +162,13 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
   useEffect(() => {
     const loadCache = async () => {
       try {
+        const userInfoRaw = await AsyncStorage.getItem("userInfo");
+        const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        const userId = userInfo?.id || userInfo?.user_id || "default";
+
+        const CACHE_KEY_PASSES = getPassesCacheKey(userId);
+        const CACHE_KEY_PARKING = getParkingCacheKey(userId);
+
         const cachedP = await AsyncStorage.getItem(CACHE_KEY_PASSES);
         const cachedPark = await AsyncStorage.getItem(CACHE_KEY_PARKING);
         
@@ -179,14 +186,24 @@ const SingleEntryPassPage = ({ nightMode, passData, parkingBookings, onRefresh }
 
   // 3. Sync Props to Display State & Storage
   useEffect(() => {
-    if (passData) {
-      setDisplayPasses(passData);
-      AsyncStorage.setItem(CACHE_KEY_PASSES, JSON.stringify(passData));
-    }
-    if (parkingBookings) {
-      setDisplayParking(parkingBookings);
-      AsyncStorage.setItem(CACHE_KEY_PARKING, JSON.stringify(parkingBookings));
-    }
+    const syncToStorage = async () => {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+
+      const CACHE_KEY_PASSES = getPassesCacheKey(userId);
+      const CACHE_KEY_PARKING = getParkingCacheKey(userId);
+
+      if (passData) {
+        setDisplayPasses(passData);
+        await AsyncStorage.setItem(CACHE_KEY_PASSES, JSON.stringify(passData));
+      }
+      if (parkingBookings) {
+        setDisplayParking(parkingBookings);
+        await AsyncStorage.setItem(CACHE_KEY_PARKING, JSON.stringify(parkingBookings));
+      }
+    };
+    syncToStorage();
   }, [passData, parkingBookings]);
 
   const parkingMap = useMemo(() => {

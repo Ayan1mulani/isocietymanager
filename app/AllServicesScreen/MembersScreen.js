@@ -18,7 +18,7 @@ import Text from '../components/TranslatedText';
 import AppHeader from "../components/AppHeader";
 import { visitorServices } from "../../services/visitorServices";
 
-const CACHE_KEY = '@family_members_cache'; // ✅ Cache Key added
+const getCacheKey = (userId) => `@family_members_cache_${userId}`;
 
 const MembersScreen = ({ navigation }) => {
   const { t } = useTranslation();
@@ -39,6 +39,10 @@ const MembersScreen = ({ navigation }) => {
 
   const loadMembers = async () => {
     try {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+      const CACHE_KEY = getCacheKey(userId);
       // 1. INSTANT LOAD: Check cache first
       const cachedData = await AsyncStorage.getItem(CACHE_KEY);
       if (cachedData) {
@@ -85,6 +89,10 @@ const MembersScreen = ({ navigation }) => {
           text: t("Delete"),
           style: "destructive",
           onPress: async () => {
+                const userInfoRaw = await AsyncStorage.getItem("userInfo");
+                const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+                const userId = userInfo?.id || userInfo?.user_id || "default";
+                const CACHE_KEY = getCacheKey(userId);
             try {
               await visitorServices.deleteFamilyMember(memberId);
               // Update local state instantly

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   ScrollView,
   RefreshControl,
@@ -13,7 +12,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ismServices } from '../../services/ismServices';
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 const PendingStatusScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();

@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
 const PRIMARY = BRAND.COLORS.icon;
-const NOTIFICATIONS_CACHE_KEY = '@my_notifications_cache';
+const getCacheKey = (userId) => `@my_notifications_cache_${userId}`;
 
 /* ───────── Helpers ───────── */
 
@@ -158,11 +158,19 @@ const NotificationsScreen = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userId, setUserId] = useState(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const uid = userInfo?.id || userInfo?.user_id || "default";
+      setUserId(uid);
+
+      const cacheKey = getCacheKey(uid);
+
       // 1. Instant Cache Load
-      const cachedData = await AsyncStorage.getItem(NOTIFICATIONS_CACHE_KEY);
+      const cachedData = await AsyncStorage.getItem(cacheKey);
       if (cachedData) {
         setNotifications(JSON.parse(cachedData));
         setLoading(false); 
@@ -172,7 +180,7 @@ const NotificationsScreen = () => {
       const res = await ismServices.getMyNotifications();
       if (res?.data) {
         setNotifications(res.data);
-        await AsyncStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify(res.data.slice(0, 50)));
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(res.data.slice(0, 50)));
       }
     } catch (error) {
       console.log("Notification Error:", error);

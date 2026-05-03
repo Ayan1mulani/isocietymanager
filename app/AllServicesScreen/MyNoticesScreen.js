@@ -16,7 +16,7 @@ import BRAND from '../config';
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
 
-const CACHE_KEY = '@my_notices_cache'; 
+const getCacheKey = (userId) => `@my_notices_cache_${userId}`;
 
 const MyNoticesScreen = ({ navigation }) => {
   const { t, i18n } = useTranslation();
@@ -50,6 +50,11 @@ const MyNoticesScreen = ({ navigation }) => {
 
   const fetchNotices = async () => {
     try {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+      const CACHE_KEY = getCacheKey(userId);
+
       // 1. INSTANT LOAD: Check cache first so the screen isn't empty
       const cachedData = await AsyncStorage.getItem(CACHE_KEY);
       if (cachedData) {

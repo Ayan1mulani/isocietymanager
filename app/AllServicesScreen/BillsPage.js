@@ -23,7 +23,7 @@ import EmptyState from '../components/EmptyState';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
-const CACHE_KEY = '@cached_bills_list';
+const getCacheKey = (userId) => `@cached_bills_list_${userId}`;
 
 /* ─────────────────────────────────────────
    Helper: Skeleton Pulse Effect
@@ -101,6 +101,7 @@ const BillsPage = () => {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userId, setUserId] = useState(null);
 
   // 1. Initial Load: Check Cache then Fetch Fresh
   useEffect(() => {
@@ -108,20 +109,40 @@ const BillsPage = () => {
     
     const initializeData = async () => {
       try {
-        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        const userInfoRaw = await AsyncStorage.getItem("userInfo");
+        const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        const uid = userInfo?.id || userInfo?.user_id || "default";
+        setUserId(uid);
+
+        const cacheKey = getCacheKey(uid);
+
+        const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setBills(JSON.parse(cached));
-          setLoading(false); // Hide global loader if cache exists
+          setLoading(false);
         }
-      } catch (e) { console.log("Cache load error:", e); }
-      fetchBills(bills.length === 0); // Background refresh
+
+        fetchBills(bills.length === 0, uid);
+      } catch (e) {
+        console.log("Cache load error:", e);
+      }
     };
     initializeData();
   }, [canViewBills]);
 
-  const fetchBills = async (showLoading = false) => {
+  const fetchBills = async (showLoading = false, uidParam = null) => {
     if (showLoading) setLoading(true);
     try {
+      let uid = uidParam;
+
+      if (!uid) {
+        const userInfoRaw = await AsyncStorage.getItem("userInfo");
+        const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        uid = userInfo?.id || userInfo?.user_id || "default";
+      }
+
+      const cacheKey = getCacheKey(uid);
+
       const response = await otherServices.getBillsByFlat();
       let freshData = [];
       if (Array.isArray(response)) {
@@ -132,7 +153,7 @@ const BillsPage = () => {
       
       setBills(freshData);
       // 2. Persist Fresh Data to Cache
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(freshData));
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(freshData));
     } catch (error) {
       console.log('Bills Fetch Error:', error);
     } finally {

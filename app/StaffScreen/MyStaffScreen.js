@@ -38,7 +38,7 @@ const COLORS = {
   },
 };
 
-const CACHE_KEY = '@my_staff_list_cache';
+const getCacheKey = (userId) => `@my_staff_list_${userId}`;
 
 const MyStaffScreen = ({ nightMode }) => {
   const navigation = useNavigation();
@@ -60,7 +60,13 @@ const MyStaffScreen = ({ nightMode }) => {
   const fetchStaff = async () => {
     try {
       // 1. INSTANT LOAD: Check cache first
-      const cachedData = await AsyncStorage.getItem(CACHE_KEY);
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const uid = userInfo?.id || userInfo?.user_id || "default";
+
+      const cacheKey = getCacheKey(uid);
+
+      const cachedData = await AsyncStorage.getItem(cacheKey);
       if (cachedData) {
         setStaffList(JSON.parse(cachedData));
         setLoading(false); // Hide skeleton instantly!
@@ -94,7 +100,7 @@ const MyStaffScreen = ({ nightMode }) => {
         setStaffList(staffData);
         
         // 4. Update the cache for next time
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(staffData));
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(staffData));
       } else if (!cachedData) {
         setStaffList([]);
       }

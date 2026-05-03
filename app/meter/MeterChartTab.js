@@ -13,7 +13,7 @@ import { ismServices } from "../../services/ismServices";
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
 
-const CACHE_KEY = '@meter_chart_cache';
+const getCacheKey = (userId) => `@meter_chart_cache_${userId}`;
 
 /* ─────────────────────────────────────────
    Helper: Skeleton Pulse Effect
@@ -65,12 +65,20 @@ const MeterChartTab = () => {
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   // 1. Initial Load: Check Cache first
   useEffect(() => {
     const init = async () => {
       try {
-        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        const userInfoRaw = await AsyncStorage.getItem("userInfo");
+        const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        const uid = userInfo?.id || userInfo?.user_id || "default";
+        setUserId(uid);
+
+        const cacheKey = getCacheKey(uid);
+
+        const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setRawData(JSON.parse(cached));
           setLoading(false); // Hide global loader if cache exists
@@ -89,7 +97,10 @@ const MeterChartTab = () => {
       if (res?.status === "success" && res?.data?.length > 0) {
         setRawData(res.data);
         // 2. Save fresh data to Cache
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(res.data));
+        if (userId) {
+          const cacheKey = getCacheKey(userId);
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(res.data));
+        }
       }
     } catch (e) {
       console.log("Error fetching chart data:", e);

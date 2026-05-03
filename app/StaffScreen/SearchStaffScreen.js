@@ -40,7 +40,8 @@ const COLORS = {
   },
 };
 
-const CACHE_PREFIX = '@staff_cat_';
+
+const getCacheKey = (category, userId) => `@staff_cat_${category}_${userId}`;
 
 const SearchStaffScreen = ({ nightMode, categories, categoriesLoading }) => {
   const { t } = useTranslation();
@@ -63,6 +64,12 @@ const SearchStaffScreen = ({ nightMode, categories, categoriesLoading }) => {
     if (!category) return;
 
     try {
+      // Get user id for cache key
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const uid = userInfo?.id || userInfo?.user_id || "default";
+      const cacheKey = getCacheKey(category, uid);
+
       // 1. Check Session Cache (Instant)
       if (sessionCache[category]) {
         setStaffList(sessionCache[category]);
@@ -70,7 +77,7 @@ const SearchStaffScreen = ({ nightMode, categories, categoriesLoading }) => {
         setStaffLoading(false);
       } else {
         // 2. Check Storage Cache
-        const localData = await AsyncStorage.getItem(CACHE_PREFIX + category);
+        const localData = await AsyncStorage.getItem(cacheKey);
         if (localData) {
           const parsed = JSON.parse(localData);
           setStaffList(parsed);
@@ -91,7 +98,7 @@ const SearchStaffScreen = ({ nightMode, categories, categoriesLoading }) => {
         setStaffList(data);
         setFilteredList(data);
         setSessionCache(prev => ({ ...prev, [category]: data }));
-        await AsyncStorage.setItem(CACHE_PREFIX + category, JSON.stringify(data));
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
       }
     } catch (error) {
       console.log("Fetch error", error);

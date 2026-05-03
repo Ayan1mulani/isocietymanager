@@ -144,7 +144,7 @@ const VisitorApprovalScreen = ({ route, navigation }) => {
   if (!visitor?.id) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+        <StatusBar barStyle="light-content"/>
         <Text style={styles.errorText}>No visitor data available</Text>
         <TouchableOpacity
           style={[styles.button, styles.declineButton]}
@@ -161,7 +161,7 @@ const VisitorApprovalScreen = ({ route, navigation }) => {
   ====================================================== */
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" />
 
       <View style={styles.header}>
         <Text style={styles.headerIcon}>🔔</Text>

@@ -20,7 +20,6 @@ import { ismServices } from '../../services/ismServices';
 const theme = BRAND.COLORS;
 const DARK_BG = "#020617";
 const DARK_SHEET = "#0F172A";
-const DARK_BORDER = "#1E293B";
 const LIGHT_BG = "#F1F5F9";
 const LIGHT_SHEET = "#FFFFFF";
 
@@ -212,8 +211,7 @@ const HomeScreen = () => {
     <View style={[styles.container, { backgroundColor: nightMode ? DARK_BG : LIGHT_BG }]}>
       {isFocused && (
         <StatusBar
-          backgroundColor={nightMode ? DARK_BG : "#1a2540"}
-          barStyle={nightMode ? "light-content" : "dark-content"}
+          barStyle="dark-content"
           animated={true}
         />
       )}

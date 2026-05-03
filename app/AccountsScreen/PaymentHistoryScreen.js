@@ -21,7 +21,7 @@ import BRAND from '../config';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
-const CACHE_KEY = '@payment_history_cache';
+const getCacheKey = (userId) => `@payment_history_cache_${userId}`;
 const PRIMARY = BRAND.COLORS.primary || '#0A5EB0';
 const SUCCESS = '#10B981';
 const DANGER = '#EF4444';
@@ -79,6 +79,7 @@ const PaymentHistoryScreen = ({ navigation }) => {
 
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
 
   const theme = {
     bg: nightMode ? '#0F1117' : '#F0F4F8',
@@ -92,18 +93,27 @@ const PaymentHistoryScreen = ({ navigation }) => {
   useEffect(() => {
     const initializeData = async () => {
       try {
-        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        const userInfoRaw = await AsyncStorage.getItem("userInfo");
+        const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        const uid = userInfo?.id || userInfo?.user_id || "default";
+        setUserId(uid);
+
+        const cacheKey = getCacheKey(uid);
+        const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setPayments(JSON.parse(cached));
-          setLoading(false); // Stop showing skeleton if cache exists
+          setLoading(false);
         }
-      } catch (e) { console.log(e); }
-      fetchPayments(payments.length === 0); // Background refresh
+
+        fetchPayments(payments.length === 0, uid);
+      } catch (e) {
+        console.log(e);
+      }
     };
     initializeData();
   }, []);
 
-  const fetchPayments = async (showLoading = false) => {
+  const fetchPayments = async (showLoading = false, uidParam = null) => {
     if (showLoading) setLoading(true);
     try {
       const response = await ismServices.getPaymentsList();
@@ -111,7 +121,11 @@ const PaymentHistoryScreen = ({ navigation }) => {
         const data = response.data || [];
         setPayments(data);
         // 2. Persist to Cache
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        const finalUserId = uidParam || userId;
+        if (finalUserId) {
+          const cacheKey = getCacheKey(finalUserId);
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+        }
       } else {
         if (showLoading) Alert.alert(t('Error'), t('Failed to fetch payments.'));
       }

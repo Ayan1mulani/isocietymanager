@@ -25,10 +25,8 @@ import Text from '../components/TranslatedText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ✅ Define Cache Keys
-const CACHE_VISITS = '@vms_visits_cache';
-const CACHE_PASSES = '@vms_passes_cache';
-const CACHE_PARKING = '@vms_parking_cache';
+// ✅ Define Cache Key Generator
+const getCacheKey = (type, userId) => `@vms_${type}_${userId}`;
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
@@ -83,8 +81,14 @@ const VisitorScreen = () => {
   // ── Loaders with Caching ─────────────────────────────────────────────────
   const loadVisits = useCallback(async () => {
     try {
+      // Get user id for cache key
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const uid = userInfo?.id || userInfo?.user_id || "default";
+
+      const cacheKey = getCacheKey("visits", uid);
       if (!initialVisitsLoaded.current) {
-        const cached = await AsyncStorage.getItem(CACHE_VISITS);
+        const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setVisits(JSON.parse(cached));
           initialVisitsLoaded.current = true; // Skip main spinner if we have cache
@@ -98,7 +102,7 @@ const VisitorScreen = () => {
       
       setVisits(freshData);
       initialVisitsLoaded.current = true;
-      await AsyncStorage.setItem(CACHE_VISITS, JSON.stringify(freshData.slice(0, 50)));
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(freshData.slice(0, 50)));
     } catch (e) {
       console.log("Visits load error", e);
     } finally {
@@ -108,8 +112,14 @@ const VisitorScreen = () => {
 
   const loadPasses = useCallback(async () => {
     try {
+      // Get user id for cache key
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const uid = userInfo?.id || userInfo?.user_id || "default";
+
+      const cacheKey = getCacheKey("passes", uid);
       if (!initialPassesLoaded.current) {
-        const cached = await AsyncStorage.getItem(CACHE_PASSES);
+        const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setPasses(JSON.parse(cached));
           initialPassesLoaded.current = true;
@@ -123,7 +133,7 @@ const VisitorScreen = () => {
       
       setPasses(freshData);
       initialPassesLoaded.current = true;
-      await AsyncStorage.setItem(CACHE_PASSES, JSON.stringify(freshData.slice(0, 50)));
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(freshData.slice(0, 50)));
     } catch (e) {
       console.log("Passes load error", e);
     } finally {
@@ -133,8 +143,14 @@ const VisitorScreen = () => {
 
   const loadParking = useCallback(async () => {
     try {
+      // Get user id for cache key
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const uid = userInfo?.id || userInfo?.user_id || "default";
+
+      const cacheKey = getCacheKey("parking", uid);
       if (!initialParkingLoaded.current) {
-        const cached = await AsyncStorage.getItem(CACHE_PARKING);
+        const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           setParkingBookings(JSON.parse(cached));
           initialParkingLoaded.current = true;
@@ -148,7 +164,7 @@ const VisitorScreen = () => {
       
       setParkingBookings(freshData);
       initialParkingLoaded.current = true;
-      await AsyncStorage.setItem(CACHE_PARKING, JSON.stringify(freshData.slice(0, 50)));
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(freshData.slice(0, 50)));
     } catch (e) {
       console.log("Parking load error", e);
     } finally {

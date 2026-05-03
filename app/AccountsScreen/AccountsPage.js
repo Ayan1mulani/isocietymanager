@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { usePermissions } from '../../Utils/ConetextApi';
 import { otherServices } from '../../services/otherServices';
@@ -34,6 +35,9 @@ const cache = {
   outstandingMap: null,   // id → item
   statements: {},     // tabId → array
 };
+
+let cacheUserId = null;
+const getCacheKey = (userId) => `@accounts_cache_${userId}`;
 
 const THEME = {
   primary: BRAND.COLORS.primary,
@@ -127,24 +131,87 @@ export default function AccountsScreen() {
   const canBills = pLoaded && hasPermission(permissions, 'BILL', 'R');
 
   // ── State — seeded from cache for instant 2nd-open ────────────────────────
-  const initTabId = cache.billTypes?.[0]?.id ?? null;
-
-  const [billTypes, setBillTypes] = useState(cache.billTypes ?? []);
-  const [outstandingMap, setOutstandingMap] = useState(cache.outstandingMap ?? {});
-  const [selectedTabId, setSelectedTabId] = useState(initTabId);
-  const [statements, setStatements] = useState(
-    initTabId && cache.statements[initTabId] ? cache.statements[initTabId] : []
-  );
+  const [billTypes, setBillTypes] = useState([]);
+  const [outstandingMap, setOutstandingMap] = useState({});
+  const [selectedTabId, setSelectedTabId] = useState(null);
+  const [statements, setStatements] = useState([]);
 
   // Independent loading states — each section controls its own skeleton
   const [outLoading, setOutLoading] = useState(!cache.outstandingMap);
-  const [stmtLoading, setStmtLoading] = useState(!cache.statements[initTabId ?? '']);
+  const [stmtLoading, setStmtLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [navModal, setNavModal] = useState(false);
 
-  const activeTab = useRef(initTabId);
+  const [userId, setUserId] = useState(null);
+  const [initializing, setInitializing] = useState(true);
+
+  const activeTab = useRef(null);
   const tabScrollRef = useRef(null);
   const { AlertComponent } = useAlert(nightMode);
+
+  useEffect(() => {
+    const initUser = async () => {
+      try {
+        const raw = await AsyncStorage.getItem('userInfo');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const uid = parsed?.id || parsed?.user_id || 'default';
+
+        setUserId(uid);
+
+        const cacheKey = getCacheKey(uid);
+        const cachedRaw = await AsyncStorage.getItem(cacheKey);
+        const cached = cachedRaw ? JSON.parse(cachedRaw) : null;
+
+        if (cached) {
+          cache.billTypes = cached.billTypes || null;
+          cache.outstandingMap = cached.outstandingMap || null;
+          cache.statements = cached.statements || {};
+
+          setBillTypes(cached.billTypes || []);
+          setOutstandingMap(cached.outstandingMap || {});
+        }
+
+        // 🚨 If user changed → CLEAR CACHE
+        if (cacheUserId !== uid) {
+          cacheUserId = uid;
+
+          cache.billTypes = null;
+          cache.outstandingMap = null;
+          cache.statements = {};
+
+          setBillTypes([]);
+          setOutstandingMap({});
+          setStatements([]);
+          setSelectedTabId(null);
+
+          setOutLoading(true);
+          setStmtLoading(true);
+        }
+        else {
+          // ✅ Same user → safely hydrate from cache
+          if (cache.billTypes) {
+            setBillTypes(cache.billTypes);
+          }
+          if (cache.outstandingMap) {
+            setOutstandingMap(cache.outstandingMap);
+          }
+          const firstTab = cache.billTypes?.[0]?.id ?? null;
+          if (firstTab !== null) {
+            setSelectedTabId(firstTab);
+            if (cache.statements[firstTab]) {
+              setStatements(cache.statements[firstTab]);
+            }
+          }
+        }
+      } catch (e) {
+        console.log('User init error:', e);
+      } finally {
+        setInitializing(false);
+      }
+    };
+
+    initUser();
+  }, []);
 
   useEffect(() => { activeTab.current = selectedTabId; }, [selectedTabId]);
 
@@ -166,6 +233,15 @@ export default function AccountsScreen() {
       cache.outstandingMap = oMap;
       setBillTypes(list);
       setOutstandingMap(oMap);
+      // Save cache after fetching outstanding
+      if (userId) {
+        const cacheKey = getCacheKey(userId);
+        AsyncStorage.setItem(cacheKey, JSON.stringify({
+          billTypes: list,
+          outstandingMap: oMap,
+          statements: cache.statements,
+        }));
+      }
       // Set first tab if nothing selected yet — but do NOT block statements on this
       if (activeTab.current === null && list.length > 0) {
         activeTab.current = list[0].id;
@@ -176,7 +252,7 @@ export default function AccountsScreen() {
     } finally {
       setOutLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   // ── Fetch statements for a given tab ──────────────────────────────────────
   const fetchStatements = useCallback(async (tabId, force = false) => {
@@ -194,12 +270,21 @@ export default function AccountsScreen() {
       const data = res?.status === 'success' && Array.isArray(res.data) ? res.data : [];
       cache.statements[tabId] = data;
       if (activeTab.current === tabId) setStatements(data);
+      // Save cache after fetching statements
+      if (userId) {
+        const cacheKey = getCacheKey(userId);
+        AsyncStorage.setItem(cacheKey, JSON.stringify({
+          billTypes: cache.billTypes,
+          outstandingMap: cache.outstandingMap,
+          statements: cache.statements,
+        }));
+      }
     } catch {
       if (activeTab.current === tabId) setStatements([]);
     } finally {
       if (activeTab.current === tabId) setStmtLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // TRUE PARALLEL LOAD — root cause of the slow first load was that tabId was
@@ -231,8 +316,10 @@ export default function AccountsScreen() {
   }, [fetchOutstanding, fetchStatements]);
 
   useEffect(() => {
-    if (canOutstanding || canBills) fetchAll(false);
-  }, [pLoaded]);
+    if (!initializing && (canOutstanding || canBills)) {
+      fetchAll(false);
+    }
+  }, [pLoaded, initializing, userId]);
 
   // ── Tab switch ─────────────────────────────────────────────────────────────
   const onTabChange = useCallback((id) => {
@@ -400,6 +487,14 @@ export default function AccountsScreen() {
       </View>
     );
   }, [theme, t, handleDownload]);
+
+  if (initializing) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <AppHeader title={t('Accounts')} nightMode={nightMode} showBack />
+      </SafeAreaView>
+    );
+  }
 
   // ── Access guard ──────────────────────────────────────────────────────────
   if (pLoaded && !canOutstanding && !canBills) {

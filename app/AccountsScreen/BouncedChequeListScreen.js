@@ -21,7 +21,7 @@ import BRAND from '../config';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 
-const CACHE_KEY = '@bounced_cheques_cache';
+const getCacheKey = (userId) => `@bounced_cheques_cache_${userId}`;
 const PRIMARY = BRAND.COLORS.primary;
 const DANGER = '#EF4444';
 const SUCCESS = '#10B981';
@@ -105,12 +105,19 @@ export default function BouncedChequeListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState({ count: 0, total: 0 });
+  const [userId, setUserId] = useState(null);
 
   // 1. Initial Load Logic: Cache first then Fresh Fetch
   useEffect(() => {
     const initializeData = async () => {
       try {
-        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        const userInfoRaw = await AsyncStorage.getItem("userInfo");
+        const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        const uid = userInfo?.id || userInfo?.user_id || "default";
+        setUserId(uid);
+
+        const cacheKey = getCacheKey(uid);
+        const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
           const list = JSON.parse(cached);
           setData(list);
@@ -136,7 +143,10 @@ export default function BouncedChequeListScreen() {
       setSummary({ count: list.length, total });
       
       // 2. Persist to Cache
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(list));
+      if (userId) {
+        const cacheKey = getCacheKey(userId);
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(list));
+      }
     } catch (e) {
       console.log("Fetch error:", e);
     } finally {

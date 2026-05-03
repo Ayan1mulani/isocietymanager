@@ -40,7 +40,7 @@ const CARD_WIDTH = SCREEN_WIDTH - scale(40);
 const PERSPECTIVE = 900;
 const MAX_ROTATE = 18;
 
-const PROFILE_CACHE_KEY = '@user_profile_cache';
+const getProfileCacheKey = (userId) => `@user_profile_cache_${userId}`;
 
 const SkeletonLine = ({ width = 100, height = 12, style }) => (
   <View style={[{ width, height, backgroundColor: '#E2E8F0', borderRadius: 4 }, style]} />
@@ -62,7 +62,12 @@ const ResidentIdCardScreen = () => {
 
   const loadUser = async () => {
     try {
-      const cachedProfile = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
+      const storedUser = await AsyncStorage.getItem("userInfo");
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      const uid = parsedUser?.id || parsedUser?.user_id || "default";
+      const cacheKey = getProfileCacheKey(uid);
+
+      const cachedProfile = await AsyncStorage.getItem(cacheKey);
       if (cachedProfile) {
         setUser(JSON.parse(cachedProfile));
         setLoading(false);
@@ -71,7 +76,7 @@ const ResidentIdCardScreen = () => {
       const res = await ismServices.getUserProfileData();
       if (res?.status === 'success') {
         setUser(res.data);
-        await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(res.data));
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(res.data));
       }
     } catch (err) {
       console.log("ID CARD ERROR:", err);

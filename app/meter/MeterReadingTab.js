@@ -18,7 +18,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
 
-const CACHE_KEY = '@meter_readings_cache';
+const getCacheKey = (userId) => `@meter_readings_cache_${userId}`;
 
 /* ─────────────────────────────────────────
    Helper: Skeleton Pulse Effect
@@ -72,6 +72,7 @@ const MeterReadingTab = () => {
     const [showInfo, setShowInfo] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
     const [loadingLive, setLoadingLive] = useState(false);
+    const [userId, setUserId] = useState(null);
 
     const onEndReachedCalledDuringMomentum = useRef(false);
 
@@ -85,6 +86,13 @@ const MeterReadingTab = () => {
 
     const loadData = async (page = 1) => {
         try {
+            const userInfoRaw = await AsyncStorage.getItem("userInfo");
+            const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+            const uid = userInfo?.id || userInfo?.user_id || "default";
+            setUserId(uid);
+
+            const CACHE_KEY = getCacheKey(uid);
+
             if (page === 1) {
                 const cachedData = await AsyncStorage.getItem(CACHE_KEY);
                 if (cachedData) {

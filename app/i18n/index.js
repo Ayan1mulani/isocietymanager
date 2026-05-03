@@ -17,13 +17,19 @@ const resources = {
   hi: { translation: hi },
 };
 
+const getLanguageKey = (userId) => `user-language_${userId}`;
+
 // 2. Create a plugin to load/save the language from device storage
 const languageDetector = {
   type: 'languageDetector',
   async: true,
   detect: async (callback) => {
     try {
-      const savedLanguage = await AsyncStorage.getItem('user-language');
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+
+      const savedLanguage = await AsyncStorage.getItem(getLanguageKey(userId));
       if (savedLanguage) {
         return callback(savedLanguage);
       }
@@ -35,7 +41,11 @@ const languageDetector = {
   init: () => {},
   cacheUserLanguage: async (language) => {
     try {
-      await AsyncStorage.setItem('user-language', language);
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+
+      await AsyncStorage.setItem(getLanguageKey(userId), language);
     } catch (error) {
       console.log('Error saving language', error);
     }

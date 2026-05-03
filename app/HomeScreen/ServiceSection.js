@@ -26,7 +26,7 @@ import { useTranslation } from 'react-i18next';
 const { width: screenWidth } = Dimensions.get('window');
 
 // 2. Added Cache Key for Panic Contacts
-const CONTACTS_CACHE_KEY = '@panic_contacts_cache';
+const getContactsCacheKey = (userId) => `@panic_contacts_cache_${userId}`;
 
 const ServicesSection = () => {
   const { nightMode, permissions } = usePermissions();
@@ -41,6 +41,16 @@ const ServicesSection = () => {
   const [contacts, setContacts] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [sending, setSending] = useState(false);
+  const [userId, setUserId] = useState(null);
+
+  React.useEffect(() => {
+    const loadUser = async () => {
+      const raw = await AsyncStorage.getItem("userInfo");
+      const user = raw ? JSON.parse(raw) : null;
+      setUserId(user?.id || user?.user_id || "default");
+    };
+    loadUser();
+  }, []);
 
   const permissionsLoaded = permissions !== null && permissions !== undefined;
 
@@ -89,6 +99,11 @@ const ServicesSection = () => {
   // 3. Updated fetchContacts to use Instant Cache Loading
   const fetchContacts = async () => {
     try {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+      const CONTACTS_CACHE_KEY = getContactsCacheKey(userId);
+
       // INSTANT LOAD: Check cache first
       const cachedData = await AsyncStorage.getItem(CONTACTS_CACHE_KEY);
       if (cachedData) {
@@ -171,7 +186,7 @@ const ServicesSection = () => {
   });
 
   return (
-    <View style={styles.container}>
+    <View key={userId} style={styles.container}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: theme.textColor }]}>Services</Text>
       </View>

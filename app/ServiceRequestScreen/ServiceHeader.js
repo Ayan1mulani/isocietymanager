@@ -24,7 +24,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const TABS = ['Open', 'Closed', 'All'];
 const PER_PAGE = 15;
-const CACHE_KEY = '@service_requests_page_1'; // ✅ Define cache key
+
+const getCacheKey = (userId) => `@service_requests_page_1_${userId}`;
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
@@ -89,6 +90,11 @@ const ServiceRequestTabs = () => {
     isFetchingRef.current = true;
 
     try {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+      const CACHE_KEY = getCacheKey(userId);
+
       if (reset) {
         setIsLoading(true);
         // ✅ INSTANT LOAD: Check cache only for the first page

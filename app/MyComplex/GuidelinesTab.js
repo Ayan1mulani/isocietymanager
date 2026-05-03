@@ -17,7 +17,7 @@ import { ismServices } from "../../services/ismServices";
 // ✅ 1. Replaced native Text with your TranslatedText component
 import Text from '../components/TranslatedText'; 
 
-const CACHE_KEY = '@common_notices_cache'; // ✅ Defined cache key
+const getCacheKey = (userId) => `@common_notices_cache_${userId}`;
 
 /* ─── Helpers ─── */
 
@@ -188,6 +188,11 @@ const CommonNoticesTab = () => {
   // ✅ 2. Added robust fetching with Instant Cache Load
   const fetchNotices = useCallback(async () => {
     try {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const userId = userInfo?.id || userInfo?.user_id || "default";
+      const CACHE_KEY = getCacheKey(userId);
+
       setError(null);
       
       // INSTANT LOAD: Check cache first

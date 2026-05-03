@@ -29,13 +29,14 @@ import { NativeModules } from "react-native";
 import DeviceInfo from 'react-native-device-info';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
+import { clearAccountsCache } from '../AccountsScreen/AccountsPage';
 
 const { VisitorModule } = NativeModules;
 const version = DeviceInfo.getVersion();
 const buildNumber = DeviceInfo.getBuildNumber();
 
-const PROFILE_CACHE_KEY = '@user_profile_cache';
-const DETAILS_CACHE_KEY = '@user_details_cache';
+const getProfileCacheKey = (userId) => `@user_profile_cache_${userId}`;
+const getDetailsCacheKey = (userId) => `@user_details_cache_${userId}`;
 
 /* ─────────────────────────────────────────
    Skeleton Placeholder
@@ -121,6 +122,15 @@ const ProfileScreen = () => {
 
   useEffect(() => { loadUserProfile(); }, []);
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Ensure no stale account data when screen is revisited
+   
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   /* ─────────────────────────────────────────
      loadUserProfile
      RESTORED: role validation + storedUser null check + full cache + parallel fetch
@@ -128,10 +138,17 @@ const ProfileScreen = () => {
   const loadUserProfile = async () => {
     try {
       setLoading(true);
+      setUserProfile(null);  
+      setUserDetails(null);
 
       // RESTORED: null-guard — crash prevention
       const storedUser = await AsyncStorage.getItem('userInfo');
       if (!storedUser) { setUserProfile(null); setLoading(false); return; }
+
+      const parsedUserForCache = JSON.parse(storedUser);
+      const uid = parsedUserForCache?.id || parsedUserForCache?.user_id || "default";
+      const PROFILE_CACHE_KEY = getProfileCacheKey(uid);
+      const DETAILS_CACHE_KEY = getDetailsCacheKey(uid);
 
       // Doc 4 cache logic — keep for fast load
       const cachedProfile = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
@@ -222,29 +239,44 @@ const ProfileScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // RESTORED: push notification cleanup
-              OneSignal.User.pushSubscription.optOut();
-              OneSignal.logout();
-              await UnRegisterOneSignal();
+              setStatusModal({ visible: true, type: 'loading', title: t('Logging out'), subtitle: t('Please wait...') });
 
-              // RESTORED: native module cleanup
-              if (VisitorModule?.clearAll) {
-                await VisitorModule.clearAll();
-              }
+              // 1. Fragile cleanup (Wrap in separate try/catch so it doesn't break everything)
+              try {
+                OneSignal.User.pushSubscription.optOut();
+                OneSignal.logout();
+                await UnRegisterOneSignal();
+              } catch (osError) { console.log('OneSignal cleanup failed:', osError); }
 
-              await AsyncStorage.clear();
+              // 2. Native module cleanup
+              try {
+                if (VisitorModule?.clearAll) await VisitorModule.clearAll();
+              } catch (vmError) { console.log('VisitorModule cleanup failed:', vmError); }
+
+              // 3. Cache cleanup
+              try {
+                clearAccountsCache();
+              } catch (cacheError) { console.log('Account cache cleanup failed:', cacheError); }
               await AsyncStorage.multiRemove([
-                'userInfo',
-                'permissions',
-                'userDetails',
-                '@user_profile_cache',
-                '@user_details_cache',
-                'CACHED_OUTSTANDING', // from your rent card
-                'RENT_CARD_VISIBLE'   // from home screen
+                "userInfo",
+                "permissions",
+                "userDetails",
+                "@user_profile_cache",
+                "@user_details_cache",
+                "@my_notifications_cache",
+                "CACHED_OUTSTANDING",
+                "RENT_CARD_VISIBLE"
               ]);
-              navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+
+              // 4. Storage cleanup (clear() wipes everything, no need for multiRemove)
+              await AsyncStorage.clear();
+
             } catch (e) {
-              console.log('Logout error:', e);
+              console.log('Main Logout error:', e);
+            } finally {
+              // 5. THIS ALWAYS RUNS! Even if an API failed, the user gets logged out.
+              setStatusModal({ visible: false, type: 'loading', title: '', subtitle: '' });
+              navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
             }
           },
         },
@@ -375,8 +407,20 @@ const ProfileScreen = () => {
         OneSignal.User.pushSubscription.optOut();
         OneSignal.logout();
         await UnRegisterOneSignal();
+        clearAccountsCache();
+        // Also clear runtime state to avoid flicker of old data
+        setAccounts([]);
         if (VisitorModule?.clearAll) await VisitorModule.clearAll();
-        await AsyncStorage.multiRemove(["userInfo", "permissions", "userDetails"]);
+        await AsyncStorage.multiRemove([
+          "userInfo",
+          "permissions",
+          "userDetails",
+          "@user_profile_cache",
+          "@user_details_cache",
+          "@my_notifications_cache",
+          "CACHED_OUTSTANDING",
+          "RENT_CARD_VISIBLE"
+        ]);
       } catch (cleanupError) {
         console.log("⚠️ Cleanup error:", cleanupError);
       }

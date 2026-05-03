@@ -17,6 +17,7 @@ import EmptyState from '../components/EmptyState';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
   const { t } = useTranslation(); // Add this 
@@ -26,6 +27,8 @@ const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  const getCacheKey = (userId) => `@vms_visits_${userId}`;
 
   const theme = {
     background: nightMode ? '#121212' : '#ffffff',
@@ -45,6 +48,27 @@ const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
   useEffect(() => {
     applySearch();
   }, [visitorData, searchQuery]);
+
+  useEffect(() => {
+    const loadCachedData = async () => {
+      try {
+        const userInfoRaw = await AsyncStorage.getItem("userInfo");
+        const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+        const uid = userInfo?.id || userInfo?.user_id || "default";
+
+        const cacheKey = getCacheKey(uid);
+
+        const cached = await AsyncStorage.getItem(cacheKey);
+        if (cached) {
+          setFilteredVisits(JSON.parse(cached));
+        }
+      } catch (e) {
+        console.log("Cache load error", e);
+      }
+    };
+
+    loadCachedData();
+  }, []);
 
   const applySearch = () => {
     if (!visitorData?.visits) {
@@ -68,7 +92,23 @@ const VisitsPage = ({ visitorData, loading, onRefresh, nightMode }) => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await onRefresh();
+
+    try {
+      const userInfoRaw = await AsyncStorage.getItem("userInfo");
+      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
+      const uid = userInfo?.id || userInfo?.user_id || "default";
+
+      const cacheKey = getCacheKey(uid);
+
+      const freshData = await onRefresh();
+
+      if (freshData?.visits) {
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(freshData.visits.slice(0, 50)));
+      }
+    } catch (e) {
+      console.log("Refresh cache error", e);
+    }
+
     setRefreshing(false);
   };
 
