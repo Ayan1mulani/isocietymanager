@@ -160,7 +160,7 @@ const NewLoginScreen = () => {
         await ismServices.getUserDetails();
       }
 
-      await loadPermissions();
+      await loadPermissions(true);
       navigation.replace('MainApp');
 
     } catch (error) {
@@ -258,7 +258,7 @@ const NewLoginScreen = () => {
           });
         }
         await AsyncStorage.removeItem("permissions");
-        await loadPermissions();
+        await loadPermissions(true);
         setTimeout(async () => {
           await RegisterAppOneSignal();
         }, 800);

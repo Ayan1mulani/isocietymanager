@@ -23,6 +23,8 @@ const SPACING = 12;
 const SNAP_INTERVAL = PAGE_WIDTH + SPACING;
 const SHIMMER_TRAVEL = PAGE_WIDTH * 2;
 
+const getOutstandingCacheKey = (userId) => `@outstanding_cache_${userId}`;
+
 const HTML_THEME = {
   background: "#1a2540f7",
   card: "rgba(255, 255, 255, 0.1)",
@@ -135,7 +137,17 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
   const [outstanding, setOutstanding] = useState([]);
   const [loading, setLoading] = useState(true);
   const [masterBillTypes, setMasterBillTypes] = useState([]);
+  const [userId, setUserId] = useState(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const raw = await AsyncStorage.getItem("userInfo");
+      const user = raw ? JSON.parse(raw) : null;
+      setUserId(user?.id || user?.user_id || "default");
+    };
+    loadUser();
+  }, []);
 
   // ✅ CORRECT: Check OUTSND permission for balance cards
   const canViewOutstandings = permissions && 
@@ -157,10 +169,12 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
   }, [canViewOutstandings, permissions, onSetVisible]);
 
   const loadData = async () => {
+    if (!userId) return;
+    const CACHE_KEY = getOutstandingCacheKey(userId);
     try {
       console.log('🔄 Loading ResidentProfile data...');
       
-      const cached = await AsyncStorage.getItem("CACHED_OUTSTANDING");
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
       if (cached) {
         const cachedData = JSON.parse(cached);
         setOutstanding(cachedData);
@@ -220,7 +234,7 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
       });
 
       setOutstanding(processedData);
-      await AsyncStorage.setItem("CACHED_OUTSTANDING", JSON.stringify(processedData));
+      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(processedData));
       
       console.log('✅ Final processed bills:', processedData.length);
       
@@ -238,8 +252,8 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [refreshTrigger]);
+    if (userId) loadData();
+  }, [refreshTrigger, userId]);
 
   if (permissions === null) return <ResidentSkeleton />;
   if (!canViewOutstandings) {

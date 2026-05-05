@@ -454,7 +454,7 @@ const ProfileScreen = () => {
       }
 
       // RESTORED: permissions reload + OneSignal re-register
-      await loadPermissions();
+      await loadPermissions(true);
       await new Promise(res => setTimeout(res, 400));
       await RegisterAppOneSignal();
 

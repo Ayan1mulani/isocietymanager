@@ -134,6 +134,7 @@ const ResidentIdCardScreen = () => {
   const parsedId = user?.id ? (typeof user.id === 'string' ? JSON.parse(user.id) : user.id) : null;
   const userId = parsedId?.user_id || user?.user_id;
   const qrUrl = user ? `https://util.isocietymanager.com/qr/?data=${userId}` : null;
+  console.log("USER DATA:", user);
 
 
   return (

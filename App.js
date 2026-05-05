@@ -3,13 +3,14 @@ import React, { useEffect, useRef } from "react";
 import {
   View, ActivityIndicator, Text, StatusBar,
   StyleSheet, AppState, NativeModules, TextInput, Platform,
+  Modal, TouchableOpacity, Linking,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import notifee, { EventType } from "@notifee/react-native";
+import InAppUpdate from 'sp-react-native-in-app-updates';
 
-// ── NEW: Import the hook ──
 import { useTranslation } from 'react-i18next';
 
 import NavigationPage from "./NavigationPage";
@@ -30,6 +31,8 @@ const { VisitorModule, IntentModule } = NativeModules;
 
 const TAG = "[App]";
 
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.sumasamu.iSocietyManager";
+
 const handledInMemory = new Set();
 const VISITOR_HANDLED_KEY = "HANDLED_VISITORS";
 const DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
@@ -46,7 +49,6 @@ const isAlreadyHandled = async (id) => {
 
 const checkTenant = async () => {
   const tenant = await AsyncStorage.getItem("isTenant");
-  console.log("Tenant value:", tenant);
 };
 checkTenant();
 
@@ -64,6 +66,67 @@ const markHandled = async (id) => {
 
 const AUTH_SCREENS = ["Login", "OtpLoginScreen", "OtpLogin", "OtpVerify"];
 const isUserLoggedIn = (route) => route && !AUTH_SCREENS.includes(route);
+
+/* ─── Soft Update Modal ─────────────────────────────────────────────────── */
+// ✅ User CAN dismiss this — not a force block
+const UpdateModal = ({ visible, onDismiss }) => {
+  const { t } = useTranslation();
+
+  const openPlayStore = () => {
+    Linking.openURL(PLAY_STORE_URL).catch(e =>
+      console.log("Failed to open Play Store:", e)
+    );
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {}} // ❌ Back button does nothing
+    >
+      {/* ❌ Removed TouchableOpacity wrapper — tapping outside does nothing */}
+      <View style={updateStyles.overlay}>
+        <View style={updateStyles.card}>
+
+          <View style={updateStyles.iconCircle}>
+            <Text style={updateStyles.iconText}>🔄</Text>
+          </View>
+
+          <Text style={updateStyles.title}>
+            {t("Update Available")}
+          </Text>
+
+          <Text style={updateStyles.message}>
+            {t("A new version of the app is available. Update now for the latest features and fixes.")}
+          </Text>
+
+          <TouchableOpacity
+            style={updateStyles.primaryBtn}
+            onPress={openPlayStore}
+            activeOpacity={0.85}
+          >
+            <Text style={updateStyles.primaryBtnText}>
+              {t("Update Now")}
+            </Text>
+          </TouchableOpacity>
+
+          {/* ✅ ONLY this can dismiss the modal */}
+          <TouchableOpacity
+            style={updateStyles.secondaryBtn}
+            onPress={onDismiss}
+            activeOpacity={0.7}
+          >
+            <Text style={updateStyles.secondaryBtnText}>
+              {t("Maybe Later")}
+            </Text>
+          </TouchableOpacity>
+
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 /* ─── Permissions component ─────────────────────────────────────────────── */
 const AppContent = () => {
@@ -99,13 +162,36 @@ const AppContent = () => {
 
 /* ─── Main App ──────────────────────────────────────────────────────────── */
 export default function App() {
-  
-  // ── NEW: Initialize the translation hook ──
-  const { t } = useTranslation();
 
+  const { t } = useTranslation();
   const [processing, setProcessing] = React.useState(false);
+
+  // ✅ Controls soft update modal visibility
+  const [showUpdateModal, setShowUpdateModal] = React.useState(false);
+
   const pendingVisitorRef = useRef(null);
   const pendingStaffRef = useRef(null);
+
+/* ── Play Store Version Check ────────────────────────────────────────── */
+useEffect(() => {
+  const checkUpdate = async () => {
+    try {
+      const result = await InAppUpdate.checkNeedsUpdate();
+      console.log(TAG, "Update check result:", result);
+
+      if (result.shouldUpdate) {
+        console.log(TAG, "Update available → showing modal");
+        setShowUpdateModal(true);
+      } else {
+        console.log(TAG, "App is up to date");
+      }
+    } catch (e) {
+      console.log(TAG, "Update check failed — skipping:", e);
+    }
+  };
+
+  checkUpdate();
+}, []);
 
   /* ── Visitor navigation with retry ───────────────────────────────────── */
   const tryNavigate = async (attempts = 0) => {
@@ -164,7 +250,6 @@ export default function App() {
 
       if (extras?.notification_type === "STAFF") {
         console.log(TAG, "Staff intent detected → navigating to StaffScreen");
-
         await IntentModule.clearIntentExtras();
 
         pendingStaffRef.current = {
@@ -279,7 +364,7 @@ export default function App() {
     checkColdStart();
   }, []);
 
-  /* ── Cold start: staff intent (app opened from locked screen tap) ─────── */
+  /* ── Cold start: staff intent ────────────────────────────────────────── */
   useEffect(() => {
     const timer = setTimeout(() => {
       checkStaffIntent();
@@ -306,9 +391,7 @@ export default function App() {
         }
       } catch (e) { }
 
-      setTimeout(() => {
-        checkStaffIntent();
-      }, 600);
+      setTimeout(() => { checkStaffIntent(); }, 600);
     });
 
     return () => sub.remove();
@@ -325,11 +408,18 @@ export default function App() {
           ]}
         >
           <StatusBar barStyle="dark-content" />
+
+          {/* ✅ Soft update modal — user can dismiss and continue */}
+          <UpdateModal
+            visible={showUpdateModal}
+            onDismiss={() => setShowUpdateModal(false)}
+          />
+
           <AppContent />
+
           {processing && (
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#22C55E" />
-              {/* ── NEW: Wrapped text in translation hook ── */}
               <Text style={styles.overlayText}>{t("Processing request...")}</Text>
             </View>
           )}
@@ -349,4 +439,71 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   overlayText: { marginTop: 10, fontSize: 16, fontWeight: "bold" },
+});
+
+const updateStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 28,
+    alignItems: "center",
+    width: "100%",
+    elevation: 10,
+  },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#EFF6FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  iconText: { fontSize: 34 },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  message: {
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  primaryBtn: {
+    backgroundColor: BRAND.COLORS.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 12,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  primaryBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  // ✅ Maybe Later — subtle, clearly optional
+  secondaryBtn: {
+    paddingVertical: 10,
+    alignItems: "center",
+    width: "100%",
+  },
+  secondaryBtnText: {
+    color: "#6B7280",
+    fontSize: 14,
+    fontWeight: "500",
+  },
 });
