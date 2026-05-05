@@ -7,7 +7,7 @@ import {
   Animated, 
   Dimensions 
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // Added for cache
+import AsyncStorage from "@react-native-async-storage/async-storage"; 
 import { BarChart } from "react-native-gifted-charts";
 import { ismServices } from "../../services/ismServices";
 import { useTranslation } from "react-i18next";

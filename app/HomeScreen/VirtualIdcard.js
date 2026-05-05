@@ -101,7 +101,6 @@ const ResidentIdCardScreen = () => {
     return { uri: `https://ui-avatars.com/api/?name=${name}&background=1996D3&color=fff&size=250` };
   };
 
-  const qrUrl = user ? `https://util.isocietymanager.com/qr/?data=${user.user_id}` : null;
 
   const panGesture = Gesture.Pan()
     .onBegin(() => { scaleVal.value = withSpring(1.04, { damping: 15, stiffness: 200 }); })
@@ -134,6 +133,8 @@ const ResidentIdCardScreen = () => {
   const residentType = user?.tenant == 1 ? t("TENANT") : t("OWNER");
   const parsedId = user?.id ? (typeof user.id === 'string' ? JSON.parse(user.id) : user.id) : null;
   const userId = parsedId?.user_id || user?.user_id;
+  const qrUrl = user ? `https://util.isocietymanager.com/qr/?data=${userId}` : null;
+
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
