@@ -1,20 +1,19 @@
 package com.factech.maxestate
+
 import android.app.Activity
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.BitmapFactory
-import android.media.AudioManager
-import android.media.Ringtone
-import android.media.RingtoneManager
-import android.net.Uri
 import android.os.*
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 import java.net.URL
 import kotlin.concurrent.thread
@@ -27,12 +26,7 @@ class VisitorIncomingActivity : Activity() {
         private const val KEY_VISITOR    = "PENDING_VISITOR"
         private const val AUTO_DISMISS   = 60_000L
         private const val ACTION_HANDLED = "com.factech.maxestate.VISITOR_HANDLED"
-
-        // Must match the key used in RN DefaultPreference.set()
-        private const val KEY_VISITOR_SOUND = "NATIVE_SOUND_ENABLED"
     }
-
-    private var ringtone: Ringtone? = null
 
     private val timeoutHandler = Handler(Looper.getMainLooper())
 
@@ -43,34 +37,28 @@ class VisitorIncomingActivity : Activity() {
     private var purpose      = ""
     private var notifId      = 0
 
-    // Stops ringtone instantly when power/lock button is pressed.
-    // ACTION_SCREEN_OFF is a protected system broadcast — no export flag needed.
+    // 🚀 Stops system sound instantly when power/lock button is pressed, BUT keeps it in the tray.
     private val screenOffReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == Intent.ACTION_SCREEN_OFF) {
-                stopRingtone()
+                Log.d(TAG, "Screen locked by user. Silencing call.")
+                silenceAndKeepNotification()  // Mutes it but keeps it in the tray
+                finish()                      // Close the screen
             }
         }
     }
 
-    // Stops ringtone when notification action (Accept/Decline) is tapped
-    // from the notification shade — closes this screen correctly.
+    // Completely removes the notification because the user handled it (Accepted/Declined)
     private val actionHandledReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val handledId = intent.getStringExtra("visitor_id") ?: return
             if (handledId != visitorId) return
-            val action  = intent.getStringExtra("action")  ?: ""
-            val success = intent.getBooleanExtra("success", false)
-            Log.d(TAG, "actionHandledReceiver → $handledId was $action success=$success")
-            stopRingtone()
+            Log.d(TAG, "actionHandledReceiver → $handledId handled")
+            cancelNotification() // Completely remove it, they already answered
             timeoutHandler.removeCallbacksAndMessages(null)
             finish()
         }
     }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  LIFECYCLE
-    // ════════════════════════════════════════════════════════════════════════
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,24 +66,17 @@ class VisitorIncomingActivity : Activity() {
 
         setupWindowFlags()
         setContentView(R.layout.activity_visitor_incoming)
-
-        // Physical volume buttons control ring volume while this activity is visible
-        setVolumeControlStream(AudioManager.STREAM_RING)
-
         extractIntent(intent)
 
         if (visitorId.isEmpty()) {
-            Log.e(TAG, "visitorId empty → finishing")
             finish()
             return
         }
 
-        cancelNotification()
         registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
         registerHandledReceiver()
         bindUI()
         loadPhoto()
-        playRingtone()
         bindButtons()
         scheduleAutoDismiss()
     }
@@ -103,30 +84,19 @@ class VisitorIncomingActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        Log.d(TAG, "onNewIntent")
         val newId = intent.getStringExtra("visitor_id") ?: ""
         if (newId.isEmpty() || newId == visitorId) return
-        stopRingtone()
-        extractIntent(intent)
+        
         cancelNotification()
+        extractIntent(intent)
         bindUI()
         loadPhoto()
         resetButtons()
-        playRingtone()
         scheduleAutoDismiss()
-    }
-
-    // Safety net for cases where screen goes off via other means
-    override fun onStop() {
-        super.onStop()
-        Log.d(TAG, "onStop → stopping ringtone")
-        stopRingtone()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "onDestroy")
-        stopRingtone()
         timeoutHandler.removeCallbacksAndMessages(null)
         try { unregisterReceiver(screenOffReceiver)     } catch (_: Exception) {}
         try { unregisterReceiver(actionHandledReceiver) } catch (_: Exception) {}
@@ -136,10 +106,6 @@ class VisitorIncomingActivity : Activity() {
     override fun onBackPressed() {
         Log.d(TAG, "Back press blocked")
     }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  SETUP
-    // ════════════════════════════════════════════════════════════════════════
 
     private fun setupWindowFlags() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -164,10 +130,6 @@ class VisitorIncomingActivity : Activity() {
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  INTENT / STATE
-    // ════════════════════════════════════════════════════════════════════════
-
     private fun extractIntent(src: Intent) {
         visitorId    = src.getStringExtra("visitor_id")    ?: ""
         visitorName  = src.getStringExtra("visitor_name")  ?: "Visitor"
@@ -175,22 +137,50 @@ class VisitorIncomingActivity : Activity() {
         visitorPhoto = src.getStringExtra("visitor_photo") ?: ""
         purpose      = src.getStringExtra("visit_purpose") ?: ""
         notifId      = src.getIntExtra("notif_id", visitorId.hashCode())
-        Log.d(TAG, "extractIntent → id=$visitorId name=$visitorName notifId=$notifId")
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  NOTIFICATION
-    // ════════════════════════════════════════════════════════════════════════
-
+    // Completely removes the notification
     private fun cancelNotification() {
         if (notifId == 0) return
         (getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)?.cancel(notifId)
-        Log.d(TAG, "Notification cancelled → $notifId")
+        Log.d(TAG, "Notification cancelled completely.")
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  UI
-    // ════════════════════════════════════════════════════════════════════════
+    // 🚀 NEW: Kills the sound but keeps a quiet banner in the tray
+    private fun silenceAndKeepNotification() {
+        if (notifId == 0) return
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        
+        // 1. Instantly kill the loud, ringing notification
+        nm.cancel(notifId)
+
+        // 2. Put it right back in the tray as a quiet, clickable alert
+        val intent = Intent(this, VisitorIncomingActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("visitor_id", visitorId)
+            putExtra("visitor_name", visitorName)
+            putExtra("visitor_phone", visitorPhone)
+            putExtra("visitor_photo", visitorPhoto)
+            putExtra("visit_purpose", purpose)
+            putExtra("notif_id", notifId)
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            this, notifId, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(this, "visitor_channel_v9")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Visitor Waiting")
+            .setContentText("$visitorName is at the gate")
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setSilent(true) // 🔥 This ensures it doesn't ring a second time!
+
+        nm.notify(notifId, builder.build())
+        Log.d(TAG, "Notification silenced but kept in tray.")
+    }
 
     private fun bindUI() {
         findViewById<TextView>(R.id.tvVisitorName)?.text  = visitorName
@@ -202,11 +192,21 @@ class VisitorIncomingActivity : Activity() {
     private fun loadPhoto() {
         if (visitorPhoto.isEmpty()) return
         val iv = findViewById<ImageView>(R.id.ivVisitorPhoto) ?: return
+        
         thread {
             try {
-                val bmp = BitmapFactory.decodeStream(URL(visitorPhoto).openStream())
+                val conn = URL(visitorPhoto).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 5000 
+                conn.readTimeout = 5000
+                conn.doInput = true
+                conn.connect()
+                
+                val bmp = BitmapFactory.decodeStream(conn.inputStream)
                 runOnUiThread {
-                    if (!isDestroyed) { iv.setImageBitmap(bmp); iv.visibility = View.VISIBLE }
+                    if (!isDestroyed) { 
+                        iv.setImageBitmap(bmp)
+                        iv.visibility = View.VISIBLE 
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Image load failed → ${e.message}")
@@ -225,13 +225,8 @@ class VisitorIncomingActivity : Activity() {
         findViewById<ProgressBar>(R.id.loader)?.visibility = View.GONE
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  ACTIONS
-    // ════════════════════════════════════════════════════════════════════════
-
     private fun handleAction(action: String) {
-        Log.d(TAG, "handleAction → $action")
-        stopRingtone()
+        cancelNotification() // Removes it from tray completely so it stops ringing
         timeoutHandler.removeCallbacksAndMessages(null)
 
         findViewById<Button>(R.id.btnAccept)?.isEnabled  = false
@@ -245,7 +240,6 @@ class VisitorIncomingActivity : Activity() {
                     Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
                     Handler(Looper.getMainLooper()).postDelayed({ finish() }, 1_200)
                 } else {
-                    Log.e(TAG, "API failure → ${result.code} : ${result.message}")
                     Toast.makeText(this, result.message, Toast.LENGTH_LONG).show()
                     resetButtons()
                 }
@@ -257,8 +251,7 @@ class VisitorIncomingActivity : Activity() {
         timeoutHandler.removeCallbacksAndMessages(null)
         timeoutHandler.postDelayed({
             Log.d(TAG, "Auto-dismiss triggered")
-            stopRingtone()
-            cancelNotification()
+            silenceAndKeepNotification() // 🚀 Demote to a silent alert instead of deleting
             finish()
         }, AUTO_DISMISS)
     }
@@ -270,76 +263,5 @@ class VisitorIncomingActivity : Activity() {
                 put("name", visitorName)
             }.toString())
             .apply()
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  SOUND TOGGLE — reads DefaultPreference written by React Native.
-    //  SharedPreferences file name is "${packageName}_preferences" which is
-    //  exactly where react-native-default-preference stores its values.
-    //  Default is "true" so sound plays if user never touched the toggle.
-    // ════════════════════════════════════════════════════════════════════════
-
-    private fun isVisitorSoundEnabled(): Boolean {
-        val prefs = getSharedPreferences(
-            "${packageName}_preferences",
-            Context.MODE_PRIVATE
-        )
-        val value = prefs.getString(KEY_VISITOR_SOUND, "true")
-        Log.d(TAG, "isVisitorSoundEnabled → $value")
-        return value == "true"
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  RINGTONE — plays once (visitor_alert is 20 seconds, no loop needed)
-    //
-    //  Ringtone uses STREAM_RING by default, which matches
-    //  setVolumeControlStream(STREAM_RING) so physical buttons control it.
-    // ════════════════════════════════════════════════════════════════════════
-
-    private fun playRingtone() {
-        // Respect the Visit Sound toggle in Settings screen
-        if (!isVisitorSoundEnabled()) {
-            Log.d(TAG, "Visitor sound disabled by user → skipping ringtone")
-            return
-        }
-
-        try {
-            val uri = Uri.parse("android.resource://$packageName/raw/visitor_alert")
-            ringtone = RingtoneManager.getRingtone(applicationContext, uri)
-            ringtone?.play()
-            Log.d(TAG, "Ringtone playing (once)")
-        } catch (e: Exception) {
-            Log.e(TAG, "Ringtone error → ${e.message}")
-            vibrateDevice()
-        }
-    }
-
-    private fun stopRingtone() {
-        ringtone?.stop()
-        ringtone = null
-        Log.d(TAG, "Ringtone stopped")
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  VIBRATION FALLBACK — only when Ringtone itself fails
-    // ════════════════════════════════════════════════════════════════════════
-
-    private fun vibrateDevice() {
-        val pattern = longArrayOf(0, 500, 300, 500, 300, 500)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager)
-                .defaultVibrator
-                .vibrate(VibrationEffect.createWaveform(pattern, 0))
-        } else {
-            @Suppress("DEPRECATION")
-            (getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator).let { v ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    v.vibrate(VibrationEffect.createWaveform(pattern, 0))
-                } else {
-                    @Suppress("DEPRECATION")
-                    v.vibrate(pattern, 0)
-                }
-            }
-        }
     }
 }

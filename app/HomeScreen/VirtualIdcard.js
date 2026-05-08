@@ -133,7 +133,7 @@ const ResidentIdCardScreen = () => {
     return { transform: [{ translateX }, { translateY }], opacity };
   });
 
-  const residentType = user?.tenant == 1 ? t("TENANT") : t("OWNER");
+  const residentType = user?.tenant == 1 ? t("TENANT") : t("Resident");
   const parsedId = user?.id ? (typeof user.id === 'string' ? JSON.parse(user.id) : user.id) : null;
   const userId = parsedId?.user_id || user?.user_id;
   const qrUrl = user ? `https://util.isocietymanager.com/qr/?data=${userId}` : null;
@@ -147,7 +147,7 @@ const ResidentIdCardScreen = () => {
         style={{ flex: 1, backgroundColor: "#F0F4F8" }}
         edges={['top', 'bottom', 'left', 'right']}
       >
-        <AppHeader title={t("Digital ID")} />
+        <AppHeader title={t("Virtual ID Card")} />
         {/* UPDATED: Added flexGrow: 1 and justifyContent: 'center' to properly contain the card */}
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
@@ -159,7 +159,7 @@ const ResidentIdCardScreen = () => {
               <View style={styles.card} onLayout={onCardLayout}>
 
                 <View style={styles.cardHeader}>
-                  <Text style={styles.headerText} numberOfLines={1}>{t("OFFICIAL RESIDENT ID")}</Text>
+                  <Text style={styles.headerText} numberOfLines={1}>{user?.society_name}</Text>
                 </View>
 
                 <View style={styles.mainInfo}>
@@ -227,7 +227,7 @@ const ResidentIdCardScreen = () => {
 
                 <View style={styles.footer}>
                   <Ionicons name="shield-checkmark" size={scale(12)} color="#94A3B8" />
-                  <Text style={styles.footerText}>{t("iSocietyManager Digital ID")}</Text>
+                  <Text style={styles.footerText}>{t("iSocietyManager Virtual ID")}</Text>
                 </View>
 
                 <Animated.View pointerEvents="none" style={[styles.gloss, glossAnimatedStyle]} />

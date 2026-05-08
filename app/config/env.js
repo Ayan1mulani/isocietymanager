@@ -12,7 +12,6 @@ export const METER_URL = "https://meter-api.isocietymanager.com";
 // export const API_URL3=" https://test.isocietymanager.com/drs.isocietymanager/public";
 // export const API_URL4=" https://test.isocietymanager.com/vms.isocietymanager/public";
 
-export const APP_ENV = "development";
 
 export const APP_ID_ONE_SIGNAL = "af8afb9d-f1d7-4836-b48c-1ca678b1913e";
 export const APP_VERSION_CODE = "33";

@@ -466,7 +466,7 @@ const NewLoginScreen = () => {
 
                 <Text style={styles.poweredBy}>
                   Powered By{' '}
-                  <Text style={styles.poweredByBrand}>{BRAND.APP_NAME}</Text>
+                  <Text style={styles.poweredByBrand}>Factech Automation Solutions Private Limited</Text>
                 </Text>
                 <Text style={styles.versionText}>v{version}</Text>
               </View>

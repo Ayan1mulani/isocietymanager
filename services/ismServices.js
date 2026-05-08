@@ -531,6 +531,48 @@ const ismServices = {
   },
 
 
+  getSurveys: async () => {
+    try {
+      const user = await Common.getLoggedInUser();
+
+      // Build the user object
+      const uObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
+
+      // 🔥 Custom Encoding: Replace quotes with %22 but leave {} intact
+      const customEncodedUser = JSON.stringify(uObj).replace(/"/g, "%22");
+      
+      const isTenant = user?.tenant == 1;
+      const tenantVal = isTenant ? 1 : 0;
+      const roleVal = isTenant ? "tenant" : "resident";
+
+      // 🚀 Updated to 'getactivesurvey' with 'is_vacant=0'
+      const url = `https://survey-api.isocietymanager.com/api/v1/society/${user.societyId}/getactivesurvey` +
+        `?api-token=${user.api_token}` +
+        `&user-id=${customEncodedUser}` +
+        `&tenant=${tenantVal}` +
+        `&role=${roleVal}` +
+        `&is_vacant=0`;
+
+      console.log("✅ GET ACTIVE SURVEYS URL:", url);
+
+      const headers = await Util.getCommonAuth();
+      const res = await ApiCommon.getReq(url, headers);
+
+      return res;
+
+    } catch (e) {
+      console.log("❌ Get Active Surveys Error:", e);
+      return null;
+    }
+  },
+
+
   generateOtp: async (mobile) => {
     const payload = {
       identity: mobile,

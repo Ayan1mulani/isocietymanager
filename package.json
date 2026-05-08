@@ -36,6 +36,7 @@
     "react-native-gesture-handler": "^2.30.0",
     "react-native-gifted-charts": "^1.4.76",
     "react-native-gradle-plugin": "^0.71.19",
+    "react-native-image-pan-zoom": "^2.1.12",
     "react-native-image-picker": "^8.2.1",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-onesignal": "^5.4.1",

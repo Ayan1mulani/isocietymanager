@@ -86,7 +86,7 @@ android {
 
         // max estate
         versionCode 33
-        versionName "2.00.01"
+        versionName "1.4.0"
 
         // iscoietyManager
         // versionCode 464

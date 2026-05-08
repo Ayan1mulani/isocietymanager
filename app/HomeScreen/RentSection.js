@@ -279,11 +279,14 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
 
     const label = billData?.realName || billData?.name;
     const shouldShowBalance = billData?.shouldShowBalance;
-    const backendMessage = billData?.message || t("No balance data found.");
+    const rawBackendMessage = billData?.message || t("No balance data found.");
+    const backendMessage =
+      rawBackendMessage?.trim()?.toLowerCase() === "balance not found."
+        ? "All dues cleared"
+        : rawBackendMessage;
     const rawAmount = billData.displayAmount || 0;
     const navAmount = rawAmount === 0 ? 1 : rawAmount;
     
-    // ✅ CORRECT: Can pay if has permission (regardless of show_bal)
     const isPayable = !!canPayBill;
 
     console.log('💳 Bill card:', {
@@ -325,7 +328,7 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
             </Text>
           ) : (
             <Text style={styles.amount} numberOfLines={1}>
-             ₹ --
+             ₹ 0
             </Text>
           )}
           {/* ✅ CORRECT: Show message below amount/dash */}

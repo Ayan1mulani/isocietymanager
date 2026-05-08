@@ -7,106 +7,56 @@ import {
   TouchableOpacity,
   Modal,
   SafeAreaView,
+  Platform,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import FastImage from "@d11/react-native-fast-image";
 import LinearGradient from "react-native-linear-gradient";
+import ImageZoom from "react-native-image-pan-zoom"; // 🚀 Added for Zoom
 import { visitorServices } from "../../services/visitorServices";
 import { usePermissions } from "../../Utils/ConetextApi";
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
 const SIDE_PADDING = 20;
 const SPACING = 14;
 const ITEM_WIDTH_MULTI = width - SIDE_PADDING * 2 - 40;
 const ITEM_WIDTH_SINGLE = width - SIDE_PADDING * 2;
-
 const SNAP_INTERVAL = ITEM_WIDTH_MULTI + SPACING;
 const CARD_HEIGHT = 120;
 
 /* ─── Shimmer Placeholder ─── */
 const ShimmerCard = () => {
   const shimmer = useRef(new Animated.Value(0)).current;
-
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(shimmer, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmer, {
-          toValue: 0,
-          duration: 900,
-          useNativeDriver: true,
-        }),
+        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
       ])
     ).start();
   }, []);
-
-  const opacity = shimmer.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.4, 1],
-  });
-
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
   return (
     <Animated.View style={[styles.shimmerCard, { opacity }]}>
-      <LinearGradient
-        colors={["#E5E7EB", "#F3F4F6", "#E5E7EB"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <LinearGradient colors={["#E5E7EB", "#F3F4F6", "#E5E7EB"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
     </Animated.View>
   );
 };
 
 /* ─── Animated Dot ─── */
 const AnimatedDot = ({ index, scrollX, theme }) => {
-  const inputRange = [
-    (index - 1) * SNAP_INTERVAL,
-    index * SNAP_INTERVAL,
-    (index + 1) * SNAP_INTERVAL,
-  ];
-
-  const dotWidth = scrollX.interpolate({
-    inputRange,
-    outputRange: [6, 22, 6],
-    extrapolate: "clamp",
-  });
-
-  const opacity = scrollX.interpolate({
-    inputRange,
-    outputRange: [0.35, 1, 0.35],
-    extrapolate: "clamp",
-  });
-
-  const scale = scrollX.interpolate({
-    inputRange,
-    outputRange: [0.8, 1.15, 0.8],
-    extrapolate: "clamp",
-  });
-
+  const inputRange = [(index - 1) * SNAP_INTERVAL, index * SNAP_INTERVAL, (index + 1) * SNAP_INTERVAL];
+  const dotWidth = scrollX.interpolate({ inputRange, outputRange: [6, 22, 6], extrapolate: "clamp" });
+  const opacity = scrollX.interpolate({ inputRange, outputRange: [0.35, 1, 0.35], extrapolate: "clamp" });
+  const scale = scrollX.interpolate({ inputRange, outputRange: [0.8, 1.15, 0.8], extrapolate: "clamp" });
   return (
-    <Animated.View
-      style={[
-        styles.dot,
-        {
-          width: dotWidth,
-          opacity,
-          transform: [{ scaleY: scale }],
-          backgroundColor: theme.textMain,
-          borderRadius: 4,
-        },
-      ]}
-    />
+    <Animated.View style={[styles.dot, { width: dotWidth, opacity, transform: [{ scaleY: scale }], backgroundColor: theme.textMain, borderRadius: 4 }]} />
   );
 };
 
-// 🚀 1. Accept refreshTrigger as a prop
 const CarouselSection = ({ refreshTrigger }) => {
   const { t } = useTranslation();
   const { nightMode } = usePermissions();
@@ -116,26 +66,21 @@ const CarouselSection = ({ refreshTrigger }) => {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fullScreenImage, setFullScreenImage] = useState(null);
-
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const theme = {
     background: nightMode ? "#111827" : "#FFFFFF",
     textMain: nightMode ? "#F9FAFB" : "#111827",
-    textSub: nightMode ? "#9CA3AF" : "#6B7280",
     pillBg: nightMode ? "#1E293B" : "#F8FAFC", 
     pillBorder: nightMode ? "#334155" : "#E2E8F0", 
   };
 
   const fetchImages = async () => {
     try {
-      setLoading(true); // Ensure loading state shows when refreshing
+      setLoading(true);
       const res = await visitorServices.getSocietyImages();
       if (res?.status === "success" && Array.isArray(res?.data)) {
-        const formatted = res.data.map((url, index) => ({
-          id: index.toString(),
-          uri: url,
-        }));
+        const formatted = res.data.map((url, index) => ({ id: index.toString(), uri: url }));
         setImages(formatted);
         FastImage.preload(res.data.map((url) => ({ uri: url })));
       }
@@ -146,47 +91,28 @@ const CarouselSection = ({ refreshTrigger }) => {
     }
   };
 
-  // 🚀 2. Listen to refreshTrigger and remove the setTimeout
-  useEffect(() => {
-    fetchImages();
-  }, [refreshTrigger]);
+  useEffect(() => { fetchImages(); }, [refreshTrigger]);
 
   useEffect(() => {
     if (images.length <= 1) return;
-
     const interval = setInterval(() => {
       const next = (activeIndexRef.current + 1) % images.length;
-      flatListRef.current?.scrollToOffset({
-        offset: next * SNAP_INTERVAL,
-        animated: true,
-      });
+      flatListRef.current?.scrollToOffset({ offset: next * SNAP_INTERVAL, animated: true });
       activeIndexRef.current = next;
     }, 4500);
-
     return () => clearInterval(interval);
   }, [images.length]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      const idx = viewableItems[0].index ?? 0;
-      activeIndexRef.current = idx;
-    }
+    if (viewableItems.length > 0) activeIndexRef.current = viewableItems[0].index ?? 0;
   }, []);
 
-  const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
-
   if (images.length === 0 && !loading) return null;
-
-  const isSingleImage = images.length === 1;
 
   return (
     <View style={[styles.sectionWrapper, { backgroundColor: theme.background }]}>
       {loading ? (
-        <View style={styles.shimmerRow}>
-          {[0, 1].map((i) => (
-            <ShimmerCard key={i} />
-          ))}
-        </View>
+        <View style={styles.shimmerRow}>{[0, 1].map((i) => <ShimmerCard key={i} />)}</View>
       ) : (
         <Animated.FlatList
           ref={flatListRef}
@@ -194,39 +120,22 @@ const CarouselSection = ({ refreshTrigger }) => {
           horizontal
           showsHorizontalScrollIndicator={false}
           keyExtractor={(item) => item.id}
-          snapToInterval={isSingleImage ? width : SNAP_INTERVAL}
+          snapToInterval={images.length === 1 ? width : SNAP_INTERVAL}
           snapToAlignment="start"
           decelerationRate="fast"
-          disableIntervalMomentum={true}
           contentContainerStyle={{ paddingHorizontal: SIDE_PADDING }}
           ItemSeparatorComponent={() => <View style={{ width: SPACING }} />}
           onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewConfig}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: false }
-          )}
+          viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: false })}
           scrollEventThrottle={16}
           renderItem={({ item }) => (
             <TouchableOpacity 
               activeOpacity={0.9} 
               onPress={() => setFullScreenImage(item.uri)}
-              style={[
-                styles.card, 
-                { width: isSingleImage ? ITEM_WIDTH_SINGLE : ITEM_WIDTH_MULTI }
-              ]}
+              style={[styles.card, { width: images.length === 1 ? ITEM_WIDTH_SINGLE : ITEM_WIDTH_MULTI }]}
             >
-              <FastImage
-                source={{
-                  uri: item.uri,
-                  priority: FastImage.priority.high,
-                  // 🚀 FIX 1: Remove the "cache: web" line entirely. 
-                  // Let FastImage use its default caching, which is much safer and matches your Modal!
-                }}
-                // 🚀 FIX 2: Change absoluteFill to explicitly take up 100% of the parent card
-                style={{ width: "100%", height: "100%" }}
-                resizeMode={FastImage.resizeMode.cover}
-              />
+              <FastImage source={{ uri: item.uri }} style={StyleSheet.absoluteFill} resizeMode={FastImage.resizeMode.cover} />
             </TouchableOpacity>
           )}
         />
@@ -234,52 +143,41 @@ const CarouselSection = ({ refreshTrigger }) => {
 
       {!loading && images.length > 1 && (
         <View style={styles.paginationWrapper}>
-          <View style={[styles.paginationPill, {
-            backgroundColor: theme.pillBg,
-            borderColor: theme.pillBorder,
-            borderWidth: 1
-          }]}>
-            {images.map((_, index) => (
-              <AnimatedDot
-                key={index}
-                index={index}
-                scrollX={scrollX}
-                theme={theme}
-              />
-            ))}
+          <View style={[styles.paginationPill, { backgroundColor: theme.pillBg, borderColor: theme.pillBorder, borderWidth: 1 }]}>
+            {images.map((_, index) => <AnimatedDot key={index} index={index} scrollX={scrollX} theme={theme} />)}
           </View>
         </View>
       )}
 
-      {/* Full Screen Image Modal */}
-      <Modal
-        visible={!!fullScreenImage}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setFullScreenImage(null)}
-        statusBarTranslucent
-      >
+      {/* ─── NATIVE ZOOM MODAL ─── */}
+      <Modal visible={!!fullScreenImage} transparent={true} animationType="fade" onRequestClose={() => setFullScreenImage(null)}>
         <View style={styles.modalBackground}>
-          <SafeAreaView style={styles.modalSafeArea}>
-            <TouchableOpacity 
-              style={styles.closeButton} 
-              onPress={() => setFullScreenImage(null)}
-              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-            >
-              <Ionicons name="close-circle" size={36} color="#FFFFFF" />
+          <SafeAreaView style={{ flex: 1 }}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setFullScreenImage(null)}>
+              <Ionicons name="close" size={30} color="#FFF" />
             </TouchableOpacity>
-            
+
             {fullScreenImage && (
-              <FastImage
-                source={{ uri: fullScreenImage }}
-                style={styles.fullScreenImage}
-                resizeMode={FastImage.resizeMode.contain}
-              />
+              <ImageZoom
+                cropWidth={width}
+                cropHeight={height}
+                imageWidth={width}
+                imageHeight={height}
+                minScale={1}
+                maxScale={5}
+                enableSwipeDown={true}
+                onSwipeDown={() => setFullScreenImage(null)}
+              >
+                <FastImage
+                  source={{ uri: fullScreenImage }}
+                  style={{ width: width, height: height }}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              </ImageZoom>
             )}
           </SafeAreaView>
         </View>
       </Modal>
-
     </View>
   );
 };
@@ -287,64 +185,24 @@ const CarouselSection = ({ refreshTrigger }) => {
 export default CarouselSection;
 
 const styles = StyleSheet.create({
-  sectionWrapper: {
-    paddingTop: 30,
-  },
-  card: {
-    height: CARD_HEIGHT,
-    borderRadius: 18,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    backgroundColor: "#E5E7EB",
-  },
-  shimmerRow: {
-    flexDirection: "row",
-    paddingHorizontal: SIDE_PADDING,
-    gap: SPACING,
-  },
-  shimmerCard: {
-    width: ITEM_WIDTH_MULTI,
-    height: CARD_HEIGHT,
-    borderRadius: 22,
-    overflow: "hidden",
-    backgroundColor: "#E5E7EB",
-  },
-  paginationWrapper: {
-    alignItems: "center",
-    marginTop: 15,
-  },
-  paginationPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    gap: 6,
-  },
-  dot: {
-    height: 6,
-    borderRadius: 4,
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.92)",
-    justifyContent: "center",
-  },
-  modalSafeArea: {
-    flex: 1,
-  },
+  sectionWrapper: { paddingTop: 30 },
+  card: { height: CARD_HEIGHT, borderRadius: 18, overflow: "hidden", elevation: 4, backgroundColor: "#E5E7EB" },
+  shimmerRow: { flexDirection: "row", paddingHorizontal: SIDE_PADDING, gap: SPACING },
+  shimmerCard: { width: ITEM_WIDTH_MULTI, height: CARD_HEIGHT, borderRadius: 22, overflow: "hidden", backgroundColor: "#E5E7EB" },
+  paginationWrapper: { alignItems: "center", marginTop: 15 },
+  paginationPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, gap: 6 },
+  dot: { height: 6 },
+  modalBackground: { flex: 1, backgroundColor: "#000" },
   closeButton: {
     position: "absolute",
-    top: 40,
+    top: Platform.OS === 'ios' ? 60 : 20,
     right: 20,
-    zIndex: 10,
-  },
-  fullScreenImage: {
-    width: "100%",
-    height: "100%",
+    zIndex: 999,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 25,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

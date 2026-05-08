@@ -47,13 +47,14 @@
     android:exported="true" />
 
         <!-- Full screen activity -->
-        <activity
+       <activity
             android:name=".VisitorIncomingActivity"
             android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:excludeFromRecents="true"
             android:launchMode="singleTop"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
     </application>

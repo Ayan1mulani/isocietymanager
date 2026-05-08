@@ -1,5 +1,5 @@
 import './app/i18n';
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View, ActivityIndicator, Text, StatusBar,
   StyleSheet, AppState, NativeModules, TextInput, Platform,
@@ -36,6 +36,7 @@ const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.factec
 const handledInMemory = new Set();
 const VISITOR_HANDLED_KEY = "HANDLED_VISITORS";
 const DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
+const IVR_POPUP_DISMISSED = "IVR_POPUP_DISMISSED";
 
 const isAlreadyHandled = async (id) => {
   if (handledInMemory.has(id)) return true;
@@ -164,7 +165,10 @@ const AppContent = () => {
 export default function App() {
 
   const { t } = useTranslation();
-  const [processing, setProcessing] = React.useState(false);
+const [processing, setProcessing] = React.useState(false);
+
+const [showIvrModal, setShowIvrModal] = useState(false);
+const [dontShowAgain, setDontShowAgain] = useState(false);
 
   // ✅ Controls soft update modal visibility
   const [showUpdateModal, setShowUpdateModal] = React.useState(false);
@@ -191,6 +195,38 @@ useEffect(() => {
   };
 
   checkUpdate();
+}, []);
+
+useEffect(() => {
+  const checkIVRPopup = async () => {
+    try {
+      const userRaw = await AsyncStorage.getItem("userInfo");
+
+      if (!userRaw) return;
+
+      const user = JSON.parse(userRaw);
+
+      // show popup only if IVR disabled
+      if (Number(user?.ivr_enable) !== 0) {
+        return;
+      }
+
+      const dismissed = await AsyncStorage.getItem(
+        IVR_POPUP_DISMISSED
+      );
+
+      if (dismissed === "true") {
+        return;
+      }
+
+      setShowIvrModal(true);
+
+    } catch (e) {
+      console.log(TAG, "IVR popup error:", e);
+    }
+  };
+
+  checkIVRPopup();
 }, []);
 
   /* ── Visitor navigation with retry ───────────────────────────────────── */
@@ -397,6 +433,21 @@ useEffect(() => {
     return () => sub.remove();
   }, []);
 
+  const handleCloseIvrModal = async () => {
+  try {
+    if (dontShowAgain) {
+      await AsyncStorage.setItem(
+        IVR_POPUP_DISMISSED,
+        "true"
+      );
+    }
+  } catch (e) {
+    console.log(TAG, e);
+  }
+
+  setShowIvrModal(false);
+};
+
   /* ── Render ──────────────────────────────────────────────────────────── */
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -415,6 +466,70 @@ useEffect(() => {
             onDismiss={() => setShowUpdateModal(false)}
           />
 
+<Modal
+  visible={showIvrModal}
+  transparent
+  animationType="fade"
+  onRequestClose={handleCloseIvrModal}
+>
+  <View style={updateStyles.overlay}>
+    <View style={ivrStyles.card}>
+
+      <TouchableOpacity
+        style={ivrStyles.closeBtn}
+        onPress={handleCloseIvrModal}
+      >
+        <Text style={ivrStyles.closeText}>✕</Text>
+      </TouchableOpacity>
+
+      <Text style={ivrStyles.title}>
+        IVR NOT SET
+      </Text>
+
+      <Text style={ivrStyles.message}>
+        IVR number is not configured. Click below to set one.
+      </Text>
+
+      <TouchableOpacity
+        style={ivrStyles.checkboxRow}
+        onPress={() =>
+          setDontShowAgain(!dontShowAgain)
+        }
+      >
+        <View
+          style={[
+            ivrStyles.checkbox,
+            dontShowAgain &&
+              ivrStyles.checkboxSelected,
+          ]}
+        >
+          {dontShowAgain && (
+            <Text style={ivrStyles.checkmark}>
+              ✓
+            </Text>
+          )}
+        </View>
+
+        <Text style={ivrStyles.checkboxText}>
+          DONT_SHOW_AGAIN
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={ivrStyles.button}
+        onPress={() => {
+          setShowIvrModal(false);
+          navigationRef.navigate("ProfileScreen");
+        }}
+      >
+        <Text style={ivrStyles.buttonText}>
+          Set IVR
+        </Text>
+      </TouchableOpacity>
+
+    </View>
+  </View>
+</Modal>
           <AppContent />
 
           {processing && (
@@ -505,5 +620,90 @@ const updateStyles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 14,
     fontWeight: "500",
+  },
+});
+
+const ivrStyles = StyleSheet.create({
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    width: "85%",
+    overflow: "hidden",
+  },
+
+  closeBtn: {
+    position: "absolute",
+    right: 18,
+    top: 16,
+    zIndex: 10,
+  },
+
+  closeText: {
+    fontSize: 26,
+    color: "#111827",
+  },
+
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginTop: 26,
+    marginHorizontal: 24,
+    marginBottom: 18,
+  },
+
+  message: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: "#4B5563",
+    marginHorizontal: 24,
+    marginBottom: 26,
+  },
+
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 24,
+    marginBottom: 32,
+  },
+
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 1.5,
+    borderColor: "#9CA3AF",
+    borderRadius: 4,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+
+  checkboxSelected: {
+    backgroundColor: BRAND.COLORS.primary,
+    borderColor: BRAND.COLORS.primary,
+  },
+
+  checkmark: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+
+  checkboxText: {
+    fontSize: 15,
+    color: "#111827",
+    fontWeight: "500",
+  },
+
+  button: {
+    backgroundColor: "#14B8E6",
+    paddingVertical: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
   },
 });

@@ -66,6 +66,8 @@ const AllServicesScreen = () => {
     { title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { title: 'Bounced Cheque', icon: 'alert-circle-outline', route: 'BouncedCheques' },
     { title: 'Debit Credit Note', icon: 'time-outline', route: 'PaymentHistory' },
+    { title: 'Survey', icon: 'survey-outline', route: 'surveypage' },
+
   ];
 
   useFocusEffect(
