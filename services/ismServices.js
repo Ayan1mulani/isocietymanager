@@ -490,7 +490,7 @@ const ismServices = {
     const u = JSON.stringify(uObj);
 
     // ✅ FULL manual URL (NO helper)
-    const url = `${API_URL2}/userDetailsById/${u}?api-token=${user.api_token}&user-id=${u}&group-id=${user.role_id}&app_id=ism_resident`;
+    const url = `${API_URL2}/userDetailsById/${u}?api-token=${user.api_token}&user-id=${u}&group-id=${user.role_id}&app_id=max_resident`;
 
     console.log("✅ FINAL URL:", url); // debug once
 
@@ -647,7 +647,7 @@ const ismServices = {
       "api-token": user.api_token,
       "user-id": u,
       "group-id": user.role_id,
-      "app_id": "ism_resident"
+      "app_id": "max_resident"
     };
 
     const finalParams = {

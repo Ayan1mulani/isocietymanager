@@ -1,5 +1,4 @@
-package com.sumasamu.iSocietyManager
-
+package com.factech.maxestate
 import android.app.Activity
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -27,7 +26,7 @@ class VisitorIncomingActivity : Activity() {
         private const val PREFS_NAME     = "VisitorPrefs"
         private const val KEY_VISITOR    = "PENDING_VISITOR"
         private const val AUTO_DISMISS   = 60_000L
-        private const val ACTION_HANDLED = "com.sumasamu.iSocietyManager.VISITOR_HANDLED"
+        private const val ACTION_HANDLED = "com.factech.maxestate.VISITOR_HANDLED"
 
         // Must match the key used in RN DefaultPreference.set()
         private const val KEY_VISITOR_SOUND = "NATIVE_SOUND_ENABLED"

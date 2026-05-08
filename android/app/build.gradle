@@ -77,13 +77,20 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.sumasamu.iSocietyManager"
+   namespace "com.factech.maxestate"
     defaultConfig {
-        applicationId "com.sumasamu.iSocietyManager"
+        // applicationId "com.factech.maxestate"
+         applicationId "com.factech.maxestate"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 464
-        versionName "3.2.17"
+
+        // max estate
+        versionCode 33
+        versionName "2.00.01"
+
+        // iscoietyManager
+        // versionCode 464
+        // versionName "3.2.17"
     }
     signingConfigs {
         release {

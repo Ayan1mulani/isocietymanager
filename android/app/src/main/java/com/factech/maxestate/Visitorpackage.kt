@@ -1,5 +1,4 @@
-package com.sumasamu.iSocietyManager
-
+package com.factech.maxestate
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext

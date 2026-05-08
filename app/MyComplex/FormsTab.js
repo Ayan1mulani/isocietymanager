@@ -177,7 +177,7 @@ export default FormsScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#ffffff",
   },
 
   listContainer: {
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    elevation: 1,
+    elevation: 0.7,
   },
 
   title: {

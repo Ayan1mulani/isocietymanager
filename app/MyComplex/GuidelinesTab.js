@@ -325,7 +325,7 @@ const COLORS = {
   text: "#0F172A",
   textSecondary: "#64748B",
   textTertiary: "#94A3B8",
-  background: "#F8FAFC",
+  background: "#ffffff",
   cardBackground: "#FFFFFF",
   border: "#E2E8F0",
   success: "#10B981",
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 0.1,
+    elevation: 0.7,
 
   },
   cardContent: {

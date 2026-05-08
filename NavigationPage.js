@@ -37,6 +37,7 @@ import Header from './app/Common/Header/Header';
 import LoginScreen from './app/Login/Login';
 import MoreScreen from './app/MoreScreen/MorePage';
 import { PermissionsProvider, usePermissions } from './Utils/ConetextApi';
+import { hasPermission } from './Utils/PermissionHelper';
 import { ismServices } from './services/ismServices';
 import ServiceRequestTabs from './app/ServiceRequestScreen/ServiceHeader';
 import CategorySelectionScreen from './app/ServiceRequestScreen/complaintCatModel';
@@ -123,9 +124,19 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   const { t } = useTranslation(); // <--- 1. ADD THIS HERE
   const COLORS = BRAND.COLORS;
 
-  const PRIMARY_COLOR = nightMode ? "#2A2A2Aee" : COLORS.bottomNavBackground;
-  const SECONDARY_COLOR = nightMode ? "#4A90E2" : "#FFFFFF";
-  const ICON_COLOR_INACTIVE = nightMode ? "#B0B0B0" : "#E0E0E0";
+  const NAVBAR_BG = nightMode
+    ? "#2A2A2Aee"
+    : COLORS.bottomNavBackground;
+
+  const ACTIVE_COLOR = nightMode
+    ? "#4A90E2"
+    : COLORS.bottomNavActiveIcon;
+
+  const SECONDARY_COLOR = "#FFFFFF";
+
+  const ICON_COLOR_INACTIVE = nightMode
+    ? "#B0B0B0"
+    : COLORS.bottomNavInactiveIcon;
 
   // Calculate tab width based on number of routes
   const totalTabs = state.routes.length;
@@ -191,7 +202,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
   return (
     <View style={styles.bottomNavContainer}>
-      <View style={[styles.bottomNavBar, { backgroundColor: PRIMARY_COLOR }]}>
+      <View style={[styles.bottomNavBar, { backgroundColor: NAVBAR_BG }]}>
         {/* Sliding White Background Indicator */}
         <Animated.View
           style={[
@@ -253,12 +264,12 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               <View style={styles.tabContent}>
                 {getIconByRouteName(
                   route.name,
-                  isFocused ? PRIMARY_COLOR : ICON_COLOR_INACTIVE,
+                  isFocused ? ACTIVE_COLOR : ICON_COLOR_INACTIVE,
                   isFocused
                 )}
                 {isFocused && (
                   <Text
-                    style={[styles.tabLabel, { color: PRIMARY_COLOR }]}
+                    style={[styles.tabLabel, { color: ACTIVE_COLOR }]}
                     numberOfLines={1}
                   >
                    {t(shortLabel)}
@@ -274,7 +285,15 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 };
 
 const NavigationTabs = () => {
-  const { nightMode } = usePermissions();
+  const { nightMode, permissions } = usePermissions();
+
+  const permissionsLoaded = permissions !== null && permissions !== undefined;
+
+  const canViewVisitors =
+    !permissionsLoaded || hasPermission(permissions, 'VMS', 'R');
+
+  const canViewComplaints =
+    !permissionsLoaded || hasPermission(permissions, 'COM', 'R');
 
 
   useEffect(() => {
@@ -324,16 +343,20 @@ const NavigationTabs = () => {
           component={HomeStack}
           options={{ tabBarIconName: 'home' }}
         />
-        <Tab.Screen
-          name="Service Requests"
-          component={ServiceRequestsStack}
-          options={{ tabBarIconName: 'build' }}
-        />
-        <Tab.Screen
-          name="Visitors"
-          component={VisitorsScreen}
-          options={{ tabBarIconName: 'people' }}
-        />
+        {canViewComplaints && (
+          <Tab.Screen
+            name="Service Requests"
+            component={ServiceRequestsStack}
+            options={{ tabBarIconName: 'build' }}
+          />
+        )}
+        {canViewVisitors && (
+          <Tab.Screen
+            name="Visitors"
+            component={VisitorsScreen}
+            options={{ tabBarIconName: 'people' }}
+          />
+        )}
         <Tab.Screen
           name="More"
           component={MoreScreen}

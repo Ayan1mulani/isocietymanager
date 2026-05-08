@@ -1,5 +1,4 @@
-package com.sumasamu.iSocietyManager
-
+package com.factech.maxestate
 import android.app.Application
 import android.app.NotificationManager
 import android.content.BroadcastReceiver
@@ -19,7 +18,6 @@ class MainApplication : Application(), ReactApplication {
         getDefaultReactHost(
             context = applicationContext,
             packageList = PackageList(this).packages.apply {
-                // ✅ Register our native VisitorModule bridge
                 add(VisitorPackage())
             },
         )

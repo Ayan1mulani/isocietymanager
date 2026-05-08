@@ -98,6 +98,9 @@ const VisitorScreen = () => {
       }
 
       const res = await visitorServices.getMyVisitors();
+
+      console.log("VISITS API RESPONSE:", JSON.stringify(res, null, 2));
+
       const freshData = res?.data?.visits || [];
       
       setVisits(freshData);
@@ -129,6 +132,9 @@ const VisitorScreen = () => {
       }
 
       const res = await visitorServices.getMyPasses();
+
+      console.log("PASSES API RESPONSE:", JSON.stringify(res, null, 2));
+
       const freshData = res?.data || [];
       
       setPasses(freshData);
@@ -160,6 +166,9 @@ const VisitorScreen = () => {
       }
 
       const res = await visitorServices.getParkingBookings();
+
+      console.log("PARKING API RESPONSE:", JSON.stringify(res, null, 2));
+
       const freshData = res?.data || [];
       
       setParkingBookings(freshData);

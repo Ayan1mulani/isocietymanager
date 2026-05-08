@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import SlidingTabs from "../components/SlidingTabs";
 import GuidelinesTab from "./GuidelinesTab";
@@ -28,6 +29,7 @@ const MyComplexScreen = () => {
   ];
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   const tabTranslateY = useRef(new Animated.Value(0)).current;
@@ -86,17 +88,31 @@ const MyComplexScreen = () => {
           tabs={TABS}
           activeIndex={activeTabIndex}
           onTabPress={(index) => {
+            setLoading(true);
             setActiveTabIndex(index);
+
             scrollViewRef.current?.scrollTo({
               x: index * SCREEN_WIDTH,
               animated: true,
             });
+
+            setTimeout(() => {
+              setLoading(false);
+            }, 400);
           }}
           primaryColor={BRAND.COLORS.primarydark}
           inactiveColor="#6B7280"
           scrollX={scrollX}
         />
       </Animated.View>
+      {loading && (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator
+            size="small"
+            color={BRAND.COLORS.primary}
+          />
+        </View>
+      )}
 
       <Animated.ScrollView
         ref={scrollViewRef}
@@ -109,6 +125,7 @@ const MyComplexScreen = () => {
             event.nativeEvent.contentOffset.x / SCREEN_WIDTH
           );
           setActiveTabIndex(index);
+          setLoading(false);
         }}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -131,5 +148,16 @@ export default MyComplexScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loaderContainer: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    zIndex: 999,
+    backgroundColor: '#FFF',
+    padding: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
 });

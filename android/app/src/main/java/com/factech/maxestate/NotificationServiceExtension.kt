@@ -1,5 +1,4 @@
-package com.sumasamu.iSocietyManager
-
+package com.factech.maxestate
 import android.app.*
 import android.content.Context
 import android.content.Intent
@@ -31,6 +30,11 @@ class MyNotificationServiceExtension : INotificationServiceExtension {
     override fun onNotificationReceived(event: INotificationReceivedEvent) {
         val notification = event.notification
         val context = event.context
+
+        Log.d("ONESIGNAL_EXT", "🔥 EXTENSION RECEIVED NOTIFICATION")
+        Log.d("ONESIGNAL_EXT", "📩 Title: ${notification.title}")
+        Log.d("ONESIGNAL_EXT", "📩 Body: ${notification.body}")
+        Log.d("ONESIGNAL_EXT", "📩 Raw additionalData: ${notification.additionalData}")
 
         Log.d(TAG, "onNotificationReceived → ${notification.title}")
 
@@ -68,6 +72,9 @@ class MyNotificationServiceExtension : INotificationServiceExtension {
         val staffName = data.optString("name", "Staff")
         val isExit = data.optInt("exit", 0) == 1
         val staffId = data.optString("id", "")
+
+        Log.d("ONESIGNAL_EXT", "👨‍🔧 STAFF notification detected")
+        Log.d("ONESIGNAL_EXT", "🆔 Staff ID: $staffId")
 
         if (staffId.isEmpty()) return
 
@@ -128,6 +135,10 @@ class MyNotificationServiceExtension : INotificationServiceExtension {
         data: org.json.JSONObject?
     ) {
         val visitorId = data?.optString("id", "") ?: return
+
+        Log.d("ONESIGNAL_EXT", "🚪 VISITOR notification detected")
+        Log.d("ONESIGNAL_EXT", "🆔 Visitor ID: $visitorId")
+
         val visitorName = data.optString("visitor_name", "Visitor")
 
         val now = System.currentTimeMillis()

@@ -10,8 +10,9 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { usePermissions } from "../../Utils/ConetextApi";
 import { hasPermission } from "../../Utils/PermissionHelper";
-import LinearGradient from 'react-native-linear-gradient';
 import BRAND from "../config";
+
+const COLORS = BRAND.COLORS;
 
 // 1. ── NEW: Import your global Text component ──
 import Text from '../components/TranslatedText'; 
@@ -48,14 +49,13 @@ const QuickActionsScreen = () => {
           activeOpacity={0.75}
           onPress={() => navigation.navigate(item.screen)}
         >
-          <LinearGradient
-            colors={["#5a7cc6", "#5a7cc6"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.iconWrapper}
-          >
-            <Ionicons name={item.icon} size={22} color="#fff" />
-          </LinearGradient>
+          <View style={styles.iconWrapper}>
+            <Ionicons
+              name={item.icon}
+              size={22}
+              color={COLORS.primary}
+            />
+          </View>
 
           {/* 3. ── Automatically handled by global <Text> ── */}
           <Text style={styles.label} numberOfLines={1}>
@@ -82,20 +82,21 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH / 5 - 14, 
   },
   iconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "#5572b0d1",
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: COLORS.iconBackground,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 6,
-    elevation:5
-
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.iconBorder,
+    elevation: 2,
   },
   label: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#374151",
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.text,
     textAlign: "center",
   },
 });

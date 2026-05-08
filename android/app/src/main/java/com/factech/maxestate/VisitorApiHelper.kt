@@ -1,4 +1,4 @@
-package com.sumasamu.iSocietyManager
+package com.factech.maxestate
 
 import android.content.Context
 import android.util.Log

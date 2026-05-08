@@ -22,8 +22,7 @@
         <!-- ✅ REQUIRED META -->
         <meta-data
             android:name="com.onesignal.NotificationServiceExtension"
-            android:value="com.sumasamu.iSocietyManager.MyNotificationServiceExtension" />
-
+          android:value="com.factech.maxestate.MyNotificationServiceExtension" />
         <!-- ✅ REQUIRED SERVICE -->
      
 

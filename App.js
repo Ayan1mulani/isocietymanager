@@ -31,7 +31,7 @@ const { VisitorModule, IntentModule } = NativeModules;
 
 const TAG = "[App]";
 
-const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.sumasamu.iSocietyManager";
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.factech.maxestate";
 
 const handledInMemory = new Set();
 const VISITOR_HANDLED_KEY = "HANDLED_VISITORS";

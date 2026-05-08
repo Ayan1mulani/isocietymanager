@@ -10,6 +10,8 @@ import {
 import AppHeader from "../components/AppHeader";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
+import BRAND from "../config";
+
 
 import { ismServices } from "../../services/ismServices";
 
@@ -54,7 +56,7 @@ const PaymentDetailScreen = ({ route }) => {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#1996D3" />
+        <ActivityIndicator size="large" color={BRAND.COLORS.primary} />
       </View>
     );
   }
@@ -164,7 +166,7 @@ const PaymentDetailScreen = ({ route }) => {
           <TouchableOpacity
             onPress={openReceipt}
             style={{
-              backgroundColor: "#1996D3",
+              backgroundColor: BRAND.COLORS.primary,
               padding: 14,
               borderRadius: 10,
               alignItems: "center"

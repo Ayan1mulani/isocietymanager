@@ -1,5 +1,4 @@
-package com.sumasamu.iSocietyManager
-
+package com.factech.maxestate
 import android.content.Context          // ← THIS WAS MISSING (compile error)
 import android.util.Log
 import com.facebook.react.bridge.*

@@ -1,6 +1,13 @@
 export default {
   APP_NAME: "iSocietyManager",
 
+  ONE_SIGNAL: {
+    appId: "21c23c69-e39f-476f-9c1e-a88676ede1df",
+    appName: "ism_resident",
+  },
+
+  APP_VERSION_CODE: "464",
+
   PRIMARY_COLOR: "#0169B2",
 
   BACKGROUND_IMAGE: {

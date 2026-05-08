@@ -460,20 +460,41 @@ visitAttended: async (visitId) => {
 appendParamsInUrl: async (url, extraParams = {}) => {
   const user = await Common.getLoggedInUser();
 
+  // iOS sometimes stores user.id as a stringified JSON object
+  let parsedUserId = user.id;
+
+  if (typeof parsedUserId === 'string') {
+    try {
+      const parsed = JSON.parse(parsedUserId);
+
+      if (parsed?.user_id) {
+        parsedUserId = parsed.user_id;
+
+        // Recover missing values from parsed object
+        user.role_id = user.role_id || parsed.group_id;
+        user.flat_no = user.flat_no || parsed.flat_no;
+        user.unit_id = user.unit_id || parsed.unit_id;
+        user.societyId = user.societyId || parsed.society_id;
+      }
+    } catch (e) {
+      console.log('User ID parse failed:', e);
+    }
+  }
+
   const uObj = {
-    user_id: user.id,
+    user_id: parsedUserId,
     group_id: user.role_id,
     flat_no: user.flat_no,
     unit_id: user.unit_id,
     society_id: user.societyId
   };
 
-  // Encode only quotes like backend expects
-  const u = JSON.stringify(uObj).replace(/"/g, "%22");
+  // Backend expects raw JSON string exactly like Cordova app
+  const userIdString = JSON.stringify(uObj);
 
   const commonParams = {
     "api-token": user.api_token,
-    "user-id": `{${u.slice(1, -1)}}`
+    "user-id": userIdString
   };
 
   const finalParams = {

@@ -3,6 +3,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { StyleSheet, FlatList, View, ActivityIndicator } from 'react-native';
 import ComplaintCard from './complaintCard';
 import { usePermissions } from '../../Utils/ConetextApi';
+import { hasPermission } from '../../Utils/PermissionHelper';
 import { useNavigation } from '@react-navigation/native';
 import BRAND from '../config';
 import EmptyState from '../components/EmptyState';
@@ -50,11 +51,19 @@ const ComplaintListScreen = ({
   canReopen  = false,
 }) => {
   const navigation = useNavigation();
-  const { nightMode: contextNightMode } = usePermissions();
+  const { nightMode: contextNightMode, permissions } = usePermissions();
   const { t } = useTranslation();
 
   const currentNightMode = nightMode !== undefined ? nightMode : contextNightMode;
   const currentTheme     = currentNightMode ? THEME.dark : THEME.light;
+
+  const canReadComplaints =
+    permissions &&
+    typeof hasPermission === 'function' &&
+    (
+      hasPermission(permissions, 'COM', 'R') ||
+      hasPermission(permissions, 'COM', 'READ')
+    );
 
   const [selectedSegment, setSelectedSegment] = useState(null);
 
@@ -127,6 +136,22 @@ const ComplaintListScreen = ({
     );
   }, [showStats, currentTheme, currentNightMode, selectedSegment]);
 
+  if (!canReadComplaints) {
+    return (
+      <View style={[styles.container, { backgroundColor: currentTheme.backgroundColor }]}>
+        <EmptyState
+          icon="lock-closed-outline"
+          title={t("Access Denied")}
+          subtitle={t("You don't have permission to view complaints")}
+          theme={{
+            text: currentTheme.textColor,
+            textSecondary: currentTheme.inactiveTextColor,
+          }}
+        />
+      </View>
+    );
+  }
+
   if (isLoading && uniqueComplaints.length === 0) {
     return (
       <View style={[styles.centered, { backgroundColor: currentTheme.backgroundColor }]}>
@@ -149,7 +174,7 @@ const emptyTitle = selectedSegment
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.backgroundColor }]}>
       <FlatList
-       data={uniqueComplaints}
+       data={filteredComplaints}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         ListHeaderComponent={listHeader}
@@ -170,7 +195,7 @@ const emptyTitle = selectedSegment
           />
         }
         contentContainerStyle={
-          uniqueComplaints.length === 0 ? styles.emptyContainer : { paddingBottom: listBottomPadding }
+          filteredComplaints.length === 0 ? styles.emptyContainer : { paddingBottom: listBottomPadding }
         }
         showsVerticalScrollIndicator={false}
         refreshing={isLoading}
