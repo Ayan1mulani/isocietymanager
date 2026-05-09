@@ -44,6 +44,8 @@ const PERSPECTIVE = 900;
 const MAX_ROTATE = 18;
 
 const getProfileCacheKey = (userId) => `@user_profile_cache_${userId}`;
+const PROFILE_IMAGE_CACHE_KEY = '@cached_profile_image';
+const PROFILE_IMAGE_VERSION_KEY = '@profile_image_version';
 
 const SkeletonLine = ({ width = 100, height = 12, style }) => (
   <View style={[{ width, height, backgroundColor: '#E2E8F0', borderRadius: 4 }, style]} />
@@ -76,10 +78,39 @@ const ResidentIdCardScreen = () => {
         setLoading(false);
       }
 
-      const res = await ismServices.getUserProfileData();
+      const [res, res2] = await Promise.all([
+        ismServices.getUserProfileData(),
+        ismServices.getUserDetails(),
+      ]);
+
       if (res?.status === 'success') {
-        setUser(res.data);
-        await AsyncStorage.setItem(cacheKey, JSON.stringify(res.data));
+
+        const cachedImage = await AsyncStorage.getItem(
+          PROFILE_IMAGE_CACHE_KEY
+        );
+
+        const imageVersion = await AsyncStorage.getItem(
+          PROFILE_IMAGE_VERSION_KEY
+        );
+
+        const latestImage =
+          cachedImage ||
+          res2?.image_src ||
+          res2?.profile_image ||
+          res?.data?.image_src;
+
+        const mergedUser = {
+          ...res.data,
+          image_src: latestImage,
+          image_version: imageVersion || '1',
+        };
+
+        setUser(mergedUser);
+
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify(mergedUser)
+        );
       }
     } catch (err) {
       console.log("ID CARD ERROR:", err);
@@ -98,10 +129,18 @@ const ResidentIdCardScreen = () => {
   };
 
   const getAvatarUri = () => {
-    if (user?.image_src) return { uri: user.image_src };
+    if (user?.image_src) {
+      return {
+        uri: `${user.image_src}?v=${user?.image_version || '1'}`,
+      };
+    }
+
     const displayName = getUserField(user?.name, user?.alt_name);
     const name = encodeURIComponent(displayName || "User");
-    return { uri: `https://ui-avatars.com/api/?name=${name}&background=FB923C&color=fff&size=250` };
+
+    return {
+      uri: `https://ui-avatars.com/api/?name=${name}&background=FB923C&color=fff&size=250`
+    };
   };
 
 

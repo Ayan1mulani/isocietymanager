@@ -31,9 +31,9 @@ const SHIMMER_TRAVEL = SCREEN_WIDTH * 2;
 
 // ─── Module-level cache (survives component re-mounts) ────────────────────────
 const cache = {
-  billTypes: null,   // array of bill type objects
-  outstandingMap: null,   // id → item
-  statements: {},     // tabId → array
+  billTypes: null,
+  outstandingMap: null,
+  statements: {},
 };
 
 let cacheUserId = null;
@@ -130,14 +130,16 @@ export default function AccountsScreen() {
   const pLoaded = permissions !== null && permissions !== undefined;
   const canOutstanding = pLoaded && hasPermission(permissions, 'OUTSND', 'R');
   const canBills = pLoaded && hasPermission(permissions, 'BILL', 'R');
+  const canPayRequest = pLoaded && (
+    hasPermission(permissions, 'PMTREQ', 'R') ||
+    hasPermission(permissions, 'PMTREQ', 'READ')
+  );
 
-  // ── State — seeded from cache for instant 2nd-open ────────────────────────
   const [billTypes, setBillTypes] = useState([]);
   const [outstandingMap, setOutstandingMap] = useState({});
   const [selectedTabId, setSelectedTabId] = useState(null);
   const [statements, setStatements] = useState([]);
 
-  // Independent loading states — each section controls its own skeleton
   const [outLoading, setOutLoading] = useState(!cache.outstandingMap);
   const [stmtLoading, setStmtLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -172,36 +174,24 @@ export default function AccountsScreen() {
           setOutstandingMap(cached.outstandingMap || {});
         }
 
-        // 🚨 If user changed → CLEAR CACHE
         if (cacheUserId !== uid) {
           cacheUserId = uid;
-
           cache.billTypes = null;
           cache.outstandingMap = null;
           cache.statements = {};
-
           setBillTypes([]);
           setOutstandingMap({});
           setStatements([]);
           setSelectedTabId(null);
-
           setOutLoading(true);
           setStmtLoading(true);
-        }
-        else {
-          // ✅ Same user → safely hydrate from cache
-          if (cache.billTypes) {
-            setBillTypes(cache.billTypes);
-          }
-          if (cache.outstandingMap) {
-            setOutstandingMap(cache.outstandingMap);
-          }
+        } else {
+          if (cache.billTypes) setBillTypes(cache.billTypes);
+          if (cache.outstandingMap) setOutstandingMap(cache.outstandingMap);
           const firstTab = cache.billTypes?.[0]?.id ?? null;
           if (firstTab !== null) {
             setSelectedTabId(firstTab);
-            if (cache.statements[firstTab]) {
-              setStatements(cache.statements[firstTab]);
-            }
+            if (cache.statements[firstTab]) setStatements(cache.statements[firstTab]);
           }
         }
       } catch (e) {
@@ -216,7 +206,6 @@ export default function AccountsScreen() {
 
   useEffect(() => { activeTab.current = selectedTabId; }, [selectedTabId]);
 
-  // ── Fetch outstanding ──────────────────────────────────────────────────────
   const fetchOutstanding = useCallback(async (force = false) => {
     if (cache.outstandingMap && !force) {
       setOutstandingMap(cache.outstandingMap);
@@ -234,7 +223,6 @@ export default function AccountsScreen() {
       cache.outstandingMap = oMap;
       setBillTypes(list);
       setOutstandingMap(oMap);
-      // Save cache after fetching outstanding
       if (userId) {
         const cacheKey = getCacheKey(userId);
         AsyncStorage.setItem(cacheKey, JSON.stringify({
@@ -243,7 +231,6 @@ export default function AccountsScreen() {
           statements: cache.statements,
         }));
       }
-      // Set first tab if nothing selected yet — but do NOT block statements on this
       if (activeTab.current === null && list.length > 0) {
         activeTab.current = list[0].id;
         setSelectedTabId(list[0].id);
@@ -255,7 +242,6 @@ export default function AccountsScreen() {
     }
   }, [userId]);
 
-  // ── Fetch statements for a given tab ──────────────────────────────────────
   const fetchStatements = useCallback(async (tabId, force = false) => {
     if (tabId === null || tabId === undefined) return;
     if (cache.statements[tabId] && !force) {
@@ -271,7 +257,6 @@ export default function AccountsScreen() {
       const data = res?.status === 'success' && Array.isArray(res.data) ? res.data : [];
       cache.statements[tabId] = data;
       if (activeTab.current === tabId) setStatements(data);
-      // Save cache after fetching statements
       if (userId) {
         const cacheKey = getCacheKey(userId);
         AsyncStorage.setItem(cacheKey, JSON.stringify({
@@ -287,31 +272,17 @@ export default function AccountsScreen() {
     }
   }, [userId]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // TRUE PARALLEL LOAD — root cause of the slow first load was that tabId was
-  // null at call-time, so statements waited for outstanding to finish first.
-  //
-  // Fix: resolve the tab ID BEFORE kicking off async work.
-  //   • If cache has billTypes → tab ID is known immediately → fire both at once
-  //   • If no cache → outstanding must run first to learn the tab ID,
-  //     then fire statements immediately (no awaiting outstanding's full settle)
-  // ─────────────────────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async (force = false) => {
     const knownTabId = activeTab.current ?? cache.billTypes?.[0]?.id ?? null;
-
     if (knownTabId !== null) {
-      // Tab ID already known — fire both simultaneously, zero sequential wait
       await Promise.allSettled([
         fetchOutstanding(force),
         fetchStatements(knownTabId, force),
       ]);
     } else {
-      // First ever load, no cache — fetch outstanding to discover tab IDs,
-      // then immediately kick off statements without a second await chain
       await fetchOutstanding(force);
-      // After outstanding resolves, activeTab.current is now set
       if (activeTab.current !== null) {
-        fetchStatements(activeTab.current, force); // intentionally NOT awaited — runs concurrently
+        fetchStatements(activeTab.current, force);
       }
     }
   }, [fetchOutstanding, fetchStatements]);
@@ -322,7 +293,6 @@ export default function AccountsScreen() {
     }
   }, [pLoaded, initializing, userId]);
 
-  // ── Tab switch ─────────────────────────────────────────────────────────────
   const onTabChange = useCallback((id) => {
     if (id === selectedTabId) return;
     setSelectedTabId(id);
@@ -336,7 +306,6 @@ export default function AccountsScreen() {
     }
   }, [selectedTabId, fetchStatements]);
 
-  // ── Pull-to-refresh ────────────────────────────────────────────────────────
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     if (selectedTabId !== null) delete cache.statements[selectedTabId];
@@ -352,17 +321,19 @@ export default function AccountsScreen() {
     } catch (e) { console.log('Download:', e); }
   }, []);
 
-  // ── Derived — only items with show_bal:true are shown in outstanding ───────
-  // Items where show_bal:false mean the server has no balance data for that plan.
-  // Items where show_bal:true but balance=0 are still shown (e.g. advance cleared).
   const visiblePlans = useMemo(
     () => Object.values(outstandingMap).filter((i) => i.show_bal === true),
     [outstandingMap]
   );
+
+  // ── FIX 1: Only count plans with a POSITIVE balance (actual dues).
+  // Advances (negative balance) are NOT outstanding — including them was
+  // causing the total to be wrong (or show ₹0 when only advances existed).
   const plansWithDue = useMemo(
     () => visiblePlans.filter((i) => parseFloat(i?.data?.balance || 0) > 0),
     [visiblePlans]
   );
+
   const totalOutstanding = useMemo(
     () => plansWithDue.reduce((s, i) => s + parseFloat(i?.data?.balance || 0), 0),
     [plansWithDue]
@@ -387,15 +358,7 @@ export default function AccountsScreen() {
   );
 
   const OutSkel = () => (
-    <View
-      style={[
-        styles.outBlock,
-        {
-          backgroundColor: theme.card,
-          borderColor: '#E5E7EB',
-        },
-      ]}
-    >
+    <View style={[styles.outBlock, { backgroundColor: theme.card, borderColor: '#E5E7EB' }]}>
       {[0, 1, 2].map((k) => (
         <View key={k} style={[styles.outRow, k < 2 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }]}>
           <ShimmerBox w="45%" h={13} isDark={isDark} />
@@ -406,17 +369,7 @@ export default function AccountsScreen() {
   );
 
   const StmtSkel = () => (
-    <View
-      style={[
-        styles.stmtCard,
-        {
-          backgroundColor: theme.card,
-          borderColor: '#E5E7EB',
-          shadowOpacity: 0,
-          elevation: 0,
-        },
-      ]}
-    >
+    <View style={[styles.stmtCard, { backgroundColor: theme.card, borderColor: '#E5E7EB', shadowOpacity: 0, elevation: 0 }]}>
       <View style={styles.stmtTopRow}>
         <ShimmerBox w={40} h={40} isDark={isDark} rad={10} style={{ marginRight: 10 }} />
         <View style={styles.stmtInfo}>
@@ -445,13 +398,7 @@ export default function AccountsScreen() {
     const isDr = item.type_of_payment === 'DEBIT';
 
     return (
-      <View style={[
-        styles.stmtCard,
-        {
-          backgroundColor: theme.softCard,
-          borderColor: theme.border,
-        },
-      ]}>
+      <View style={[styles.stmtCard, { backgroundColor: theme.softCard, borderColor: theme.border }]}>
         <View style={styles.stmtTopRow}>
           <View style={[styles.stmtIconBox, { backgroundColor: theme.iconBg }]}>
             <Ionicons name={ico.name} size={20} color={ico.color} />
@@ -484,7 +431,7 @@ export default function AccountsScreen() {
           <View style={[styles.stmtAmountItem, { alignItems: 'center' }]}>
             <Text style={[styles.stmtAmtLabel, { color: theme.secondary }]}>{t('Balance')}</Text>
             <Text style={[styles.stmtAmtValue, { color: BRAND.COLORS.icon }]}>
-             {fmt(Math.abs(balance))}
+              {fmt(Math.abs(balance))}
             </Text>
           </View>
           <View style={[styles.stmtAmountItem, { alignItems: 'flex-end' }]}>
@@ -522,7 +469,6 @@ export default function AccountsScreen() {
     );
   }
 
-  // ── Access guard ──────────────────────────────────────────────────────────
   if (pLoaded && !canOutstanding && !canBills) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -540,7 +486,6 @@ export default function AccountsScreen() {
     );
   }
 
-  // ── Three-dots button ─────────────────────────────────────────────────────
   const ThreeDots = (
     <TouchableOpacity
       onPress={() => setNavModal(true)}
@@ -551,35 +496,9 @@ export default function AccountsScreen() {
     </TouchableOpacity>
   );
 
-  // ── ListHeaderComponent ────────────────────────────────────────────────────
   const Header = (
     <View style={{ padding: 16 }}>
-
-      {/* ── Total outstanding summary card ── */}
-      {(!pLoaded || canOutstanding) && (
-        outLoading ? <SummarySkel /> : (
-          <View style={[styles.summaryCard, { backgroundColor: THEME.primary }]}>
-            <View style={styles.summaryInner}>
-              <View>
-                <Text style={styles.summaryLabel}>{t('Total Outstanding')}</Text>
-                <Text style={styles.summaryAmount}>{fmt(Math.abs(totalOutstanding))}</Text>
-                <Text style={styles.summaryNote}>
-                  {plansWithDue.length} {plansWithDue.length === 1 ? t('plan') : t('plans')} {t('with dues')}
-                </Text>
-              </View>
-              <View style={styles.summaryIcon}>
-                <Ionicons name="wallet-outline" size={32} color="rgba(255,255,255,0.9)" />
-              </View>
-            </View>
-          </View>
-        )
-      )}
-
-      {/* ── Outstanding list ──
-          Only renders items where show_bal === true (server confirmed it has data).
-          Balance = 0 items are shown as "Advance" or "Clear".
-          No scroll — with real data this is a short fixed list (2-4 items max).
-      ── */}
+      {/* ── Outstanding list ── */}
       {(!pLoaded || canOutstanding) && (
         <>
           <View style={styles.sectionHeader}>
@@ -604,7 +523,7 @@ export default function AccountsScreen() {
                 const balance = parseFloat(item?.data?.balance || 0);
                 const isDue = balance > 0;
                 const isAdv = balance < 0;
-                const isClear = balance === 0;
+
                 return (
                   <View
                     key={String(item.id)}
@@ -616,26 +535,32 @@ export default function AccountsScreen() {
                       },
                     ]}
                   >
+                    {/* Left: name + status message */}
                     <View style={styles.outLeft}>
                       <Text style={[styles.outName, { color: theme.text }]} numberOfLines={1}>
                         {item.name}
                       </Text>
-                      {/* Show the server message as subtitle e.g. "Due left" / "Advance left" */}
                       {!!item.message && (
-                        <Text style={[styles.outMsg, { color: theme.sub }]}>{item.message}</Text>
+                        <Text style={[styles.outMsg, {
+                          color: isDue ? THEME.danger : isAdv ? THEME.success : theme.sub,
+                        }]}>
+                          {isDue ? t('Due left') : isAdv ? t('Advance left') : t('All dues cleared')}
+                        </Text>
                       )}
                     </View>
-                    <Text style={[styles.outAmount, {
-                      color: isDue ? THEME.danger : isAdv ? THEME.success : theme.sub,
-                    }]}>
+
+                    {/* ── FIX 2: Right side now shows DR/CR badge + amount.
+                        Previously only the amount was shown with no type indicator. ── */}
+                    <View style={styles.outRight}>
+                  
+
+                      {/* Amount */}
                       <Text style={[styles.outAmount, {
                         color: isDue ? THEME.danger : isAdv ? THEME.success : theme.sub,
                       }]}>
-                        {balance === 0
-                          ? fmt(0)   // ✅ just show ₹0
-                          : fmt(Math.abs(balance))}
+                        {fmt(Math.abs(balance))}
                       </Text>
-                    </Text>
+                    </View>
                   </View>
                 );
               })}
@@ -668,7 +593,7 @@ export default function AccountsScreen() {
               {billTypes.map((bt) => {
                 const active = bt.id === selectedTabId;
                 const hasDue = outstandingMap[bt.id]?.show_bal &&
-                  parseFloat(outstandingMap[bt.id]?.data?.balance || 0) > 0;
+                  parseFloat(outstandingMap[bt.id]?.data?.balance || 0) !== 0;
                 return (
                   <TouchableOpacity
                     key={bt.id}
@@ -684,7 +609,6 @@ export default function AccountsScreen() {
                     <Text style={[styles.tabPillText, { color: active ? '#fff' : theme.text }]}>
                       {bt.name}
                     </Text>
-                    {/* Red dot only when there is an actual outstanding due amount */}
                     {hasDue && (
                       <View style={[styles.tabDot, {
                         backgroundColor: active ? 'rgba(255,255,255,0.8)' : THEME.danger,
@@ -746,8 +670,9 @@ export default function AccountsScreen() {
         keyboardShouldPersistTaps="handled"
       />
 
-      {/* Pay FAB */}
-      {!outLoading && pLoaded && (
+      {/* ── FIX 3: Pay FAB only shown when canPayRequest is true.
+          Previously rendered outside the permission check block. ── */}
+{!outLoading && canPayRequest && visiblePlans.length > 0 && (
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: THEME.primary }]}
           onPress={() => nav.navigate('BillPaymentScreen', {
@@ -761,7 +686,6 @@ export default function AccountsScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Nav modal */}
       <Modal transparent visible={navModal} animationType="fade" onRequestClose={() => setNavModal(false)}>
         <TouchableOpacity style={styles.navOverlay} activeOpacity={1} onPress={() => setNavModal(false)}>
           <View style={[styles.navDropdown, { backgroundColor: theme.navCard, borderColor: theme.border }]}>
@@ -826,44 +750,23 @@ const styles = StyleSheet.create({
   emptyRow: { flexDirection: 'column', alignItems: 'center', gap: 6, paddingVertical: 10 },
   emptyText: { fontSize: 13, fontWeight: '500' },
 
-  // Outstanding block — plain View, no scroll, height is natural
-  outBlock: {
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
+  outBlock: { borderRadius: 18, borderWidth: 1, overflow: 'hidden', marginBottom: 6 },
   outRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 14 },
   outLeft: { flex: 1, marginRight: 12 },
   outName: { fontSize: 13, fontWeight: '600' },
   outMsg: { fontSize: 11, marginTop: 1 },
+  // FIX 2: outRight replaces the bare outAmount — holds badge + amount stacked
+  outRight: { alignItems: 'flex-end', gap: 4 },
+  outBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 },
+  outBadgeText: { fontSize: 10, fontWeight: '700' },
   outAmount: { fontSize: 13, fontWeight: '700' },
 
-  // Tab pills
   tabsContainer: { paddingRight: 8, gap: 8, flexDirection: 'row', alignItems: 'center' },
-  tabPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 30,
-  },
+  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 30 },
   tabPillText: { fontSize: 13, fontWeight: '600' },
   tabDot: { width: 6, height: 6, borderRadius: 3 },
 
-  // Statement card
-  stmtCard: {
-    marginBottom: 12,
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-  },
+  stmtCard: { marginBottom: 12, borderRadius: 18, padding: 14, borderWidth: 1, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6 },
   stmtTopRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   stmtIconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   stmtInfo: { flex: 1 },
