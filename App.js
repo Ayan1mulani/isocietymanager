@@ -3,13 +3,13 @@ import React, { useEffect, useRef } from "react";
 import {
   View, ActivityIndicator, Text, StatusBar,
   StyleSheet, AppState, NativeModules, TextInput, Platform,
+  Modal, TouchableOpacity // Added for IVR Modal
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import notifee, { EventType } from "@notifee/react-native";
 
-// ── NEW: Import the hook ──
 import { useTranslation } from 'react-i18next';
 
 import NavigationPage from "./NavigationPage";
@@ -65,15 +65,54 @@ const markHandled = async (id) => {
 const AUTH_SCREENS = ["Login", "OtpLoginScreen", "OtpLogin", "OtpVerify"];
 const isUserLoggedIn = (route) => route && !AUTH_SCREENS.includes(route);
 
-/* ─── Permissions component ─────────────────────────────────────────────── */
+/* ─── Permissions & IVR Check Component ────────────────────────────────── */
 const AppContent = () => {
-  const { loadPermissions } = usePermissions();
+  const { loadPermissions, permissions } = usePermissions();
+  const { t } = useTranslation();
+
+  const [showIvrModal, setShowIvrModal] = React.useState(false);
+
+  // Helper to check context permissions
+  const checkPermission = (moduleName, action) => {
+    if (!permissions) return false;
+    // Adjust this line if your permissions object is structured differently
+    return !!permissions[moduleName]?.[action];
+  };
+
+  const checkIvrStatus = async () => {
+    try {
+      // 1. Check App Settings for the popup flag
+      const settingsRaw = await AsyncStorage.getItem("SOCIETY_CONFIG");
+      const appSettings = settingsRaw ? JSON.parse(settingsRaw) : {};
+
+      if (appSettings?.ivr_not_set_popup) {
+         return; // Disabled globally
+      }
+
+      // 2. Check Role Permissions
+      if (checkPermission('IVRDIS', 'READ') || checkPermission('IVRDIS', 'UPDATE')) {
+        return; 
+      } else if (checkPermission('PRF', 'UPDATE')) {
+        
+        // 3. Check User Data
+        const userRaw = await AsyncStorage.getItem("userInfo");
+        const user = userRaw ? JSON.parse(userRaw) : null;
+
+        if (user && (!user.ivr_enable || !user.ivr_p)) {
+           setShowIvrModal(true);
+        }
+      }
+    } catch (e) {
+      console.log("[App] Error checking IVR status:", e);
+    }
+  };
 
   useEffect(() => {
     const loadPerms = async () => {
       try {
         await new Promise(res => setTimeout(res, 500));
         await loadPermissions(true);
+        await checkIvrStatus();
       } catch (e) {
         console.log("[App] Permission load error:", e);
       }
@@ -86,6 +125,7 @@ const AppContent = () => {
       if (state === "active") {
         try {
           await loadPermissions(true);
+          await checkIvrStatus();
         } catch (e) {
           console.log("[App] Permission refresh error:", e);
         }
@@ -94,15 +134,54 @@ const AppContent = () => {
     return () => sub.remove();
   }, []);
 
-  return <NavigationPage />;
+  const handleSetupIvr = () => {
+    setShowIvrModal(false);
+    // TODO: Update "IvrSetupScreen" to match your exact navigation route name
+    navigationRef.navigate("IvrSetupScreen"); 
+  };
+
+  return (
+    <>
+      <NavigationPage />
+
+      <Modal
+        visible={showIvrModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowIvrModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>{t("IVR not set")}</Text>
+            <Text style={styles.modalMessage}>
+              {t("IVR number is not configured. Click below to set one.")}
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.closeButton} 
+                onPress={() => setShowIvrModal(false)}
+              >
+                <Text style={styles.closeButtonText}>{t("Cancel")}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.setButton} 
+                onPress={handleSetupIvr}
+              >
+                <Text style={styles.setButtonText}>{t("Set Now")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
 };
 
 /* ─── Main App ──────────────────────────────────────────────────────────── */
 export default function App() {
-  
-  // ── NEW: Initialize the translation hook ──
   const { t } = useTranslation();
-
   const [processing, setProcessing] = React.useState(false);
   const pendingVisitorRef = useRef(null);
   const pendingStaffRef = useRef(null);
@@ -329,7 +408,6 @@ export default function App() {
           {processing && (
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#22C55E" />
-              {/* ── NEW: Wrapped text in translation hook ── */}
               <Text style={styles.overlayText}>{t("Processing request...")}</Text>
             </View>
           )}
@@ -349,4 +427,60 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   overlayText: { marginTop: 10, fontSize: 16, fontWeight: "bold" },
+  
+  /* ── IVR Modal Styles ── */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 24,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#555',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  closeButton: {
+    padding: 10,
+    marginRight: 15,
+  },
+  closeButtonText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  setButton: {
+    backgroundColor: BRAND.COLORS?.primary || '#22C55E', 
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  setButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
 });

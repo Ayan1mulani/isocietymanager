@@ -62,6 +62,9 @@ export default {
     white: "#FFFFFF",
     black: "#000000",
 
+    iconBackground: "#EAF4FB",
+    iconBorder: "#CFE5F5",
+
     bottomNavBackground: "#1996D3ee",
     bottomNavBorder: "#E5E7EB",
     bottomNavIndicator: "#0169B2",

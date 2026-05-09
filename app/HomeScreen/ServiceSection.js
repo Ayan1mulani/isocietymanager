@@ -64,7 +64,7 @@ const ServicesSection = () => {
     { id: '4', title: 'SOS', icon: 'alert-circle', isPanic: true },
     { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
     { id: '6', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
-    { id: '7', title: 'Family', icon: 'people-outline', route: 'FamilyMember' },
+    { id: '7', title: 'Family', icon: 'person-add-outline', route: 'FamilyMember' },
     { id: '8', title: 'Complaints', icon: 'construct-outline', route: 'Service Requests' },
     { id: '9', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
     { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },

@@ -87,7 +87,7 @@ const AllServicesScreen = () => {
       if (!permissions) return false;
 
       if (item.title === "Add vehicle") return hasPermission(permissions, "VEH", "C");
-      if (item.title === "My vehicles") return hasPermission(permissions, "VEH", "R");
+      if (item.title === "My Vehicles") return hasPermission(permissions, "VEH", "R");
       if (item.title === "Bills") return hasPermission(permissions, "BILL", "R");
       if (item.title === "Staff") return hasPermission(permissions, "VMSSTF", "R");
       if (item.title === "Book Amenities") return hasPermission(permissions, "FBK", "R");

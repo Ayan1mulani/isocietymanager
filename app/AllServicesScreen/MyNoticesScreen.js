@@ -66,7 +66,15 @@ const MyNoticesScreen = ({ navigation }) => {
       const res = await otherServices.getMyNotices("");
       
       if (res?.status === "success") {
-        const freshNotices = res.data || [];
+        const allNotices = res.data || [];
+
+        const freshNotices = allNotices.filter((item) => {
+          const category = String(item?.category || '')
+            .trim()
+            .toLowerCase();
+
+          return category === 'notice' || category === 'ticker';
+        });
         
         setNotices(freshNotices); // Update the UI with fresh data
         
@@ -98,8 +106,18 @@ const MyNoticesScreen = ({ navigation }) => {
 
   const renderItem = ({ item }) => {
     const preview = stripHtml(item.notice)?.slice(0, 100);
+
+    let hasFiles = false;
+    try {
+      const parsedFiles = item?.file_urls
+        ? JSON.parse(item.file_urls)
+        : [];
+      hasFiles = Array.isArray(parsedFiles) && parsedFiles.length > 0;
+    } catch (e) {
+      hasFiles = false;
+    }
+
     const dateObj = new Date(item.published_at);
-    
     const currentLang = i18n.language === 'km' ? 'km-KH' : 'en-US';
     const month = dateObj.toLocaleDateString(currentLang, { month: "short" });
     const day = dateObj.getDate();
@@ -126,7 +144,19 @@ const MyNoticesScreen = ({ navigation }) => {
           <View style={styles.contentBlock}>
             {item.category ? (
               <View style={styles.topRow}>
-                <Text style={[styles.category, { color: theme.category }]}>{t(item.category)}</Text>
+                <View style={styles.leftTopRow}>
+                  <Text style={[styles.category, { color: theme.category }]}>
+                    {t(item.category)}
+                  </Text>
+                  {hasFiles ? (
+                    <Ionicons
+                      name="attach-outline"
+                      size={15}
+                      color={theme.category}
+                      style={styles.attachmentIcon}
+                    />
+                  ) : null}
+                </View>
                 {item.published_at ? (
                   <Text style={[styles.date, { color: theme.date }]}>{fullDateString}</Text>
                 ) : null}
@@ -219,6 +249,13 @@ const styles = StyleSheet.create({
   calendarDay: { fontSize: 20, fontWeight: "800" },
   rightContent: { flex: 1 },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  leftTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  attachmentIcon: {
+    marginLeft: 6,
+  },
   category: { fontSize: 11, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
   title: { fontSize: 15, fontWeight: "700", marginBottom: 4, lineHeight: 20 },
   preview: { fontSize: 13, marginBottom: 6, lineHeight: 18 },
