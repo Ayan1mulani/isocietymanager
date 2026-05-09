@@ -41,13 +41,13 @@ const getCacheKey = (userId) => `@accounts_cache_${userId}`;
 
 const THEME = {
   primary: BRAND.COLORS.primary,
-  primaryLight: '#E8F5FD',
+  primaryLight: '#EFF6FF',
   success: '#10B981',
   danger: '#EF4444',
-  lightBg: '#F0F4F8',
+  lightBg: '#FFFFFF',
   darkBg: '#0F1117',
-  shimBaseLight: '#E2E8F0',
-  shimShineLight: '#F8FAFC',
+  shimBaseLight: '#E5E7EB',
+  shimShineLight: '#F9FAFB',
   shimBaseDark: '#1E293B',
   shimShineDark: '#334155',
 };
@@ -118,12 +118,13 @@ export default function AccountsScreen() {
     text: isDark ? '#F1F5F9' : '#111827',
     sub: isDark ? '#94A3B8' : '#6B7280',
     pillBg: isDark ? '#1E2235' : THEME.primaryLight,
-    downloadBtn: isDark ? '#1E3A5F' : '#EFF6FF',
-    downloadText: isDark ? '#60A5FA' : THEME.primary,
-    iconBg: BRAND.COLORS.iconbg,
+    downloadBtn: isDark ? '#1E3A5F' : BRAND.COLORS.iconBackground,
+    downloadText: isDark ? '#60A5FA' : BRAND.COLORS.primary,
+    iconBg: '#EFF6FF',
     secondary: isDark ? '#CBD5E1' : '#6B7280',
     border: isDark ? '#334155' : '#E5E7EB',
     navCard: isDark ? '#1E293B' : '#FFFFFF',
+    softCard: isDark ? '#1F2937' : '#FFFFFF',
   }), [isDark]);
 
   const pLoaded = permissions !== null && permissions !== undefined;
@@ -370,8 +371,9 @@ export default function AccountsScreen() {
   // ── Skeletons ──────────────────────────────────────────────────────────────
   const SummarySkel = () => (
     <View style={[styles.summaryCard, {
-      backgroundColor: isDark ? theme.card : THEME.primaryLight,
-      borderWidth: isDark ? 1 : 0, borderColor: theme.border,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
     }]}>
       <View style={styles.summaryInner}>
         <View style={{ flex: 1 }}>
@@ -385,7 +387,15 @@ export default function AccountsScreen() {
   );
 
   const OutSkel = () => (
-    <View style={[styles.outBlock, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.outBlock,
+        {
+          backgroundColor: theme.card,
+          borderColor: '#E5E7EB',
+        },
+      ]}
+    >
       {[0, 1, 2].map((k) => (
         <View key={k} style={[styles.outRow, k < 2 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }]}>
           <ShimmerBox w="45%" h={13} isDark={isDark} />
@@ -396,7 +406,17 @@ export default function AccountsScreen() {
   );
 
   const StmtSkel = () => (
-    <View style={[styles.stmtCard, { backgroundColor: theme.card }]}>
+    <View
+      style={[
+        styles.stmtCard,
+        {
+          backgroundColor: theme.card,
+          borderColor: '#E5E7EB',
+          shadowOpacity: 0,
+          elevation: 0,
+        },
+      ]}
+    >
       <View style={styles.stmtTopRow}>
         <ShimmerBox w={40} h={40} isDark={isDark} rad={10} style={{ marginRight: 10 }} />
         <View style={styles.stmtInfo}>
@@ -425,7 +445,13 @@ export default function AccountsScreen() {
     const isDr = item.type_of_payment === 'DEBIT';
 
     return (
-      <View style={[styles.stmtCard, { backgroundColor: theme.card }]}>
+      <View style={[
+        styles.stmtCard,
+        {
+          backgroundColor: theme.softCard,
+          borderColor: theme.border,
+        },
+      ]}>
         <View style={styles.stmtTopRow}>
           <View style={[styles.stmtIconBox, { backgroundColor: theme.iconBg }]}>
             <Ionicons name={ico.name} size={20} color={ico.color} />
@@ -777,7 +803,16 @@ export default function AccountsScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  summaryCard: { borderRadius: 14, padding: 16, marginBottom: 16, elevation: 2 },
+  summaryCard: {
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 18,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
   summaryInner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryLabel: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
   summaryAmount: { fontSize: 22, fontWeight: '700', color: '#fff', marginTop: 2 },
@@ -792,7 +827,12 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, fontWeight: '500' },
 
   // Outstanding block — plain View, no scroll, height is natural
-  outBlock: { borderRadius: 12, borderWidth: 1, overflow: 'hidden', marginBottom: 4 },
+  outBlock: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
   outRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 14 },
   outLeft: { flex: 1, marginRight: 12 },
   outName: { fontSize: 13, fontWeight: '600' },
@@ -801,12 +841,29 @@ const styles = StyleSheet.create({
 
   // Tab pills
   tabsContainer: { paddingRight: 8, gap: 8, flexDirection: 'row', alignItems: 'center' },
-  tabPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
+  tabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 30,
+  },
   tabPillText: { fontSize: 13, fontWeight: '600' },
   tabDot: { width: 6, height: 6, borderRadius: 3 },
 
   // Statement card
-  stmtCard: { marginBottom: 10, borderRadius: 12, padding: 12, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
+  stmtCard: {
+    marginBottom: 12,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+  },
   stmtTopRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   stmtIconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   stmtInfo: { flex: 1 },

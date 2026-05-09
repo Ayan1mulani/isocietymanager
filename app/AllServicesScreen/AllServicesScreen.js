@@ -31,22 +31,24 @@ const AllServicesScreen = () => {
 
   // 🎨 Premium Theme Palette
   const theme = {
-    // Background behind everything
-    containerBg: nightMode ? "#020617" : "#F4F7FA", 
-    // Background for the actual list items (The Card)
-    listBg: nightMode ? "#0F172A" : "#FFFFFF",
-    
-    text: nightMode ? "#FFFFFF" : "#0F172A",
-    textSecondary: nightMode ? "#9CA3AF" : "#64748B",
-    
-    inputBg: nightMode ? "#0F172A" : "#FFFFFF",
-    inputBorder: nightMode ? "#1E293B" : "#E2E8F0",
-    
-    // Soft divider between rows
-    divider: nightMode ? "#1E293B" : "#F1F5F9", 
-    
-    iconBg: nightMode ? "rgba(96, 165, 250, 0.15)" : "rgba(37, 99, 235, 0.08)",
-    iconColor: nightMode ? "#60A5FA" : "#2563EB", // Premium Blue
+    containerBg: nightMode ? '#020617' : '#FFFFFF',
+    listBg: nightMode ? '#0F172A' : '#FFFFFF',
+
+    text: nightMode ? '#FFFFFF' : '#111827',
+    textSecondary: nightMode ? '#9CA3AF' : '#6B7280',
+
+    inputBg: nightMode ? '#0F172A' : '#FFFFFF',
+    inputBorder: nightMode ? '#1E293B' : '#E5E7EB',
+
+    divider: nightMode ? '#1E293B' : '#E5E7EB',
+
+    iconBg: nightMode
+      ? 'rgba(96, 165, 250, 0.15)'
+      : BRAND.COLORS.iconBackground,
+
+    iconColor: nightMode ? '#60A5FA' : BRAND.COLORS.primary,
+
+    cardBorder: nightMode ? '#1E293B' : '#E5E7EB',
   };
 
   const services = [
@@ -64,6 +66,8 @@ const AllServicesScreen = () => {
     { title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { title: 'Bounced Cheque', icon: 'alert-circle-outline', route: 'BouncedCheques' },
     { title: 'Debit Credit Note', icon: 'time-outline', route: 'PaymentHistory' },
+    { title: 'Survey', icon: 'survey-outline', route: 'surveypage' },
+
   ];
 
   useFocusEffect(
@@ -163,8 +167,11 @@ const AllServicesScreen = () => {
           // 💎 THE INSET GROUPED CARD 💎
           <View 
             style={[
-              styles.listCard, 
-              { backgroundColor: theme.listBg },
+              styles.listCard,
+              {
+                backgroundColor: theme.listBg,
+                borderColor: theme.cardBorder,
+              },
               !nightMode && styles.listShadow
             ]}
           >
@@ -219,14 +226,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
     paddingVertical: 12 
   },
-  searchBar: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    paddingHorizontal: 16, 
-    paddingVertical: 12, 
-    borderRadius: 16, // Smoother rounded pill
-    borderWidth: 1, 
-    gap: 10 
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 10,
   },
   searchInput: { 
     flex: 1, 
@@ -241,9 +248,10 @@ const styles = StyleSheet.create({
   
   /* 💎 Premium Inset Card Styles */
   listCard: {
-    borderRadius: 20,
-    overflow: "hidden",
+    borderRadius: 22,
+    overflow: 'hidden',
     marginTop: 8,
+    borderWidth: 1,
   },
   listShadow: {
     shadowColor: "#000",
@@ -252,13 +260,13 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
 
-  row: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    alignItems: "center", 
-    paddingVertical: 16, 
-    paddingHorizontal: 16, 
-    borderBottomWidth: 1, // Will be 0 on the last item automatically
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 17,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
   },
   leftSection: { 
     flexDirection: "row", 
@@ -267,13 +275,15 @@ const styles = StyleSheet.create({
   },
   
   /* 💎 Modern Icon Box (Rounded Square) */
-  iconBox: { 
-    width: 38, 
-    height: 38, 
-    borderRadius: 12, // More modern than a full circle
-    justifyContent: "center", 
-    alignItems: "center", 
-    marginRight: 14 
+  iconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: BRAND.COLORS.iconBorder,
   },
   
   text: { 

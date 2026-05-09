@@ -6,6 +6,7 @@ import {
   Image,
   TouchableOpacity,
   Animated,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePermissions } from '../../../Utils/ConetextApi';
@@ -61,15 +62,48 @@ const DetailsAvatar = memo(({ source, purpose, style }) => {
   return <Image source={imgSrc} style={style} resizeMode="contain" onError={handleError} />;
 });
 
-const InfoRow = memo(({ label, value, isLast, theme }) => (
-  <>
-    <View style={styles.infoRow}>
-      <Text style={[styles.infoLabel, { color: theme.subText }]}>{label}</Text>
-      <Text style={[styles.infoValue, { color: theme.text }]} numberOfLines={1}>{value}</Text>
-    </View>
-    {!isLast && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-  </>
-));
+const InfoRow = memo(({ label, value, isLast, theme, isPhone }) => {
+  const handlePress = () => {
+    if (isPhone && value) {
+      Linking.openURL(`tel:${value}`);
+    }
+  };
+
+  return (
+    <>
+      <View style={styles.infoRow}>
+        <Text style={[styles.infoLabel, { color: theme.subText }]}>{label}</Text>
+
+        {isPhone ? (
+          <TouchableOpacity onPress={handlePress}>
+            <Text
+              style={[
+                styles.infoValue,
+                styles.phoneValue,
+              ]}
+              numberOfLines={1}
+            >
+              {value}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text
+            style={[styles.infoValue, { color: theme.text }]}
+            numberOfLines={1}
+          >
+            {value}
+          </Text>
+        )}
+      </View>
+
+      {!isLast && (
+        <View
+          style={[styles.rowDivider, { backgroundColor: theme.border }]}
+        />
+      )}
+    </>
+  );
+});
 
 const PassDetailsScreen = ({ route }) => {
   const { t, i18n } = useTranslation();
@@ -104,13 +138,37 @@ const PassDetailsScreen = ({ route }) => {
     ]).start();
   }, []);
 
-  const formatDate = useCallback((ds) => {
+  const formatDate = useCallback((ds, showTime = false) => {
     if (!ds) return '-';
+
     try {
-      return new Date(ds).toLocaleDateString(i18n.language === 'km' ? 'km-KH' : 'en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric'
-      });
-    } catch { return ds; }
+      const date = new Date(ds.replace(' ', 'T'));
+
+      if (showTime) {
+        return date.toLocaleString(
+          i18n.language === 'km' ? 'km-KH' : 'en-GB',
+          {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }
+        );
+      }
+
+      return date.toLocaleDateString(
+        i18n.language === 'km' ? 'km-KH' : 'en-GB',
+        {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }
+      );
+    } catch {
+      return ds;
+    }
   }, [i18n.language]);
 
   const handleDelete = useCallback(() => {
@@ -163,7 +221,12 @@ const PassDetailsScreen = ({ route }) => {
           <View style={[styles.infoBox, { borderColor: theme.border }]}>
             <InfoRow label={isGuest ? t('Visitor Name') : t('Company Name')} value={pass.company_name || pass.name || '-'} theme={theme} />
             {!!pass.mobile && pass.mobile !== '0' && (
-              <InfoRow label={t("Phone")} value={String(pass.mobile)} theme={theme} />
+              <InfoRow
+                label={t("Phone")}
+                value={String(pass.mobile)}
+                theme={theme}
+                isPhone
+              />
             )}
             {isGuest && pass.pass_no && (
               <InfoRow label={t("Pass No.")} value={pass.pass_no} theme={theme} />
@@ -183,7 +246,7 @@ const PassDetailsScreen = ({ route }) => {
           </TouchableOpacity>
 
           <Text style={[styles.footerText, { color: theme.subText }]}>
-            {t("Created at")} {pass.created_at ? formatDate(pass.created_at) : '-'}
+            {t("Created at")} {pass.created_at ? formatDate(pass.created_at, true) : '-'}
           </Text>
         </Animated.View>
       </ScrollView>
@@ -235,6 +298,13 @@ const styles = StyleSheet.create({
   rowDivider:  { height: 1, width: '100%' },
   infoLabel:   { fontSize: 13, fontWeight: '600', flex: 1 },
   infoValue:   { fontSize: 14, fontWeight: '500', flex: 1, textAlign: 'right' },
+  phoneValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563EB',
+    textDecorationLine: 'underline',
+    textAlign: 'right',
+  },
   cabBox: {
     borderRadius:  14,
     paddingVertical: 14,

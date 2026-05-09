@@ -15,6 +15,9 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 
 // 1. ── NEW: Import your global Text component ──
 import Text from '../components/TranslatedText'; // <--- ADJUST PATH IF NEEDED
+import BRAND from '../config';
+
+const COLORS = BRAND.COLORS;
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SPEED = 70; // adjust speed
@@ -177,22 +180,22 @@ const styles = StyleSheet.create({
     marginBottom: 12 
   },
   title: { fontSize: 16, fontWeight: "700", color: "#111827" },
-  viewAllText: { 
-    fontSize: 11, 
-    fontWeight: "600", 
-    color: "#16A34A" // <-- Standard green color
+  viewAllText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.primary,
   },
   tickerText: { fontSize: 12, color: "#1F2937", fontWeight: "500" },
   tickerBox: {
-    height: 40, 
-    borderRadius: 14,           
-    backgroundColor: "#fffbeb", 
+    height: 42,
+    borderRadius: 16,
+    backgroundColor: COLORS.iconBackground,
     borderWidth: 1,
-    borderColor: "#fde68a",     
-    overflow: "hidden",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,      
+    borderColor: COLORS.iconBorder,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
   },
   hiddenText: { position: "absolute", opacity: 0, top: -9999 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 20 },
@@ -201,6 +204,16 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: "#eee", marginBottom: 12 },
   scrollView: { maxHeight: 300 },
   modalText: { fontSize: 14, lineHeight: 22 },
-  closeButton: { marginTop: 16, alignSelf: "flex-end", backgroundColor: "#1565A9", paddingHorizontal: 20, paddingVertical: 9, borderRadius: 6 },
-  closeText: { color: "#fff", fontWeight: "600" },
+  closeButton: {
+    marginTop: 16,
+    alignSelf: 'flex-end',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  closeText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
 });

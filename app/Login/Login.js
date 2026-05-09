@@ -160,13 +160,17 @@ const NewLoginScreen = () => {
         await ismServices.getUserDetails();
       }
 
-      await loadPermissions();
+      await loadPermissions(true);
       navigation.replace('MainApp');
 
     } catch (error) {
-      console.log('Session restore failed:', error);
-      await AsyncStorage.removeItem('userInfo').catch(() => { });
-      setIsCheckingSession(false);
+      const userInfo = await AsyncStorage.getItem('userInfo');
+
+      if (userInfo) {
+        navigation.replace('MainApp');
+      } else {
+        setIsCheckingSession(false);
+      }
     }
   };
 
@@ -189,6 +193,7 @@ const NewLoginScreen = () => {
       password,
       tenant: 0,
       user_id: userid?.user_id || null,
+      device_type: Platform.OS === 'ios' ? 'ios' : 'android',
     };
     try {
       const response = await LoginSrv.login(payload);
@@ -258,7 +263,7 @@ const NewLoginScreen = () => {
           });
         }
         await AsyncStorage.removeItem("permissions");
-        await loadPermissions();
+        await loadPermissions(true);
         setTimeout(async () => {
           await RegisterAppOneSignal();
         }, 800);
@@ -428,6 +433,28 @@ const NewLoginScreen = () => {
                 >
                   <Text style={styles.loginButtonText}>{isLoading ? 'Signing in...' : 'Sign in'}</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.termsContainer}
+                  onPress={() => setAgreedToTerms(!agreedToTerms)}
+                >
+                  <Icon
+                    name={agreedToTerms ? 'check-box' : 'check-box-outline-blank'}
+                    size={22}
+                    color="#074B7C"
+                  />
+
+                  <Text style={styles.termsText}>
+                    {' '}I agree and accept{' '}
+                    <Text
+                      style={styles.termsLink}
+                      onPress={() =>
+                        Linking.openURL('https://isocietymanager.com/terms-conditions.html')
+                      }
+                    >
+                      Terms & Conditions
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
 
                 <View style={styles.signUpContainer}>
                   <Text style={styles.signUpText}>Don't have an account? </Text>
@@ -435,6 +462,7 @@ const NewLoginScreen = () => {
                     <Text style={styles.signUpLink}>Sign up</Text>
                   </TouchableOpacity>
                 </View>
+
 
                 <Text style={styles.poweredBy}>
                   Powered By{' '}
@@ -484,7 +512,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'flex-end', backgroundColor: BRAND.PRIMARY_COLOR },
   headerContainer: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingBottom: 10 },
   logoContainer: { width: '60%', alignSelf: 'center', justifyContent: 'center' },
-  logo: { width: 300, height: 60, alignSelf: 'center' },
+  logo: { width: 350, height: 70, alignSelf: 'center' },
   welcomeMessage: { fontSize: 36, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 8, letterSpacing: -0.5 },
   subWelcomeMessage: { fontSize: 16, color: '#E8F4FD', textAlign: 'center', opacity: 0.9, fontWeight: '400' },
   formContainer: {},
@@ -505,6 +533,23 @@ const styles = StyleSheet.create({
   inputContainerError: {
     borderColor: '#e53935',   // red border on error
     backgroundColor: '#fff5f5',
+  },
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+
+  termsText: {
+    fontSize: 12,
+    color: '#555',
+  },
+
+  termsLink: {
+    color: '#074B7C',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   // ──────────────────────────────────────────────────────────────────────────
 

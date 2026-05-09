@@ -14,6 +14,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Add
 import { useFocusEffect } from "@react-navigation/native";
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
+import BRAND from '../config';
+
+const COLORS = BRAND.COLORS;
 
 import AppHeader from "../components/AppHeader";
 import { visitorServices } from "../../services/visitorServices";
@@ -110,7 +113,15 @@ const MembersScreen = ({ navigation }) => {
   };
 
   const renderItem = ({ item, index }) => (
-    <View style={[styles.card, { zIndex: menuIndex === index ? 100 : 1 }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          zIndex: menuIndex === index ? 100 : 1,
+          borderColor: '#E5E7EB',
+        },
+      ]}
+    >
       <View style={styles.avatar}>
         {item.image_src ? (
           <Image
@@ -119,7 +130,7 @@ const MembersScreen = ({ navigation }) => {
             resizeMode="cover"
           />
         ) : (
-          <Ionicons name="person" size={22} color="#6B7280" />
+          <Ionicons name="person" size={22} color={COLORS.primary} />
         )}
       </View>
 
@@ -130,7 +141,7 @@ const MembersScreen = ({ navigation }) => {
       </View>
 
       <TouchableOpacity onPress={() => setMenuIndex(menuIndex === index ? null : index)}>
-        <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+        <Ionicons name="ellipsis-vertical" size={20} color={COLORS.primary} />
       </TouchableOpacity>
 
       {menuIndex === index && (
@@ -167,19 +178,19 @@ const MembersScreen = ({ navigation }) => {
       {[1, 2, 3, 4, 5].map((key) => (
         <View key={key} style={[styles.card, { elevation: 0, shadowOpacity: 0 }]}>
           {/* Avatar Skeleton */}
-          <View style={[styles.avatar, { backgroundColor: "#E5E7EB" }]} />
+          <View style={[styles.avatar, { backgroundColor: "#F3F4F6" }]} />
           
           <View style={{ flex: 1 }}>
             {/* Name Skeleton */}
-            <View style={{ width: '60%', height: 16, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 }} />
+            <View style={{ width: '60%', height: 16, backgroundColor: "#F3F4F6", borderRadius: 4, marginBottom: 6 }} />
             {/* Relation Skeleton */}
-            <View style={{ width: '40%', height: 12, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 }} />
+            <View style={{ width: '40%', height: 12, backgroundColor: "#F3F4F6", borderRadius: 4, marginBottom: 6 }} />
             {/* Phone Skeleton */}
-            <View style={{ width: '50%', height: 12, backgroundColor: "#E5E7EB", borderRadius: 4 }} />
+            <View style={{ width: '50%', height: 12, backgroundColor: "#F3F4F6", borderRadius: 4 }} />
           </View>
 
           {/* Menu Icon Skeleton */}
-          <View style={{ width: 4, height: 16, backgroundColor: "#E5E7EB", borderRadius: 2 }} />
+          <View style={{ width: 4, height: 16, backgroundColor: "#F3F4F6", borderRadius: 2 }} />
         </View>
       ))}
     </View>
@@ -220,8 +231,8 @@ const MembersScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={["#1565A9"]}
-              tintColor="#1565A9"
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
             />
           }
         />
@@ -244,26 +255,34 @@ export default MembersScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F4F6F9",
+    backgroundColor: '#FFFFFF',
   },
   card: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 18,
     marginBottom: 12,
-    overflow: "visible",   
-    zIndex: 1,             
+    overflow: 'visible',
+    zIndex: 1,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#EEF2F6",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.iconBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.iconBorder,
   },
   name: {
     fontSize: 15,
@@ -276,15 +295,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   menu: {
-    position: "absolute",
-    top: 40,
+    position: 'absolute',
+    top: 42,
     right: 10,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    width: 130,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    width: 135,
     paddingVertical: 6,
-    elevation: 8,
-    zIndex: 999,     
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    zIndex: 999,
   },
   menuItem: {
     flexDirection: "row",
@@ -297,16 +318,20 @@ const styles = StyleSheet.create({
     color: "#111",
   },
   fab: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 30,
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#1565A9",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 6,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
   },
   emptyContainer: {
     flex: 1,
@@ -329,10 +354,10 @@ const styles = StyleSheet.create({
   },
   emptyBtn: {
     marginTop: 16,
-    backgroundColor: "#1565A9",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 12,
   },
   emptyBtnText: {
     color: "#fff",

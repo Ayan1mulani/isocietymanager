@@ -1,4 +1,4 @@
-const brand = process.env.APP_BRAND || "isociety";
+const brand = process.env.APP_BRAND || "maxEstate";
 
 console.log("CURRENT BRAND:", brand);
 
@@ -19,7 +19,7 @@ switch (brand) {
 
   case "jaypee":
   default:
-    selectedBrand = require("./jaypee").default;
+    selectedBrand = require("./isociety").default;
 }
 
 export default selectedBrand;

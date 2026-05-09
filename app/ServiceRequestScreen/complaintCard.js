@@ -2,26 +2,34 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { usePermissions } from '../../Utils/ConetextApi';
+import { hasPermission } from '../../Utils/PermissionHelper';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
+import BRAND from '../config';
+
+const BRAND_COLORS = BRAND.COLORS;
 
 const COLORS = {
-  primary: '#1996D3',
+  primary: BRAND_COLORS.primary,
   success: '#28A745',
-  warning: '#FFC107',
-  info: '#0052CC',
-  open: '#1996D3',
+  warning: '#F59E0B',
+  info: BRAND_COLORS.primaryDark,
+  open: BRAND_COLORS.primary,
+  iconBackground: BRAND_COLORS.iconBackground,
+  iconBorder: BRAND_COLORS.iconBorder,
+
   light: {
-    background: '#FFFFFF',
-    surface: '#ffffff',
-    text: '#212529',
-    textSecondary: '#6C757D',
-    border: '#DEE2E6',
-    description: '#495057',
+    background: BRAND_COLORS.background,
+    surface: BRAND_COLORS.card,
+    text: BRAND_COLORS.text,
+    textSecondary: BRAND_COLORS.secondaryText,
+    border: BRAND_COLORS.border,
+    description: BRAND_COLORS.subText,
   },
+
   dark: {
     background: '#1E1E1E',
     surface: '#2A2A2A',
@@ -175,7 +183,7 @@ const AppIcon = ({ name, library, color, size = 16 }) => {
 };
 
 const ServiceRequestDetailCard = ({ complaint, onPress }) => {
-  const { nightMode } = usePermissions();
+  const { nightMode, permissions } = usePermissions();
   const { t } = useTranslation(); 
   const theme = nightMode ? COLORS.dark : COLORS.light;
   let parsedData = {};
@@ -188,6 +196,13 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
   const isActiveStatus = !['resolved', 'closed', 'completed'].includes(status);
   const isClosed = ['resolved', 'closed', 'completed'].includes(status);
 
+  const canViewVisitTime =
+    permissions &&
+    typeof hasPermission === 'function' &&
+    (
+      hasPermission(permissions, 'COMVSTTM', 'R') ||
+      hasPermission(permissions, 'COMVSTTM', 'READ')
+    );
 
   const shouldShowOtp =
     otp && !['resolved', 'closed', 'completed'].includes(status);
@@ -259,13 +274,16 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
       {isActiveStatus && (
         <View style={styles.serviceRow}>
 
-  {/* LEFT SIDE → Date */}
-  <View style={styles.visitRow}>
-    <Ionicons name="calendar-outline" size={14} color={COLORS.primary} />
-    <Text style={[styles.probableDateText, { color: theme.textSecondary }]}>
-{probableDate ? `${t("Expected Visit")}: ${formatDate(probableDate)}` : t("Visit not scheduled")}
-    </Text>
-  </View>
+  {canViewVisitTime && (
+    <View style={styles.visitRow}>
+      <Ionicons name="calendar-outline" size={14} color={COLORS.primary} />
+      <Text style={[styles.probableDateText, { color: theme.textSecondary }]}> 
+        {probableDate
+          ? `${t("Expected Visit")}: ${formatDate(probableDate)}`
+          : t("Visit not scheduled")}
+      </Text>
+    </View>
+  )}
 
   {/* RIGHT SIDE → Staff */}
   {complaint?.staff_name && (
@@ -281,7 +299,7 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
       )}
 
       {/* Divider */}
-      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+      <View style={styles.divider} />
 
       {/* Row 3: Created + Updated dates */}
       <View style={styles.footerRow}>
@@ -293,7 +311,7 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
             </Text>
           </View>
         </View>
-        <View style={[styles.verticalDivider, { backgroundColor: theme.border }]} />
+        <View style={styles.verticalDivider} />
         <View style={styles.dateItem}>
           <View style={styles.dateTexts}>
             <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>
@@ -312,14 +330,15 @@ const ServiceRequestDetailCard = ({ complaint, onPress }) => {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    paddingVertical: 8,
+    borderRadius: 18,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    marginVertical: 3,
+    marginVertical: 5,
     marginHorizontal: 16,
     borderWidth: 1,
-    borderColor: 'rgba(3, 65, 109, 0.09)',
+    borderColor: '#E5E7EB',
     overflow: 'hidden',
+    backgroundColor: COLORS.light.surface,
   },
   headerRow: {
     flexDirection: 'row',
@@ -353,9 +372,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -403,6 +422,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginBottom: 12,
+    backgroundColor: '#E5E7EB',
   },
   footerRow: {
     flexDirection: 'row',
@@ -434,6 +454,7 @@ const styles = StyleSheet.create({
     height: '100%',
     minHeight: 36,
     marginHorizontal: 12,
+    backgroundColor: '#E5E7EB',
   },
 staffRight: {
   flexDirection: "row",
@@ -444,7 +465,7 @@ staffRight: {
 staffText: {
   fontSize: 11,
   fontWeight: "600",
-  color: "#1996D3",
+  color: COLORS.primary,
 },
   otpContainer: {
     flexDirection: 'row',

@@ -24,6 +24,8 @@ const CalendarSelector = ({
     textPrimary: nightMode ? "#FFFFFF" : "#1F2937",
     textSecondary: nightMode ? "#9CA3AF" : "#6B7280",
     border: nightMode ? "#374151" : "#E5E7EB",
+    iconBackground: BRAND.COLORS.iconBackground,
+    iconBorder: BRAND.COLORS.iconBorder,
     background: nightMode ? "#1A1A1A" : "#FFFFFF",
     modalBg: nightMode ? "#1A1A1A" : "#FFFFFF",
   };
@@ -173,6 +175,7 @@ const getTodayDate = () => {
   theme={{
     calendarBackground: THEME.modalBg,
     selectedDayBackgroundColor: THEME.primary,
+    arrowColor: THEME.primary,
     selectedDayTextColor: "#fff",
     todayTextColor: "#10B981",
     dayTextColor: THEME.textPrimary,
@@ -224,13 +227,14 @@ const styles = StyleSheet.create({
   },
 
   dropdown: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    height: 48,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    height: 50,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
   },
 
   dropdownText: {
@@ -250,10 +254,12 @@ const styles = StyleSheet.create({
   
 
   calendarContainer: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     padding: 20,
     paddingBottom: 40,
+    borderTopWidth: 1,
+    borderColor: '#E5E7EB',
   },
 
   modalHeader: {
@@ -270,10 +276,11 @@ const styles = StyleSheet.create({
 
 quickBtn: {
   flex: 1,
-  paddingVertical: 12,
-  borderRadius: 12,
-  alignItems: "center",
+  paddingVertical: 13,
+  borderRadius: 14,
+  alignItems: 'center',
   marginHorizontal: 5,
+  elevation: 1,
 },
 
 quickText: {

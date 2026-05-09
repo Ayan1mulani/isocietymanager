@@ -11,12 +11,15 @@ import {
     Animated // 👈 Added for skeleton pulse
 } from "react-native";
 import moment from "moment";
-import "moment/locale/km"; 
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import "moment/locale/km";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ismServices } from "../../services/ismServices";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
+import BRAND from "../config";
+
+const COLORS = BRAND.COLORS;
 
 const getCacheKey = (userId) => `@meter_readings_cache_${userId}`;
 
@@ -98,8 +101,8 @@ const MeterReadingTab = () => {
                 if (cachedData) {
                     const parsedData = JSON.parse(cachedData);
                     setData(parsedData);
-                    setLoading(false); 
-                    
+                    setLoading(false);
+
                     if (parsedData.length > 0) {
                         const latest = parsedData[0]?.updated_at || parsedData[0]?.date_time;
                         setLastSync(moment(latest).format("D MMM YY, h:mm A"));
@@ -237,72 +240,72 @@ const MeterReadingTab = () => {
                 contentContainerStyle={styles.listContent}
             />
 
-<Modal visible={showInfo} transparent animationType="fade">
-    <View style={styles.modalOverlay}>
-        <View style={styles.modalBox}>
-            <View style={styles.modalHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={styles.pulseDot} />
-                    <Text style={styles.modalTitle}>{t("Live Meter Status")}</Text>
+            <Modal visible={showInfo} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <View style={styles.modalHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <View style={styles.pulseDot} />
+                                <Text style={styles.modalTitle}>{t("Live Meter Status")}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowInfo(false)}>
+                                <Ionicons name="close" size={24} color="#6B7280" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                            {loadingLive ? (
+                                <View style={styles.modalLoader}>
+                                    <ActivityIndicator size="large" color="#2E8BC0" />
+                                    <Text style={styles.modalLoaderText}>{t("Contacting meter...")}</Text>
+                                </View>
+                            ) : selectedItem ? (
+                                <View style={styles.modalDataContainer}>
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("Meter ID")}</Text>
+                                        <Text style={styles.value}>{selectedItem.id}</Text>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("Unit Number")}</Text>
+                                        <Text style={styles.value}>{selectedItem.unit_no}</Text>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("Grid Reading")}</Text>
+                                        <Text style={[styles.value, { color: '#059669' }]}>{selectedItem.grid} kW</Text>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("DG Reading")}</Text>
+                                        <Text style={[styles.value, { color: '#D97706' }]}>{selectedItem.dg} kW</Text>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("AHU")}</Text>
+                                        <Text style={styles.value}>{selectedItem.ahu}</Text>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("Date Time")}</Text>
+                                        <Text style={styles.value}>{moment(selectedItem.date_time).format("D MMM YY, h:mm A")}</Text>
+                                    </View>
+                                    <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                                        <Text style={styles.label}>{t("Last Updated")}</Text>
+                                        <Text style={styles.value}>{moment(selectedItem.updated_at).format("D MMM YY, h:mm A")}</Text>
+                                    </View>
+                                </View>
+                            ) : (
+                                <View style={styles.modalLoader}>
+                                    <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
+                                    <Text style={styles.modalLoaderText}>{t("No live data available")}</Text>
+                                </View>
+                            )}
+                        </ScrollView>
+
+                        {!loadingLive && (
+                            <TouchableOpacity style={styles.okButton} onPress={() => setShowInfo(false)}>
+                                <Text style={styles.okText}>{t("Done")}</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
-                <TouchableOpacity onPress={() => setShowInfo(false)}>
-                    <Ionicons name="close" size={24} color="#6B7280" />
-                </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                {loadingLive ? (
-                    <View style={styles.modalLoader}>
-                        <ActivityIndicator size="large" color="#2E8BC0" />
-                        <Text style={styles.modalLoaderText}>{t("Contacting meter...")}</Text>
-                    </View>
-                ) : selectedItem ? (
-                    <View style={styles.modalDataContainer}>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>{t("Meter ID")}</Text>
-                            <Text style={styles.value}>{selectedItem.id}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>{t("Unit Number")}</Text>
-                            <Text style={styles.value}>{selectedItem.unit_no}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>{t("Grid Reading")}</Text>
-                            <Text style={[styles.value, { color: '#059669' }]}>{selectedItem.grid} kW</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>{t("DG Reading")}</Text>
-                            <Text style={[styles.value, { color: '#D97706' }]}>{selectedItem.dg} kW</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>{t("AHU")}</Text>
-                            <Text style={styles.value}>{selectedItem.ahu}</Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                            <Text style={styles.label}>{t("Date Time")}</Text>
-                            <Text style={styles.value}>{moment(selectedItem.date_time).format("D MMM YY, h:mm A")}</Text>
-                        </View>
-                        <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                            <Text style={styles.label}>{t("Last Updated")}</Text>
-                            <Text style={styles.value}>{moment(selectedItem.updated_at).format("D MMM YY, h:mm A")}</Text>
-                        </View>
-                    </View>
-                ) : (
-                    <View style={styles.modalLoader}>
-                        <Ionicons name="alert-circle-outline" size={32} color="#9CA3AF" />
-                        <Text style={styles.modalLoaderText}>{t("No live data available")}</Text>
-                    </View>
-                )}
-            </ScrollView>
-
-            {!loadingLive && (
-                <TouchableOpacity style={styles.okButton} onPress={() => setShowInfo(false)}>
-                    <Text style={styles.okText}>{t("Done")}</Text>
-                </TouchableOpacity>
-            )}
-        </View>
-    </View>
-</Modal>
+            </Modal>
         </View>
     );
 };
@@ -323,7 +326,15 @@ const styles = StyleSheet.create({
     },
     syncLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
     syncText: { fontSize: 13, fontWeight: "600", color: "#374151" },
-    liveButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#2E8BC0", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 4 },
+    liveButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 14,
+        paddingVertical: 7,
+        borderRadius: 22,
+        gap: 5,
+    },
     liveButtonText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
     tableHeaderRow: { flexDirection: "row", backgroundColor: "#b5a7e26b", paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#D1D5DB" },
     headerText: { fontSize: 12, fontWeight: "700", color: "#4B5563", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" },
@@ -347,6 +358,13 @@ const styles = StyleSheet.create({
     value: { fontSize: 14, color: "#111827", fontWeight: "600", textAlign: "right", flex: 1, marginLeft: 20 },
     modalLoader: { paddingVertical: 40, alignItems: "center" },
     modalLoaderText: { marginTop: 12, color: "#6B7280", fontSize: 14, fontWeight: "500" },
-    okButton: { backgroundColor: "#2E8BC0", marginHorizontal: 20, marginBottom: 20, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+okButton: {
+  backgroundColor: COLORS.primary,
+  marginHorizontal: 20,
+  marginBottom: 20,
+  paddingVertical: 14,
+  borderRadius: 14,
+  alignItems: 'center',
+},
     okText: { color: "#FFFFFF", fontWeight: "700", fontSize: 15 },
 });

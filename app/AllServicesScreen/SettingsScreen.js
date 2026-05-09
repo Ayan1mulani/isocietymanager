@@ -17,6 +17,10 @@ import StatusModal from "../../app/components/StatusModal";
 import { otherServices } from "../../services/otherServices";
 import { PERMISSIONS, check } from 'react-native-permissions';
 
+import BRAND from '../config';
+
+const COLORS = BRAND.COLORS;
+
 // ── Import useTranslation for i18n ──
 import { useTranslation } from 'react-i18next';
 
@@ -320,7 +324,7 @@ const SettingsScreen = () => {
         {permissionWarning && (
           <View style={styles.permissionWarning}>
             <Text style={styles.permissionText}>
-              {permissionMessage}. {t("Please enable them from system settings")} 🔔
+              {permissionMessage}. {t("Please enable them from system settings")} 
             </Text>
           </View>
         )}
@@ -337,7 +341,7 @@ const SettingsScreen = () => {
                   <View style={styles.row}>
                     <Text style={styles.label}>{t("I am Away")}</Text>
                     <Switch value={isAway} onValueChange={toggleAway}
-                      trackColor={{ false: "#ddd", true: "#1996D3" }} thumbColor="#fff" />
+                      trackColor={{ false: "#ddd", true: COLORS.primary }} thumbColor="#FFFFFF" />
                   </View>
                 </View>
               )}
@@ -353,13 +357,13 @@ const SettingsScreen = () => {
               <View style={styles.row}>
                 <Text style={styles.label}>{t("Visit Sound")}</Text>
                 <Switch value={visitSound} onValueChange={toggleVisitSound}
-                  trackColor={{ false: "#ddd", true: "#1996D3" }} />
+                  trackColor={{ false: "#ddd", true: COLORS.primary }} thumbColor="#FFFFFF" />
               </View>
               <View style={styles.divider} />
               <View style={styles.row}>
                 <Text style={styles.label}>{t("Staff")}</Text>
                 <Switch value={staffNotification} onValueChange={toggleStaffSound}
-                  trackColor={{ false: "#ddd", true: "#1996D3" }} />
+                  trackColor={{ false: "#ddd", true: COLORS.primary }} thumbColor="#FFFFFF" />
               </View>
             </View>
           )}
@@ -373,7 +377,7 @@ const SettingsScreen = () => {
               <View style={styles.row}>
                 <Text style={styles.label}>{t("Enable IVR")}</Text>
                 <Switch value={ivrEnabled} onValueChange={toggleIvr}
-                  trackColor={{ false: "#ddd", true: "#1996D3" }} />
+                  trackColor={{ false: "#ddd", true: COLORS.primary }} thumbColor="#FFFFFF" />
               </View>
               {ivrEnabled && (
                 <>
@@ -443,9 +447,9 @@ const SettingsScreen = () => {
                       {lang.label}
                     </Text>
                     {changingLang === lang.code ? (
-                      <ActivityIndicator size="small" color="#1996D3" />
+                      <ActivityIndicator size="small" color={COLORS.primary} />
                     ) : i18n.language === lang.code ? (
-                      <Ionicons name="checkmark" size={20} color="#1996D3" />
+                      <Ionicons name="checkmark" size={20} color={COLORS.primary} />
                     ) : null}
                   </TouchableOpacity>
                   {index < availableLanguages.length - 1 && <View style={styles.divider} />}
@@ -468,27 +472,57 @@ const SettingsScreen = () => {
 export default SettingsScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   sectionTitle: { fontSize: 13, fontWeight: "600", color: "#6B7280", textTransform: "uppercase", letterSpacing: 0.8 },
-  card: { backgroundColor: "#fff", marginHorizontal: 15, borderRadius: 16, borderWidth: 1, borderColor: "#7eabe645", marginBottom: 10 },
+  card: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 15,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 10,
+  },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: Platform.OS === "ios" ? 10 : 0, minHeight: Platform.OS === "ios" ? 50 : 40 },
   label: { fontSize: 14, fontWeight: "500", color: "#111827" },
-  divider: { height: 1, backgroundColor: "#eee", marginHorizontal: 18 },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 18,
+  },
   inputSection: { paddingHorizontal: 20, paddingTop: 15, paddingBottom: 10 },
   inputLabel: { fontSize: 14, fontWeight: "500", color: "#374151", marginBottom: 8 },
-  phoneInput: { borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, height: 44, paddingHorizontal: 12, fontSize: 15, color: "#111827", backgroundColor: "#F9FAFB" },
+  phoneInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    height: 46,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: '#111827',
+    backgroundColor: '#FFFFFF',
+  },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 20, marginTop: 10, marginBottom: 10 },
   phoneInputError: { borderColor: "#EF4444", backgroundColor: "#FEF2F2" },
   errorText: { fontSize: 12, color: "#EF4444", marginTop: 4 },
   saveButtonContainer: { marginHorizontal: 15, marginTop: 5, marginBottom: 15 },
   loaderOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", backgroundColor: "#fff", zIndex: 10 },
   loaderText: { marginTop: 10, color: "#6B7280", fontSize: 14 },
-  permissionWarning: { margin: 15, padding: 12, borderRadius: 10, backgroundColor: "#FEF3C7", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  permissionText: { color: "#92400E", flex: 1 },
+  permissionWarning: {
+    margin: 15,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  permissionText: { color: '#1D4ED8', flex: 1 },
   noteOuterContainer: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 15, marginTop: 0 },
   noteTitle: { fontSize: 14, fontWeight: "600", color: "#111827", lineHeight: 20, textAlign: "center" },
   noteSubtitle: { fontSize: 13, fontWeight: "500", color: "#4B5563", lineHeight: 18, textAlign: "center", marginTop: 6 },
   noteText: { marginTop: 8, fontSize: 13, color: "#9CA3AF", lineHeight: 18, textAlign: "center" },
   languageRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 15 },
-  activeLanguageText: { color: "#1996D3", fontWeight: "700" }
+  activeLanguageText: { color: COLORS.primary, fontWeight: '700' }
 });

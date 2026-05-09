@@ -19,12 +19,14 @@ import { visitorServices } from "../../../services/visitorServices";
 import { cancelVisitorNotification } from "../../../Utils/VisitorNotification";
 import { useTranslation } from 'react-i18next';
 import Text from '../../components/TranslatedText';
+import BRAND from '../../config';
 
 const VisitDetailScreen = () => {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const route = useRoute();
   const { nightMode } = usePermissions();
+  const COLORS = BRAND.COLORS;
 
   const visit = route.params?.visit;
   const onGoBack = route.params?.onGoBack;
@@ -44,15 +46,16 @@ const VisitDetailScreen = () => {
   const [attendedStatus, setAttendedStatus] = useState(visit?.attended ?? null);
 
   const theme = {
-    bg: nightMode ? "#121212" : "#F3F4F6",
-    card: nightMode ? "#1E1E1E" : "#FFFFFF",
-    text: nightMode ? "#FFFFFF" : "#111827",
-    sub: nightMode ? "#9CA3AF" : "#6B7280",
-    border: nightMode ? "#2C2C2C" : "#E5E7EB",
-    success: "#10B981",
-    danger: "#EF4444",
-    grey: "#6B7280",
-    primary: "#2E8BC0"
+    bg: nightMode ? '#121212' : '#FFFFFF',
+    card: nightMode ? '#1E1E1E' : '#FFFFFF',
+    text: nightMode ? '#FFFFFF' : '#111827',
+    sub: nightMode ? '#9CA3AF' : '#6B7280',
+    border: nightMode ? '#2C2C2C' : '#E5E7EB',
+    success: '#10B981',
+    danger: '#EF4444',
+    grey: '#6B7280',
+    primary: COLORS.primary,
+    primaryLight: '#EFF6FF',
   };
 
   const isPending = allowStatus === null;
@@ -177,13 +180,22 @@ const VisitDetailScreen = () => {
       <AppHeader title={t("Visit Detail")} nightMode={nightMode} showBack onBackPress={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <View style={[styles.statusBadge, { backgroundColor: status.color }]}>
-          <Text style={styles.statusText}>{status.text}</Text>
+        <View style={[
+          styles.statusBadge,
+          {
+            backgroundColor: `${status.color}15`,
+            borderColor: status.color,
+          },
+        ]}>
+          <Text style={[styles.statusText, { color: status.color }]}>{status.text}</Text>
         </View>
 
-        <Image source={{ uri: visit?.image || "https://via.placeholder.com/400" }} style={styles.image} />
+        <Image source={{ uri: visit?.image || "https://via.placeholder.com/400" }} style={[styles.image, { borderColor: theme.border }]} />
 
-        <View style={[styles.card, { backgroundColor: theme.card }]}>
+        <View style={[styles.card, {
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+        }]}>
           <Text style={[styles.name, { color: theme.text }]}>{visit?.name}</Text>
           <View style={styles.row}>
             <Ionicons name="call-outline" size={16} color={theme.sub} />
@@ -225,7 +237,10 @@ const VisitDetailScreen = () => {
         </View>
 
         {allowStatus === 1 && (
-          <View style={[styles.allowTimeRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={[styles.allowTimeRow, {
+            backgroundColor: theme.primaryLight,
+            borderColor: '#BFDBFE',
+          }]}>
             <Ionicons name="time-outline" size={15} color={theme.sub} />
             <Text style={[styles.allowTimeLabel, { color: theme.sub }]}>{t("Allow Time")}:</Text>
             <Text style={[styles.allowTimeValue, { color: theme.text }]}>{getAllowTime()}</Text>
@@ -251,7 +266,10 @@ const VisitDetailScreen = () => {
         </View>
 
         {allowStatus === 1 && (
-          <View style={[styles.extendSection, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={[styles.extendSection, {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+          }]}>
             <Text style={[styles.extendHeading, { color: theme.text }]}>{t("Extend Visit Time")}</Text>
             <View style={styles.hourGrid}>
               {[0.5, 1, 2].map((hr) => {
@@ -296,27 +314,80 @@ const VisitDetailScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  image: { width: "100%", height: 180, borderRadius: 12, marginVertical: 12 },
-  card: { padding: 14, borderRadius: 12, marginBottom: 20, elevation: 0.3 },
+  image: {
+    width: '100%',
+    height: 190,
+    borderRadius: 18,
+    marginVertical: 14,
+    borderWidth: 1,
+  },
+  card: {
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+  },
   name: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
   row: { flexDirection: "row", alignItems: "center", gap: 6 },
   subText: { fontSize: 14 },
-  divider: { height: 1, marginVertical: 10 },
+  divider: {
+    height: 1,
+    marginVertical: 12,
+  },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   label: { fontSize: 13 },
   value: { fontSize: 13, fontWeight: "600" },
   buttonRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
-  button: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" },
+  button: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    elevation: 1,
+  },
   btnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
-  statusBadge: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 4 },
-  statusText: { color: "#fff", fontSize: 12, fontWeight: "700" },
-  allowTimeRow: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, borderRadius: 10, borderWidth: 1, marginBottom: 12 },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 30,
+    marginBottom: 6,
+    borderWidth: 1,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  allowTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
   allowTimeLabel: { fontSize: 13 },
   allowTimeValue: { fontSize: 13, fontWeight: "700" },
-  extendSection: { borderRadius: 12, borderWidth: 1, padding: 14 },
+  extendSection: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+  },
   extendHeading: { fontSize: 14, fontWeight: "600", marginBottom: 10 },
   hourGrid: { flexDirection: "row", gap: 8 },
-  hourBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, alignItems: "center" },
+  hourBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+  },
   hourBtnText: { fontWeight: "600", fontSize: 12 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
   modalCard: { width: "85%", backgroundColor: "#fff", borderRadius: 20, padding: 25, alignItems: "center" },

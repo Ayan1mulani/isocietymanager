@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, TextInput, Modal, Dimensions, Platform, Animated, Image, FlatList, ActivityIndicator
+  ScrollView, TextInput, Modal, Dimensions, Platform, Animated, Image, FlatList, ActivityIndicator, Alert
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePermissions } from '../../Utils/ConetextApi';
+import { hasPermission } from '../../Utils/PermissionHelper';
 import CalendarSelector from '../VisitorsScreen/components/Calender';
 import { complaintService } from '../../services/complaintService';
 import BRAND from '../config';
 import AppHeader from '../components/AppHeader';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { otherServices } from '../../services/otherServices';
-import { launchCamera } from 'react-native-image-picker';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
@@ -279,13 +280,13 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
 
   const th = nightMode
     ? {
-        bg: '#13131A', surface: '#1C1C27', text: '#F1F5F9', sub: '#64748B',
-        border: '#2A2A3A', chip: '#22222E', searchBg: '#1C1C27', activeChip: PRIMARY,
-      }
+      bg: '#13131A', surface: '#1C1C27', text: '#F1F5F9', sub: '#64748B',
+      border: '#2A2A3A', chip: '#22222E', searchBg: '#1C1C27', activeChip: PRIMARY,
+    }
     : {
-        bg: '#FFFFFF', surface: '#F8FAFC', text: '#111827', sub: '#9CA3AF',
-        border: '#ECEEF2', chip: '#F3F4F6', searchBg: '#F3F4F6', activeChip: PRIMARY,
-      };
+      bg: '#FFFFFF', surface: '#F8FAFC', text: '#111827', sub: '#9CA3AF',
+      border: '#ECEEF2', chip: '#F3F4F6', searchBg: '#F3F4F6', activeChip: PRIMARY,
+    };
 
   // Stack navigation state
   // Each entry: { items: Node[], selectedNode: Node, label: string }
@@ -775,10 +776,11 @@ const Section = ({ label, required, error, children, t: th }) => (
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 const ComplaintInputScreen = ({ navigation, route }) => {
-  const { nightMode } = usePermissions();
+  const { nightMode, permissions } = usePermissions();
   const { t } = useTranslation();
   const { category, subCategory } = route.params || {};
   const [image, setImage] = useState(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   const th = nightMode ? {
     bg: '#0F0F14', surface: '#18181F', border: '#22222ed4',
@@ -787,6 +789,13 @@ const ComplaintInputScreen = ({ navigation, route }) => {
     bg: '#F4F5F8', surface: '#FFFFFF', border: '#ECEEF2',
     text: '#111827', sub: '#9CA3AF', input: '#F8FAFC',
   };
+
+  const canScheduleComplaint = permissions &&
+    typeof hasPermission === 'function' &&
+    (
+      hasPermission(permissions, 'COMVSTTM', 'C') ||
+      hasPermission(permissions, 'COMVSTTM', 'CREATE')
+    );
 
   const [config, setConfig] = useState(null);
   const [selectedArea, setSelectedArea] = useState(null);
@@ -821,15 +830,30 @@ const ComplaintInputScreen = ({ navigation, route }) => {
     } catch (error) { console.log("Config Error:", error); }
   };
 
-  const takePicture = async () => {
+  const takePicture = async (type) => {
+    const options = {
+      mediaType: 'photo',
+      includeBase64: true,
+      quality: 0.7,
+    };
+
     try {
-      const result = await launchCamera({ mediaType: 'photo', includeBase64: true, quality: 0.7 });
+      let result;
+
+      if (type === 'camera') {
+        result = await launchCamera(options);
+      } else {
+        result = await launchImageLibrary(options);
+      }
+
       if (result?.assets?.length > 0) {
         const base64 = result.assets[0].base64;
         setImage(`data:image/jpeg;base64,${base64}`);
       }
     } catch (err) {
-      console.log("Image picker error:", err);
+      console.log('Image picker error:', err);
+    } finally {
+      setShowPhotoModal(false);
     }
   };
 
@@ -860,10 +884,20 @@ const ComplaintInputScreen = ({ navigation, route }) => {
       setLocations([]);
     }
   };
-
   const handlePriorityChange = (val) => {
+
+    // Block schedule mode if permission missing
+    if (!val && !canScheduleComplaint) {
+      return;
+    }
+
     setIsASAP(val);
-    if (val) { setSelectedDate(null); setFromTime(null); setToTime(null); }
+
+    if (val) {
+      setSelectedDate(null);
+      setFromTime(null);
+      setToTime(null);
+    }
   };
 
   const fmtTime = (d) => d ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null;
@@ -888,7 +922,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
     if (!remarks.trim()) {
       newErrors.remarks = t('Please describe the issue.');
     }
-    if (!isASAP) {
+    if (!isASAP && canScheduleComplaint) {
       if (!selectedDate) newErrors.date = t('Please select a date.');
       if (!fromTime || !toTime) {
         newErrors.time = t('Please select both start and end time.');
@@ -915,8 +949,15 @@ const ComplaintInputScreen = ({ navigation, route }) => {
       }
     }
 
-    const probableDate = !isASAP ? formatDate(selectedDate) : null;
-    const probableTime = !isASAP && fromTime && toTime ? `${fmtTime(fromTime)} to ${fmtTime(toTime)}` : null;
+    const probableDate =
+      (!isASAP && canScheduleComplaint)
+        ? formatDate(selectedDate)
+        : null;
+
+    const probableTime =
+      (!isASAP && canScheduleComplaint && fromTime && toTime)
+        ? `${fmtTime(fromTime)} to ${fmtTime(toTime)}`
+        : null;
     if (!isASAP && !probableDate) {
       setErrors({ date: t('Could not read the selected date.') });
       return;
@@ -1006,25 +1047,32 @@ const ComplaintInputScreen = ({ navigation, route }) => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[s.priorityBtn, {
-                borderColor: !isASAP ? PRIMARY : th.border,
-                backgroundColor: !isASAP ? `${PRIMARY}12` : th.input,
-              }]}
-              onPress={() => handlePriorityChange(false)}
-              activeOpacity={0.75}
-            >
-              <View style={[s.priorityIconWrap, { backgroundColor: !isASAP ? `${PRIMARY}20` : th.border + '40' }]}>
-                <Ionicons name="calendar-outline" size={16} color={!isASAP ? PRIMARY : th.sub} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.priorityTxt, { color: !isASAP ? PRIMARY : th.text }]}>{t('Schedule')}</Text>
-                <Text style={[s.priorityDesc, { color: th.sub }]}>{t('Date & time')}</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+            {canScheduleComplaint && (
+              <TouchableOpacity
+                style={[s.priorityBtn, {
+                  borderColor: !isASAP ? PRIMARY : th.border,
+                  backgroundColor: !isASAP ? `${PRIMARY}12` : th.input,
+                }]}
+                onPress={() => handlePriorityChange(false)}
+                activeOpacity={0.75}
+              >
+                <View style={[s.priorityIconWrap, { backgroundColor: !isASAP ? `${PRIMARY}20` : th.border + '40' }]}>
+                  <Ionicons name="calendar-outline" size={16} color={!isASAP ? PRIMARY : th.sub} />
+                </View>
 
-          {!isASAP && (
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.priorityTxt, { color: !isASAP ? PRIMARY : th.text }]}>
+                    {t('Schedule')}
+                  </Text>
+
+                  <Text style={[s.priorityDesc, { color: th.sub }]}>
+                    {t('Date & time')}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+          {canScheduleComplaint && !isASAP && (
             <View style={[s.scheduleBox, { borderColor: PRIMARY, backgroundColor: `${PRIMARY}08` }]}>
               <View style={s.scheduleRow}>
                 <View style={{ flex: 1 }}>
@@ -1148,10 +1196,10 @@ const ComplaintInputScreen = ({ navigation, route }) => {
                   {isLoadingLocations
                     ? <ActivityIndicator size="small" color={PRIMARY} style={{ marginLeft: 4 }} />
                     : <Ionicons
-                        name={location ? "checkmark-circle" : "chevron-forward"}
-                        size={16}
-                        color={location ? PRIMARY : th.sub}
-                      />
+                      name={location ? "checkmark-circle" : "chevron-forward"}
+                      size={16}
+                      color={location ? PRIMARY : th.sub}
+                    />
                   }
                 </TouchableOpacity>
                 {!!errors.location && (
@@ -1177,11 +1225,11 @@ const ComplaintInputScreen = ({ navigation, route }) => {
           ) : (
             <TouchableOpacity
               style={[s.addPhotoBtn, { borderColor: th.border, backgroundColor: th.input }]}
-              onPress={takePicture}
+              onPress={() => setShowPhotoModal(true)}
               activeOpacity={0.7}
             >
               <Ionicons name="camera-outline" size={28} color={th.sub} />
-              <Text style={[s.addPhotoTxt, { color: th.sub }]}>{t('Tap to capture photo')}</Text>
+              <Text style={[s.addPhotoTxt, { color: th.sub }]}>{t('Tap to add photo')}</Text>
             </TouchableOpacity>
           )}
         </Section>
@@ -1244,6 +1292,91 @@ const ComplaintInputScreen = ({ navigation, route }) => {
         nightMode={nightMode}
         locations={locations}
       />
+      <Modal
+  visible={showPhotoModal}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowPhotoModal(false)}
+>
+  <View style={s.photoModalOverlay}>
+    <TouchableOpacity
+      style={s.photoModalBackdrop}
+      activeOpacity={1}
+      onPress={() => setShowPhotoModal(false)}
+    />
+
+    <View style={[s.photoModalContainer, { backgroundColor: th.surface }]}>
+
+      <View style={[s.photoHandle, { backgroundColor: th.border }]} />
+
+      <Text style={[s.photoModalTitle, { color: th.text }]}>
+        {t('Add Photo')}
+      </Text>
+
+      <Text style={[s.photoModalSubtitle, { color: th.sub }]}>
+        {t('Choose how you want to upload the image')}
+      </Text>
+
+      <TouchableOpacity
+        style={[s.photoOptionBtn, {
+          backgroundColor: th.input,
+          borderColor: th.border
+        }]}
+        onPress={() => takePicture('camera')}
+      >
+        <View style={s.photoOptionIcon}>
+          <Ionicons name="camera-outline" size={22} color={PRIMARY} />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={[s.photoOptionTitle, { color: th.text }]}>
+            {t('Take Photo')}
+          </Text>
+
+          <Text style={[s.photoOptionDesc, { color: th.sub }]}>
+            {t('Capture using camera')}
+          </Text>
+        </View>
+
+        <Ionicons name="chevron-forward" size={18} color={th.sub} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[s.photoOptionBtn, {
+          backgroundColor: th.input,
+          borderColor: th.border
+        }]}
+        onPress={() => takePicture('gallery')}
+      >
+        <View style={s.photoOptionIcon}>
+          <Ionicons name="images-outline" size={22} color={PRIMARY} />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={[s.photoOptionTitle, { color: th.text }]}>
+            {t('Choose from Gallery')}
+          </Text>
+
+          <Text style={[s.photoOptionDesc, { color: th.sub }]}>
+            {t('Select existing image')}
+          </Text>
+        </View>
+
+        <Ionicons name="chevron-forward" size={18} color={th.sub} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={s.photoCancelBtn}
+        onPress={() => setShowPhotoModal(false)}
+      >
+        <Text style={s.photoCancelTxt}>
+          {t('Cancel')}
+        </Text>
+      </TouchableOpacity>
+
+    </View>
+  </View>
+</Modal>
       <StatusModal
         visible={modalConfig.visible}
         type={modalConfig.type}
@@ -1340,4 +1473,84 @@ const s = StyleSheet.create({
     elevation: 3, shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
   },
   submitTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  photoModalOverlay: {
+  flex: 1,
+  justifyContent: 'flex-end',
+  backgroundColor: 'rgba(0,0,0,0.45)',
+},
+
+photoModalBackdrop: {
+  flex: 1,
+},
+
+photoModalContainer: {
+  borderTopLeftRadius: 28,
+  borderTopRightRadius: 28,
+  paddingHorizontal: 20,
+  paddingTop: 14,
+  paddingBottom: 28,
+},
+
+photoHandle: {
+  width: 46,
+  height: 5,
+  borderRadius: 4,
+  alignSelf: 'center',
+  marginBottom: 18,
+},
+
+photoModalTitle: {
+  fontSize: 20,
+  fontWeight: '700',
+  textAlign: 'center',
+},
+
+photoModalSubtitle: {
+  fontSize: 13,
+  textAlign: 'center',
+  marginTop: 6,
+  marginBottom: 24,
+},
+
+photoOptionBtn: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  borderWidth: 1,
+  borderRadius: 18,
+  padding: 16,
+  marginBottom: 14,
+},
+
+photoOptionIcon: {
+  width: 52,
+  height: 52,
+  borderRadius: 16,
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginRight: 14,
+  backgroundColor: '#EEF2FF',
+},
+
+photoOptionTitle: {
+  fontSize: 15,
+  fontWeight: '700',
+},
+
+photoOptionDesc: {
+  fontSize: 12,
+  marginTop: 4,
+},
+
+photoCancelBtn: {
+  alignItems: 'center',
+  paddingVertical: 14,
+  marginTop: 4,
+},
+
+photoCancelTxt: {
+  fontSize: 15,
+  fontWeight: '700',
+  color: '#EF4444',
+},
+  
 });
