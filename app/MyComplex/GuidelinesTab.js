@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Linking,
 } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added caching
 import { ismServices } from "../../services/ismServices";
@@ -95,9 +96,10 @@ const NoticeCard = ({ item, onPress }) => {
   const fileUrls = parseFileUrls(item.file_urls);
   const noticeText = stripHtml(item.notice || "");
   const hasContact = !!item.contact;
+  const hasAttachments = fileUrls.length > 0;
 
   const handlePress = () => {
-    navigation.navigate("NoticeDetail", {
+    navigation.navigate("NoticeDetailScreen", {
       notice: item,
       noticeText: noticeText,
       fileUrls: fileUrls,
@@ -121,7 +123,17 @@ const NoticeCard = ({ item, onPress }) => {
               <Text style={styles.category}>{item.group}</Text>
             )}
           </View>
-          {!item.is_read && <View style={styles.unreadIndicator} />}
+          <View style={styles.headerRight}>
+            {hasAttachments && (
+              <Ionicons
+                name="attach"
+                size={18}
+                color="#1F78D1"
+                style={styles.attachmentIcon}
+              />
+            )}
+            {!item.is_read && <View style={styles.unreadIndicator} />}
+          </View>
         </View>
 
         {item.subject && (
@@ -329,7 +341,6 @@ const COLORS = {
   cardBackground: "#FFFFFF",
   border: "#E2E8F0",
   success: "#10B981",
-  unread: "#EF4444",
 };
 
 const styles = StyleSheet.create({
@@ -411,6 +422,15 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     flex: 1,
+  },
+  headerRight: {
+    alignItems: "center",
+    justifyContent: "flex-start",
+    gap: 6,
+    paddingTop: 2,
+  },
+  attachmentIcon: {
+    marginTop: 1,
   },
   title: {
     fontSize: 14,

@@ -12,7 +12,7 @@ import {
   Linking,
 } from "react-native";
 import { ismServices } from "../../services/ismServices";
-import BRAND from '../config'
+import BRAND from '../config';
 
 /* ─── Helpers ─── */
 
@@ -67,7 +67,7 @@ const Avatar = ({ urls, label }) => {
     return (
       <Image
         source={{ uri: firstUrl }}
-        style={styles.thumbnail}
+        style={styles.fullImage}
         onError={() => setImgError(true)}
         resizeMode="cover"
       />
@@ -75,8 +75,8 @@ const Avatar = ({ urls, label }) => {
   }
 
   return (
-    <View style={styles.avatarPlaceholder}>
-      <Text style={styles.avatarText}>
+    <View style={styles.avatarPlaceholderFull}>
+      <Text style={styles.avatarTextFull}>
         {(label || "?")[0]?.toUpperCase()}
       </Text>
     </View>
@@ -93,43 +93,48 @@ const NoticeCard = ({ item, onPress }) => {
   return (
     <TouchableOpacity
       style={styles.card}
-      activeOpacity={0.6}
+      activeOpacity={0.7}
       onPress={onPress}
     >
-      <View style={styles.cardContent}>
-        <View style={styles.header}>
-          <Avatar urls={fileUrls} label={noticeText} />
-          <View style={styles.headerInfo}>
-            <Text style={styles.title} numberOfLines={2}>
-              {noticeText}
-            </Text>
-            {item.group && (
-              <Text style={styles.category}>{item.group}</Text>
-            )}
+      {/* Left Column: Image/Avatar takes exactly the bounds of its wrapper */}
+      <View style={styles.imageSection}>
+        <Avatar urls={fileUrls} label={noticeText} />
+      </View>
+
+      {/* Right Column: Content */}
+      <View style={styles.contentSection}>
+        <View>
+          {/* Top Row: Category (Left) and Date (Right) */}
+          <View style={styles.contentHeader}>
+            <Text style={styles.category}>{item.group || "NOTICE"}</Text>
+            <Text style={styles.date}>{formatDate(item.created_at)}</Text>
           </View>
-          {!item.is_read && <View style={styles.unreadIndicator} />}
+
+          {/* Title & Description */}
+          <Text style={styles.title} numberOfLines={2}>
+            {noticeText}
+          </Text>
+          {item.subject && (
+            <Text style={styles.description} numberOfLines={2}>
+              {item.subject}
+            </Text>
+          )}
         </View>
 
-        {item.subject && (
-          <Text style={styles.description} numberOfLines={2}>
-            {item.subject}
-          </Text>
-        )}
-
-        <View style={styles.footer}>
-          <Text style={styles.date}>{formatDate(item.created_at)}</Text>
-          {hasContact && (
+        {/* Footer: Phone Number (Bottom Left) */}
+        {hasContact && (
+          <View style={styles.footer}>
             <TouchableOpacity
-              style={styles.contactBtn}
               onPress={(e) => {
                 e.stopPropagation();
                 Linking.openURL(`tel:${item.contact}`);
               }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.contactText}>{item.contact}</Text>
+              <Text style={styles.contactText}> {item.contact}</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -197,7 +202,7 @@ const MGTFacilityTeamTab = () => {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#1F78D1" />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -255,8 +260,8 @@ const MGTFacilityTeamTab = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#1F78D1"
-            colors={["#1F78D1"]}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
           />
         }
         contentContainerStyle={
@@ -286,16 +291,14 @@ export default MGTFacilityTeamTab;
 /* ─── Styles ─── */
 
 const COLORS = {
-  primary: BRAND.COLORS.primary,
+  primary: BRAND?.COLORS?.primary || "#1F78D1",
   primaryLight: "#E8F2FD",
   text: "#0F172A",
-  textSecondary: "#64748B",
+  textSecondary: "#475569", // slightly darker for better readability
   textTertiary: "#94A3B8",
-  background: "#ffffff",
+  background: "#F8FAFC",
   cardBackground: "#FFFFFF",
   border: "#E2E8F0",
-  success: "#10B981",
-  unread: "#EF4444",
 };
 
 const styles = StyleSheet.create({
@@ -340,8 +343,8 @@ const styles = StyleSheet.create({
 
   /* ─── List ─── */
   listContainer: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
   },
   emptyListContainer: {
     flex: 1,
@@ -350,11 +353,12 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  /* ─── Card ─── */
+  /* ─── Card (Horizontal Layout) ─── */
   card: {
-    marginHorizontal: 8,
-    marginVertical: 6,
-    borderRadius: 12,
+    flexDirection: "row",
+    marginHorizontal: 4,
+    marginVertical: 5,
+    borderRadius: 12, // Reduced slightly
     overflow: "hidden",
     backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
@@ -362,93 +366,94 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 0.7,
+    shadowRadius: 3,
+    elevation: 2,
+    minHeight: 110, // Decreased size of card overall
+  },
 
+  /* ─── Left Column (Image) ─── */
+  imageSection: {
+    width: "28%", // Taking ~30% width
+    backgroundColor: COLORS.primaryLight,
   },
-  cardContent: {
-    padding: 14,
+  fullImage: {
+    // Absolute positioning guarantees it fills exactly the imageSection wrapper height
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 10,
+  avatarPlaceholderFull: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  headerInfo: {
+  avatarTextFull: {
+    fontSize: 30, // scaled down slightly
+    fontWeight: "700",
+    color: COLORS.primary,
+    opacity: 0.8,
+  },
+
+  /* ─── Right Column (Content) ─── */
+  contentSection: {
     flex: 1,
+    padding: 12, // Reduced padding
+    justifyContent: "space-between", 
+  },
+  contentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between", // Pushes category left, date right
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  category: {
+    fontSize: 10, // Smaller category tag
+    fontWeight: "700",
+    color: COLORS.primary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  date: {
+    fontSize: 11,
+    color: COLORS.textTertiary,
+    fontWeight: "500",
   },
   title: {
-    fontSize: 14,
+    fontSize: 14, // Slightly smaller
     fontWeight: "700",
     color: COLORS.text,
     lineHeight: 18,
     marginBottom: 4,
   },
-  category: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.primary,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-
-  /* ─── Avatar ─── */
-  thumbnail: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: COLORS.border,
-  },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: COLORS.primaryLight,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-
-  /* ─── Unread Indicator ─── */
-  unreadIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.unread,
-    marginTop: 4,
-  },
-
-  /* ─── Description ─── */
   description: {
-    fontSize: 13,
+    fontSize: 12, // Slightly smaller
     color: COLORS.textSecondary,
-    lineHeight: 18,
-    marginBottom: 10,
+    lineHeight: 16,
+    marginBottom: 8,
   },
 
-  /* ─── Footer ─── */
+  /* ─── Footer (Phone) ─── */
+/* ─── Footer (Phone) ─── */
   footer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end", // <--- This pushes the contact to the right
     alignItems: "center",
-  },
-  date: {
-    fontSize: 12,
-    color: COLORS.textTertiary,
-    fontWeight: "500",
-  },
-  contactBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    marginTop: "auto", // <--- This keeps it pushed to the bottom
   },
   contactText: {
-    fontSize: 14,
-    color:'#5293e8',
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 
   /* ─── Empty State ─── */

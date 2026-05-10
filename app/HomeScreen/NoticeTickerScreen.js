@@ -13,19 +13,16 @@ import { ismServices } from "../../services/ismServices";
 import { useNavigation } from '@react-navigation/native';
 import Ionicons from "react-native-vector-icons/Ionicons";
 
-// 1. ── NEW: Import your global Text component ──
-import Text from '../components/TranslatedText'; // <--- ADJUST PATH IF NEEDED
+import Text from '../components/TranslatedText'; 
 import BRAND from '../config';
 
 const COLORS = BRAND.COLORS;
-
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const SPEED = 70; // adjust speed
+const SPEED = 70; 
 
 const NoticeTickerScreen = () => { 
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedNotice, setSelectedNotice] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [textWidth, setTextWidth] = useState(0);
   const navigation = useNavigation();
@@ -58,14 +55,15 @@ const NoticeTickerScreen = () => {
   const cleanHtml = (html) => {
     if (!html) return "";
     return html
-      .replace(/<[^>]+>/g, "")
+      .replace(/<[^>]+>/g, "") // Remove HTML tags
+      .replace(/&nbsp;/g, " ")  // FIX: Remove non-breaking spaces
+      .replace(/&amp;/g, "&")   // FIX: Handle ampersands
       .replace(/\n/g, " ")
       .replace(/\r/g, " ")
       .replace(/\s+/g, " ")
       .trim();
   };
 
-  // 🔥 Combine all notices (like marquee)
   const tickerText =
     notices.length > 0
       ? notices.map((n) => cleanHtml(n.notice)).join("     •     ") + "     •     "
@@ -86,27 +84,13 @@ const NoticeTickerScreen = () => {
     ).start();
   };
 
-  const openNotice = () => {
-    if (notices.length > 0) {
-      setSelectedNotice(notices[0]);
-      setModalVisible(true);
-    }
-  };
-
   if (!loading && notices.length === 0) return null;
 
   return (
     <View style={styles.container}>
-      {/* Updated Title Row */}
       <View style={styles.titleRow}>
         <Text style={styles.title}>Notices</Text>
-        
-        {/* NEW: View All Button */}
-        <TouchableOpacity 
-          onPress={() => {
-            navigation.navigate('MyNoticesScreen');
-          }}
-        >
+        <TouchableOpacity onPress={() => navigation.navigate('MyNoticesScreen')}>
           <Text style={styles.viewAllText}>View All</Text>
         </TouchableOpacity>
       </View>
@@ -114,17 +98,16 @@ const NoticeTickerScreen = () => {
       {loading ? (
         <ActivityIndicator size="small" color="#1565A9" />
       ) : (
-        <TouchableOpacity style={styles.tickerBox} onPress={openNotice}>
-
-          {/* Hidden text for width */}
+        <TouchableOpacity style={styles.tickerBox} onPress={() => setModalVisible(true)}>
+          {/* FIX: Added numberOfLines={1} to force true width calculation */}
           <Text
+            numberOfLines={1} 
             style={[styles.tickerText, styles.hiddenText]}
             onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
           >
             {tickerText}
           </Text>
 
-          {/* Animated ticker */}
           <Animated.View
             style={{
               flexDirection: "row",
@@ -133,33 +116,31 @@ const NoticeTickerScreen = () => {
               transform: [{ translateX }],
             }}
           >
-            <Text style={styles.tickerText}>
-              {tickerText}
-            </Text>
+            <Text style={styles.tickerText}>{tickerText}</Text>
           </Animated.View>
-
         </TouchableOpacity>
       )}
 
-      {/* Modal */}
+      {/* FIX: Modal now maps through ALL notices instead of just [0] */}
       <Modal visible={modalVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>{selectedNotice?.subject}</Text>
-
+            <Text style={styles.modalTitle}>Active Notices</Text>
             <View style={styles.divider} />
 
             <ScrollView style={styles.scrollView}>
-              <Text style={styles.modalText}>
-                {cleanHtml(selectedNotice?.notice)}
-              </Text>
+              {notices.map((notice) => (
+                <View key={notice.id} style={styles.noticeItem}>
+                  <Text style={styles.noticeSubject}>{notice.subject}</Text>
+                  <Text style={styles.modalText}>{cleanHtml(notice.notice)}</Text>
+                </View>
+              ))}
             </ScrollView>
 
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setModalVisible(false)}
             >
-              {/* 3. ── Automatically handled by global <Text> ── */}
               <Text style={styles.closeText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -176,15 +157,11 @@ const styles = StyleSheet.create({
   titleRow: { 
     flexDirection: "row", 
     alignItems: "center", 
-    justifyContent: "space-between", // <-- Added to push "View All" to the right
+    justifyContent: "space-between", 
     marginBottom: 12 
   },
   title: { fontSize: 16, fontWeight: "700", color: "#111827" },
-  viewAllText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
+  viewAllText: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
   tickerText: { fontSize: 12, color: "#1F2937", fontWeight: "500" },
   tickerBox: {
     height: 42,
@@ -197,13 +174,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
   },
-  hiddenText: { position: "absolute", opacity: 0, top: -9999 },
+  // FIX: Ensure hidden text doesn't wrap or constrain
+  hiddenText: { position: "absolute", opacity: 0, top: -9999, left: -9999 }, 
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 20 },
   modalContainer: { backgroundColor: "#fff", borderRadius: 10, padding: 18, maxHeight: "80%" },
   modalTitle: { fontSize: 16, fontWeight: "700", marginBottom: 10 },
   divider: { height: 1, backgroundColor: "#eee", marginBottom: 12 },
   scrollView: { maxHeight: 300 },
-  modalText: { fontSize: 14, lineHeight: 22 },
+  noticeItem: { marginBottom: 16 },
+  noticeSubject: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
+  modalText: { fontSize: 14, lineHeight: 22, color: "#4B5563" },
   closeButton: {
     marginTop: 16,
     alignSelf: 'flex-end',
@@ -212,8 +192,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
   },
-  closeText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
+  closeText: { color: '#fff', fontWeight: '700' },
 });

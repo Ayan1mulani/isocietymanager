@@ -402,9 +402,7 @@ const HomeScreen = () => {
               </View>
 
               <Text style={styles.checkboxText}>
-                {dontShowIvrAgain
-                  ? 'SAVED'
-                  : "DON'T SHOW AGAIN"}
+                {"DON'T SHOW AGAIN"}
               </Text>
             </TouchableOpacity>
 
