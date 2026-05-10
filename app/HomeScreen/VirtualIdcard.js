@@ -39,7 +39,7 @@ const BASE_HEIGHT = 812; // Standard modern phone height
 const scaleFactor = Math.min(SCREEN_WIDTH / BASE_WIDTH, SCREEN_HEIGHT / BASE_HEIGHT);
 const scale = (size) => Math.round(scaleFactor * size);
 
-const CARD_WIDTH = SCREEN_WIDTH - scale(40);
+const CARD_WIDTH = SCREEN_WIDTH - scale(60);
 const PERSPECTIVE = 900;
 const MAX_ROTATE = 18;
 
@@ -101,9 +101,12 @@ const ResidentIdCardScreen = () => {
 
         const mergedUser = {
           ...res.data,
+          address: res2?.data?.address || res2?.address,
           image_src: latestImage,
           image_version: imageVersion || '1',
         };
+
+        console.log('MERGED USER DATA:', mergedUser);
 
         setUser(mergedUser);
 
@@ -199,6 +202,10 @@ const ResidentIdCardScreen = () => {
 
                 <View style={styles.cardHeader}>
                   <Text style={styles.headerText} numberOfLines={1}>{user?.society_name}</Text>
+
+                  <View style={styles.headerRoleBadge}>
+                    <Text style={styles.headerRoleText}>{residentType}</Text>
+                  </View>
                 </View>
 
                 <View style={styles.mainInfo}>
@@ -223,22 +230,6 @@ const ResidentIdCardScreen = () => {
                       <Text style={styles.orangeUserId} numberOfLines={1}>#{userId}</Text>
                     </>
                   )}
-
-                  <View style={styles.tagsRow}>
-                    {loading && !user ? (
-                      <SkeletonLine width={scale(100)} height={30} style={{ borderRadius: 20 }} />
-                    ) : (
-                      <>
-                        <View style={styles.tagContainer}>
-                          <Ionicons name="home-outline" size={scale(11)} color="#475569" />
-                          <Text style={styles.unitTag}>{user?.tower} • {user?.display_unit_no || user?.flat_no}</Text>
-                        </View>
-                        <View style={[styles.tagContainer, styles.typeTagContainer]}>
-                          <Text style={styles.typeTagText}>{residentType}</Text>
-                        </View>
-                      </>
-                    )}
-                  </View>
                 </View>
 
                 <View style={styles.qrSection}>
@@ -258,10 +249,9 @@ const ResidentIdCardScreen = () => {
 
                 <View style={styles.detailsGrid}>
                   <Detail icon="call-outline" label={t("Phone")} value={getUserField(user?.phone_no, user?.alt_phone_no)} loading={loading && !user} half />
-                  <Detail icon="home-outline" label={t("Unit")} value={user?.display_unit_no || user?.flat_no} loading={loading && !user} half />
+                  <Detail icon="home-outline" label={t("Unit NO.")} value={user?.flat_no || user?.display_unit_no} loading={loading && !user} half />
                   <Detail icon="mail-outline" label={t("Email")} value={getUserField(user?.email, user?.alt_email)} loading={loading && !user} />
-                  <Detail icon="business-outline" label={t("Society")} value={user?.society_name} loading={loading && !user} half />
-                  <Detail icon="key-outline" label={t("unit-id")} value={user?.unit_id} loading={loading && !user} half />
+                  <Detail icon="location-outline" label={t("Address")} value={user?.address} loading={loading && !user} />
                 </View>
 
                 <View style={styles.footer}>
@@ -289,7 +279,12 @@ const Detail = ({ icon, label, value, half, loading }) => (
       {loading ? (
         <SkeletonLine width="80%" height={12} style={{ marginTop: 4 }} />
       ) : (
-        <Text style={styles.detailValue} numberOfLines={1}>{value || "N/A"}</Text>
+        <Text
+          style={styles.detailValue}
+          numberOfLines={label === "Address" ? 3 : 1}
+        >
+          {value || "N/A"}
+        </Text>
       )}
     </View>
   </View>
@@ -305,30 +300,61 @@ const styles = StyleSheet.create({
   },
   cardWrapper: { width: CARD_WIDTH },
   card: { width: "100%", backgroundColor: COLORS.card, borderRadius: scale(24), paddingBottom: scale(8), overflow: "hidden" },
-  cardHeader: { backgroundColor: COLORS.primary, paddingVertical: scale(12), paddingHorizontal: scale(16) },
+  cardHeader: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(16),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
   headerText: { color: "#fff", fontSize: scale(10), fontWeight: "800", letterSpacing: 1.2 },
+  headerRoleBadge: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(5),
+    borderRadius: scale(14),
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)'
+  },
+  headerRoleText: {
+    color: '#fff',
+    fontSize: scale(10),
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase'
+  },
   mainInfo: { alignItems: "center", paddingTop: scale(18), paddingBottom: scale(4), paddingHorizontal: scale(12) },
   avatarRing: { padding: scale(3), borderRadius: scale(70), borderWidth: scale(2.5), borderColor: COLORS.primary },
   avatarContainer: { padding: scale(3), backgroundColor: "#fff", borderRadius: scale(65) },
   avatar: { width: scale(80), height: scale(80), borderRadius: scale(48) },
   name: { fontSize: scale(19), fontWeight: "800", color: "#1E293B", marginTop: scale(10), textAlign: "center", width: "100%" },
-  orangeUserId: { fontSize: scale(13), fontWeight: "800", color: COLORS.primary, marginTop: scale(3) },
+  orangeUserId: { fontSize: scale(15), fontWeight: "800", color: '#b50b30', marginTop: scale(3) },
   tagsRow: { flexDirection: "row", alignItems: "center", marginTop: scale(8), gap: scale(6), justifyContent: "center" },
   tagContainer: { flexDirection: "row", alignItems: "center", gap: scale(4), backgroundColor: "#F1F5F9", paddingHorizontal: scale(10), paddingVertical: scale(5), borderRadius: scale(20) },
   unitTag: { fontSize: scale(11), color: "#475569", fontWeight: "700" },
-  typeTagContainer: { backgroundColor: COLORS.iconBackground, borderWidth: 1, borderColor: COLORS.iconBorder },
-  typeTagText: { fontSize: scale(11), color: COLORS.primary, fontWeight: "800" },
   qrSection: { alignItems: "center", marginVertical: scale(16) },
   qrFrame: { padding: scale(8), backgroundColor: "#fff", borderRadius: scale(14), borderWidth: 1, borderColor: "#E2E8F0", elevation: 3 },
-  qr: { width: scale(130), height: scale(130) },
+  qr: { width: scale(150), height: scale(150) },
   scanText: { fontSize: scale(9), color: "#94A3B8", marginTop: scale(8), textTransform: "uppercase", letterSpacing: 1.2, fontWeight: "600" },
   divider: { height: 1, backgroundColor: "#F1F5F9", marginHorizontal: scale(20), marginBottom: scale(14) },
   detailsGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: scale(16), justifyContent: "space-between" },
-  detailRow: { flexDirection: "row", alignItems: "center", marginBottom: scale(14), width: "100%" },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: scale(14),
+    width: "100%"
+  },
   iconCircle: { width: scale(32), height: scale(32), borderRadius: scale(16), backgroundColor: COLORS.iconBackground, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: COLORS.iconBorder },
   detailTextContent: { marginLeft: scale(8), flex: 1 },
   detailLabel: { fontSize: scale(9), color: "#94A3B8", textTransform: "uppercase", fontWeight: "700" },
-  detailValue: { fontSize: scale(13), fontWeight: "700", color: "#334155", marginTop: scale(1) },
+  detailValue: {
+    fontSize: scale(12),
+    fontWeight: "700",
+    color: "#334155",
+    marginTop: scale(1),
+    lineHeight: scale(16)
+  },
   footer: { flexDirection: "row", justifyContent: "center", alignItems: "center", paddingVertical: scale(10), borderTopWidth: 1, borderTopColor: "#F8FAFC", gap: 5 },
   footerText: { fontSize: scale(10), color: "#94A3B8", fontWeight: "600" },
   gloss: { ...StyleSheet.absoluteFill, borderRadius: scale(24), backgroundColor: "rgba(255,255,255,0.15)" },

@@ -1,16 +1,14 @@
 import './app/i18n';
 import React, { useEffect, useRef } from "react";
 import {
-  View, ActivityIndicator, Text, StatusBar,
-  StyleSheet, AppState, NativeModules, TextInput, Platform,
-  Modal, TouchableOpacity // Added for IVR Modal
+View, ActivityIndicator, Text, StatusBar,
+StyleSheet, AppState, NativeModules, TextInput, Platform
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import notifee, { EventType } from "@notifee/react-native";
 
-import { useTranslation } from 'react-i18next';
 
 import NavigationPage from "./NavigationPage";
 import BRAND from "./app/config";
@@ -18,7 +16,7 @@ import initializeOneSignal, { setOnVisitorPending } from "./Utils/PushNotificati
 import { complaintService } from "./services/complaintService";
 import { visitorServices } from "./services/visitorServices";
 import { navigationRef } from "./NavigationService";
-import { PermissionsProvider, usePermissions } from "./Utils/ConetextApi";
+import { PermissionsProvider } from "./Utils/ConetextApi";
 import { fetchAndCacheSettings } from "./services/settingsCache";
 
 Text.defaultProps = Text.defaultProps || {};
@@ -67,121 +65,11 @@ const isUserLoggedIn = (route) => route && !AUTH_SCREENS.includes(route);
 
 /* ─── Permissions & IVR Check Component ────────────────────────────────── */
 const AppContent = () => {
-  const { loadPermissions, permissions } = usePermissions();
-  const { t } = useTranslation();
-
-  const [showIvrModal, setShowIvrModal] = React.useState(false);
-
-  // Helper to check context permissions
-  const checkPermission = (moduleName, action) => {
-    if (!permissions) return false;
-    // Adjust this line if your permissions object is structured differently
-    return !!permissions[moduleName]?.[action];
-  };
-
-  const checkIvrStatus = async () => {
-    try {
-      // 1. Check App Settings for the popup flag
-      const settingsRaw = await AsyncStorage.getItem("SOCIETY_CONFIG");
-      const appSettings = settingsRaw ? JSON.parse(settingsRaw) : {};
-
-      if (appSettings?.ivr_not_set_popup) {
-         return; // Disabled globally
-      }
-
-      // 2. Check Role Permissions
-      if (checkPermission('IVRDIS', 'READ') || checkPermission('IVRDIS', 'UPDATE')) {
-        return; 
-      } else if (checkPermission('PRF', 'UPDATE')) {
-        
-        // 3. Check User Data
-        const userRaw = await AsyncStorage.getItem("userInfo");
-        const user = userRaw ? JSON.parse(userRaw) : null;
-
-        if (user && (!user.ivr_enable || !user.ivr_p)) {
-           setShowIvrModal(true);
-        }
-      }
-    } catch (e) {
-      console.log("[App] Error checking IVR status:", e);
-    }
-  };
-
-  useEffect(() => {
-    const loadPerms = async () => {
-      try {
-        await new Promise(res => setTimeout(res, 500));
-        await loadPermissions(true);
-        await checkIvrStatus();
-      } catch (e) {
-        console.log("[App] Permission load error:", e);
-      }
-    };
-    loadPerms();
-  }, []);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", async (state) => {
-      if (state === "active") {
-        try {
-          await loadPermissions(true);
-          await checkIvrStatus();
-        } catch (e) {
-          console.log("[App] Permission refresh error:", e);
-        }
-      }
-    });
-    return () => sub.remove();
-  }, []);
-
-  const handleSetupIvr = () => {
-    setShowIvrModal(false);
-    // TODO: Update "IvrSetupScreen" to match your exact navigation route name
-    navigationRef.navigate("IvrSetupScreen"); 
-  };
-
-  return (
-    <>
-      <NavigationPage />
-
-      <Modal
-        visible={showIvrModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowIvrModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>{t("IVR not set")}</Text>
-            <Text style={styles.modalMessage}>
-              {t("IVR number is not configured. Click below to set one.")}
-            </Text>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity 
-                style={styles.closeButton} 
-                onPress={() => setShowIvrModal(false)}
-              >
-                <Text style={styles.closeButtonText}>{t("Cancel")}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.setButton} 
-                onPress={handleSetupIvr}
-              >
-                <Text style={styles.setButtonText}>{t("Set Now")}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </>
-  );
+  return <NavigationPage />;
 };
 
 /* ─── Main App ──────────────────────────────────────────────────────────── */
 export default function App() {
-  const { t } = useTranslation();
   const [processing, setProcessing] = React.useState(false);
   const pendingVisitorRef = useRef(null);
   const pendingStaffRef = useRef(null);
@@ -478,9 +366,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
   },
-  setButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
+
 });

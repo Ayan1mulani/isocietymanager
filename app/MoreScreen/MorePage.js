@@ -81,9 +81,8 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
 
   const [ownerOpen, setOwnerOpen] = useState(false);
-  const [unitOpen, setUnitOpen] = useState(true);
+  const [unitOpen, setUnitOpen] = useState(false);
   const [meterOpen, setMeterOpen] = useState(false);
-  const [vehicleOpen, setVehicleOpen] = useState(false); // RESTORED
 
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -656,6 +655,40 @@ const ProfileScreen = () => {
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.textSub} />
         </TouchableOpacity>
+        {/* ── My Vehicle Card ───────────────────────────────────────── */}
+        <TouchableOpacity
+          style={[styles.virtualIdCard, { backgroundColor: theme.cardBg }]}
+          onPress={() => navigation.navigate('MyVehiclesScreen')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.virtualIdLeft}>
+            <View style={[styles.virtualIdIcon, { backgroundColor: theme.primary + '18' }]}>
+              <Ionicons name="car-sport-outline" size={22} color={theme.primary} />
+            </View>
+
+            <View style={styles.virtualIdText}>
+              <Text
+                style={[styles.virtualIdTitle, { color: theme.textMain }]}
+                numberOfLines={1}
+              >
+                {t("My Vehicles")}
+              </Text>
+
+              <Text
+                style={[styles.virtualIdSub, { color: theme.textSub }]}
+                numberOfLines={1}
+              >
+                {t("View and manage your vehicles")}
+              </Text>
+            </View>
+          </View>
+
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={theme.textSub}
+          />
+        </TouchableOpacity>
 
         {/* ── Unit Details ─────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
@@ -665,10 +698,17 @@ const ProfileScreen = () => {
           </TouchableOpacity>
           {unitOpen && (
             <View style={styles.dropdownContent}>
-              <InfoRow label={t("Tower")} value={userDetails?.tower} theme={theme} loading={loading && !userDetails} />
-              <InfoRow label={t("Flat No")} value={userDetails?.flat_no} theme={theme} loading={loading && !userDetails} />
-              <InfoRow label={t("Area (Sq Ft)")} value={userDetails?.size_sf} theme={theme} loading={loading && !userDetails} />
-              <InfoRow label={t("Category")} value={userDetails?.fc_name} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Possession date")} value={userDetails?.possession_date} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Maintenance start date")} value={userDetails?.maint_start_date} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Handover date")} value={userDetails?.handover_date} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("First bill date")} value={userDetails?.bill_start_date} theme={theme} loading={loading && !userDetails} />
+
+              <InfoRow label={t("Serial No")} value={userDetails?.serial_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("GSTIN No")} value={userDetails?.gstin_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("SAP code")} value={userDetails?.sap_code} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Extension No")} value={userDetails?.ext_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("PAN No")} value={userDetails?.pan_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Security Deposit")} value={userDetails?.sec_depo} theme={theme} loading={loading && !userDetails} />
             </View>
           )}
         </View>
@@ -702,10 +742,18 @@ const ProfileScreen = () => {
               <InfoRow label={t("Grid Demand Load")} value={userDetails?.grid_demand_load} theme={theme} loading={loading && !userDetails} />
               <InfoRow label={t("DG Meter No")} value={userDetails?.dg_meter_no} theme={theme} loading={loading && !userDetails} />
               <InfoRow label={t("DG Demand Load")} value={userDetails?.dg_demand_load} theme={theme} loading={loading && !userDetails} />
+              <InfoRow
+                label={t("Connection Type")}
+                value={userDetails?.is_prepaid == 1 ? t("Prepaid") : t("Postpaid")}
+                theme={theme}
+                loading={loading && !userDetails}
+              />
               <InfoRow label={t("Meter Seal No")} value={userDetails?.meter_seal_no} theme={theme} loading={loading && !userDetails} />
             </View>
           )}
         </View>
+
+
 
         {/* ── Settings ─────────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
@@ -748,6 +796,7 @@ const ProfileScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
+        
 
         <Text style={[styles.versionText, { color: theme.textSub }]}>
           v{version} ({buildNumber})

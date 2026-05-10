@@ -41,10 +41,9 @@ const AccountSelectorModal = ({ visible, onClose, accounts, onSelect }) => {
         </View>
 
         <View style={styles.accountInfo}>
-          {/* Typically user/society names from API are kept as-is, but you can wrap in t() if they are static keys */}
           <Text style={styles.accountName}>{item.name}</Text>
           <Text style={styles.accountDetail}>
-            {item.society_name} {item.flat_no && `• ${t('Flat')} ${item.flat_no}`}
+            {item.society_name} {item.flat_no && `• ${item.flat_no}`}
           </Text>
         </View>
 
