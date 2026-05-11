@@ -1,4 +1,4 @@
-package com.factech.maxestatepackage com.sumasamu.iSocietyManager
+package com.sumasamu.iSocietyManager
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

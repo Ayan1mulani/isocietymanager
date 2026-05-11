@@ -62,7 +62,9 @@ const NAV_OPTIONS = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (amount) => {
   const n = Math.round(parseFloat(amount) || 0);
-  return `₹${n.toLocaleString('en-IN')}`;
+  const abs = Math.abs(n).toLocaleString('en-IN');
+
+  return n < 0 ? `-₹${abs}` : `₹${abs}`;
 };
 
 const fmtDate = (date) => {
@@ -431,7 +433,7 @@ export default function AccountsScreen() {
           <View style={[styles.stmtAmountItem, { alignItems: 'center' }]}>
             <Text style={[styles.stmtAmtLabel, { color: theme.secondary }]}>{t('Balance')}</Text>
             <Text style={[styles.stmtAmtValue, { color: BRAND.COLORS.icon }]}>
-              {fmt(Math.abs(balance))}
+             {fmt(balance)}
             </Text>
           </View>
           <View style={[styles.stmtAmountItem, { alignItems: 'flex-end' }]}>

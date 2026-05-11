@@ -443,21 +443,36 @@ const MyNoticesScreen = ({ navigation }) => {
                 style={{
                   width: 60,
                   height: 12,
-                  backgroundColor:
-                    theme.skeletonBase,
+                  backgroundColor: theme.skeletonBase,
                   borderRadius: 4
                 }}
               />
 
               <View
                 style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: 5,
-                  backgroundColor:
-                    theme.skeletonBase
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
-              />
+              >
+                <View
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: theme.skeletonBase,
+                  }}
+                />
+
+                <View
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: 'theme.skeletonBase'
+                  }}
+                />
+              </View>
             </View>
 
             <View
@@ -616,6 +631,11 @@ contentBlock: {
     fontWeight: "700"
   },
 
+  topRow: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+},
   calendarBody: {
     flex: 1,
     justifyContent: "center",

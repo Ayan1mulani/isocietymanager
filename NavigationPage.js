@@ -41,6 +41,9 @@ import { ismServices } from './services/ismServices';
 import ServiceRequestTabs from './app/ServiceRequestScreen/ServiceHeader';
 import CategorySelectionScreen from './app/ServiceRequestScreen/complaintCatModel';
 import SubCategorySelectionScreen from './app/ServiceRequestScreen/subCateScreen';
+import SurveysPage from './app/AllServicesScreen/SurveyPage';
+import SurveyDetailsPage from './app/AllServicesScreen/SurveyDetials';
+
 import ComplaintInputScreen from './app/ServiceRequestScreen/complaintInput';
 import AccountsScreen from './app/AccountsScreen/AccountsPage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -426,6 +429,10 @@ const NavigationPage = () => {
         <Stack.Screen name="ExportMeter" component={ExportMeterScreen} /> 
         <Stack.Screen name="BouncedCheques" component={BouncedChequeListScreen} />
         <Stack.Screen name="BouncedChequeDetail" component={BouncedChequeDetailScreen} />
+        <Stack.Screen name="surveypage" component={SurveysPage} />
+        <Stack.Screen name="SurveyDetailsPage" component={SurveyDetailsPage} />
+
+
 
         <Stack.Screen
           name="VisitorNotificationMessage"

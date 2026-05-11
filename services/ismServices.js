@@ -462,6 +462,77 @@ const ismServices = {
   },
 
 
+ getSurveys: async () => {
+  try {
+    const user = await Common.getLoggedInUser();
+
+    const uObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId,
+    };
+
+    const url =
+      `https://survey-api.isocietymanager.com/api/v1/society/${user.societyId}/getactivesurvey` +
+      `?api-token=${user.api_token}` +
+      `&user-id=${encodeURIComponent(JSON.stringify(uObj))}` +
+      `&tenant=${user.tenant || 0}` +
+      `&role=resident` +
+      `&is_vacant=0`;
+
+    console.log("SURVEY URL:", url);
+
+    const headers = await Util.getCommonAuth();
+
+    const response = await ApiCommon.getReq(url, headers);
+
+    return response;
+
+  } catch (error) {
+    console.log("getSurveys error:", error);
+    return [];
+  }
+},
+
+
+getSurveyQuestions: async (surveyId) => {
+  try {
+    const user = await Common.getLoggedInUser();
+
+    const uObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId,
+    };
+
+    const url =
+      `https://survey-api.isocietymanager.com/api/v1/society/${user.societyId}/getquestionbysurvey` +
+      `?api-token=${user.api_token}` +
+      `&user-id=${encodeURIComponent(JSON.stringify(uObj))}` +
+      `&tenant=${user.tenant || 0}` +
+      `&role=resident` +
+      `&survey_id=${surveyId}`;
+
+    console.log("SURVEY QUESTIONS URL:", url);
+
+    const response = await fetch(url);
+
+    const json = await response.json();
+
+    console.log("Survey Questions Response:", json);
+
+    return json;
+
+  } catch (error) {
+    console.log("getSurveyQuestions error:", error);
+    return null;
+  }
+},
+
 
   getMyNotifications: async () => {
     const url = await ismServices.appendParamsInUrl(

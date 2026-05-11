@@ -71,11 +71,35 @@ const ResidentHeader = () => {
 
       setUserDetails(mergedUser);
 
+      // Load cached away status instantly
+      const cachedSettings = await AsyncStorage.getItem(
+        'cached_user_settings'
+      );
+
+      if (cachedSettings) {
+        const parsed = JSON.parse(cachedSettings);
+
+        if (typeof parsed.isAway === 'boolean') {
+          setIsAway(parsed.isAway);
+        }
+      }
+
+      // Sync latest backend value in background
       const awayValue = Number(
         res2?.home_away || details?.home_away
       ) === 1;
 
       setIsAway(awayValue);
+
+      await AsyncStorage.setItem(
+        'cached_user_settings',
+        JSON.stringify({
+          ...(cachedSettings
+            ? JSON.parse(cachedSettings)
+            : {}),
+          isAway: awayValue,
+        })
+      );
 
       setSocietyName(
         user?.society_name ||
@@ -95,20 +119,28 @@ const ResidentHeader = () => {
 
   // 🚀 Replaced useFocusEffect with standard useEffect + Event Listener
   useEffect(() => {
-    // 1. Initial load when app starts
+    // Initial load
     loadHeaderData();
 
-    // 2. Listen for image updates from Profile Screen
-    const subscription = DeviceEventEmitter.addListener(
+    // Profile image updates
+    const profileSubscription = DeviceEventEmitter.addListener(
       'PROFILE_IMAGE_UPDATED',
       async () => {
         await loadHeaderData();
       }
     );
 
-    // Cleanup listener when unmounted
+    // Instant away status updates
+    const awaySubscription = DeviceEventEmitter.addListener(
+      'AWAY_STATUS_CHANGED',
+      (value) => {
+        setIsAway(value);
+      }
+    );
+
     return () => {
-      subscription.remove();
+      profileSubscription.remove();
+      awaySubscription.remove();
     };
   }, []);
 
