@@ -1,5 +1,4 @@
 package com.sumasamu.iSocietyManager
-
 /**
  * AppState — simple singleton to track foreground/background state.
  * Set by MainActivity, read by MyNotificationServiceExtension.
