@@ -919,9 +919,12 @@ const ComplaintInputScreen = ({ navigation, route }) => {
     if (selectedArea === 'common' && !location) {
       newErrors.location = t('Please select a specific location.');
     }
-    if (!remarks.trim()) {
-      newErrors.remarks = t('Please describe the issue.');
-    }
+  const isOtherSubCategory =
+    subCategory?.name?.toLowerCase() === 'other';
+
+  if (isOtherSubCategory && !remarks.trim()) {
+    newErrors.remarks = t('Please describe the issue.');
+  }
     if (!isASAP && canScheduleComplaint) {
       if (!selectedDate) newErrors.date = t('Please select a date.');
       if (!fromTime || !toTime) {
@@ -1235,7 +1238,12 @@ const ComplaintInputScreen = ({ navigation, route }) => {
         </Section>
 
         {/* ── Remarks ──────────────────────────────────────────────────────── */}
-        <Section label={t('Remarks')} required error={errors.remarks} t={th}>
+        <Section
+          label={t('Remarks')}
+          required={subCategory?.name?.toLowerCase() === 'other'}
+          error={errors.remarks}
+          t={th}
+        >
           <TextInput
             style={[s.textarea, {
               backgroundColor: th.input,

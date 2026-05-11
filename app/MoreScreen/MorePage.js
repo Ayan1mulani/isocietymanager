@@ -453,7 +453,11 @@ const ProfileScreen = () => {
         setModalVisible(true);
       } else {
         // RESTORED: feedback for single-account users
-        showAlert({ title: t('Notice'), message: t('No other accounts linked to your details.'), buttons: [{ text: t('OK') }] });
+        showAlert({
+          title: t('Alert'),
+          message: t('No other accounts are linked to your account.'),
+          buttons: [{ text: t('OK') }]
+        });
       }
     } catch (e) {
       showAlert({ title: t('Error'), message: t('No accounts found!'), buttons: [{ text: t('OK') }] });
@@ -796,7 +800,7 @@ const ProfileScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
-        
+
 
         <Text style={[styles.versionText, { color: theme.textSub }]}>
           v{version} ({buildNumber})

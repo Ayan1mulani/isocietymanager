@@ -52,17 +52,19 @@ const NoticeTickerScreen = () => {
     }
   };
 
-  const cleanHtml = (html) => {
-    if (!html) return "";
-    return html
-      .replace(/<[^>]+>/g, "") // Remove HTML tags
-      .replace(/&nbsp;/g, " ")  // FIX: Remove non-breaking spaces
-      .replace(/&amp;/g, "&")   // FIX: Handle ampersands
-      .replace(/\n/g, " ")
-      .replace(/\r/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  };
+const cleanHtml = (html) => {
+  if (!html) return "";
+
+  return html
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;nbsp;/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\n/g, " ")
+    .replace(/\r/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
 
   const tickerText =
     notices.length > 0

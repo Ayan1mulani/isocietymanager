@@ -19,8 +19,8 @@ import FormsScreen from "./FormsTab";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const MyComplexScreen = () => {
-  const { t } = useTranslation(); 
-  
+  const { t } = useTranslation();
+
   // 1. Move TABS inside the component so it can access 't'
   const TABS = [
     t('Guidelines &\nRules'),
@@ -75,7 +75,7 @@ const MyComplexScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <AppHeader title={t("My Complex")}/>
-      
+
       <Animated.View
         style={[
           styles.tabsContainer,

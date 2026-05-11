@@ -327,18 +327,15 @@ const MyNoticesScreen = ({ navigation }) => {
         <View style={styles.rightContent}>
           <View style={styles.contentBlock}>
 
-            <View style={styles.topRow}>
-
-              <View style={styles.leftTopRow}>
-                {hasFiles ? (
-                  <Ionicons
-                    name="attach-outline"
-                    size={15}
-                    color={theme.category}
-                    style={styles.attachmentIcon}
-                  />
-                ) : null}
-              </View>
+            <View style={styles.topRightIconsContainer}>
+              {hasFiles ? (
+                <Ionicons
+                  name="attach-outline"
+                  size={15}
+                  color={theme.category}
+                  style={styles.attachmentIcon}
+                />
+              ) : null}
 
               {!item?.is_read ? (
                 <View style={styles.readStatusContainer}>
@@ -352,7 +349,6 @@ const MyNoticesScreen = ({ navigation }) => {
                   />
                 </View>
               ) : null}
-
             </View>
 
             <Text
@@ -581,6 +577,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     marginBottom: 12,
+    position: "relative",
     shadowOffset: {
       width: 0,
       height: 2
@@ -599,6 +596,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
     borderWidth: 0.8,
     borderColor: '#E5E7EB',
+    marginTop:17
   },
 
   calendarHeader: {
@@ -607,9 +605,10 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
 
-  contentBlock: {
-    marginBottom: 6
-  },
+contentBlock: {
+  marginBottom: 6,
+  paddingTop: 18,
+},
 
   calendarMonth: {
     color: "#FFFFFF",
@@ -632,20 +631,19 @@ const styles = StyleSheet.create({
     flex: 1
   },
 
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-
-  leftTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+topRightIconsContainer: {
+  position: "absolute",
+  top: -2,
+  right: 0,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: 8,
+  zIndex: 99,
+},
 
   attachmentIcon: {
-    marginLeft: 6,
+    marginLeft: 2,
   },
 
   title: {
