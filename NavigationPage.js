@@ -37,6 +37,7 @@ import Header from './app/Common/Header/Header';
 import LoginScreen from './app/Login/Login';
 import MoreScreen from './app/MoreScreen/MorePage';
 import { PermissionsProvider, usePermissions } from './Utils/ConetextApi';
+import { hasPermission } from './Utils/PermissionHelper';
 import { ismServices } from './services/ismServices';
 import ServiceRequestTabs from './app/ServiceRequestScreen/ServiceHeader';
 import CategorySelectionScreen from './app/ServiceRequestScreen/complaintCatModel';
@@ -277,8 +278,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 };
 
 const NavigationTabs = () => {
-  const { nightMode } = usePermissions();
-
+  const { nightMode, permissions } = usePermissions();
 
   useEffect(() => {
     const checkPendingNavigation = async () => {
@@ -310,6 +310,10 @@ const NavigationTabs = () => {
   }, []);
 
 
+  // Permission checks for tabs
+  const canViewVisitors = hasPermission(permissions, 'VMS', 'R');
+  const canViewComplaints = hasPermission(permissions, 'COM', 'R');
+
   return (
     <SafeAreaView
       style={[
@@ -327,16 +331,20 @@ const NavigationTabs = () => {
           component={HomeStack}
           options={{ tabBarIconName: 'home' }}
         />
-        <Tab.Screen
-          name="Service Requests"
-          component={ServiceRequestsStack}
-          options={{ tabBarIconName: 'build' }}
-        />
-        <Tab.Screen
-          name="Visitors"
-          component={VisitorsScreen}
-          options={{ tabBarIconName: 'people' }}
-        />
+        {canViewComplaints && (
+          <Tab.Screen
+            name="Service Requests"
+            component={ServiceRequestsStack}
+            options={{ tabBarIconName: 'build' }}
+          />
+        )}
+        {canViewVisitors && (
+          <Tab.Screen
+            name="Visitors"
+            component={VisitorsScreen}
+            options={{ tabBarIconName: 'people' }}
+          />
+        )}
         <Tab.Screen
           name="More"
           component={MoreScreen}

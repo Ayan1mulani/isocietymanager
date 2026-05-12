@@ -180,6 +180,7 @@ const ServicesSection = () => {
     if (service.title === 'Setting') return hasPermission(permissions, 'STG', 'R');
     if (service.title === 'Amenities') return hasPermission(permissions, 'FBK', 'R');
     if (service.title === 'Energy') return hasPermission(permissions, 'MTR', 'R');
+    if (service.title === 'Complaints') return hasPermission(permissions, 'COM', 'R');
     if (service.title === 'SOS') return canViewPanic;
 
     return true;
