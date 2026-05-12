@@ -58,6 +58,19 @@ const HomeNoticeSection = () => {
 
     const text = stripHtml(item.notice || item.subject);
 
+    let hasFiles = false;
+    try {
+      const parsedFiles = item?.file_urls
+        ? JSON.parse(item.file_urls)
+        : [];
+
+      hasFiles =
+        Array.isArray(parsedFiles) &&
+        parsedFiles.length > 0;
+    } catch (e) {
+      hasFiles = false;
+    }
+
     return (
       <TouchableOpacity
         style={styles.card}
@@ -69,15 +82,20 @@ const HomeNoticeSection = () => {
         }
       >
         <View style={styles.cardTitleRow}>
-          <Ionicons 
-            name="link-outline" 
-            size={14} 
-            color="#6782e4" 
-            style={{ marginRight: 6 }} 
-          />
-          <Text numberOfLines={1} style={styles.title}>
-            {item.subject}
-          </Text>
+          <View style={styles.titleLeftRow}>
+            {hasFiles ? (
+              <Ionicons 
+                name="attach-outline"
+                size={14} 
+                color="#6782e4"
+                style={{ marginRight: 6 }}
+              />
+            ) : null}
+
+            <Text numberOfLines={1} style={styles.title}>
+              {item.subject}
+            </Text>
+          </View>
         </View>
 
         <Text numberOfLines={1} style={styles.subtitle}>
@@ -173,7 +191,15 @@ const styles = StyleSheet.create({
   // ── NEW: Row to hold the icon and title together ──
   cardTitleRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+
+  titleLeftRow: {
+    flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    marginRight: 6,
   },
 
   title: {
