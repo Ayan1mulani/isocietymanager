@@ -19,7 +19,9 @@ const AccountSelectorModal = ({ visible, onClose, accounts, onSelect }) => {
   const [selectedAccount, setSelectedAccount] = useState(null);
 
   const handleSelect = (account) => {
-    setSelectedAccount(account.user_id);
+    setSelectedAccount(
+      `${account.user_id}_${account.flat_no}_${account.society_name}`
+    );
     setTimeout(() => {
       onSelect(account);
       setSelectedAccount(null);
@@ -30,7 +32,9 @@ const AccountSelectorModal = ({ visible, onClose, accounts, onSelect }) => {
     <TouchableOpacity
       style={[
         styles.accountCard,
-        selectedAccount === item.user_id && styles.selectedCard
+        selectedAccount ===
+          `${item.user_id}_${item.flat_no}_${item.society_name}` &&
+          styles.selectedCard
       ]}
       onPress={() => handleSelect(item)}
       activeOpacity={0.8}
@@ -48,7 +52,8 @@ const AccountSelectorModal = ({ visible, onClose, accounts, onSelect }) => {
         </View>
 
         <View style={styles.checkContainer}>
-          {selectedAccount === item.user_id ? (
+          {selectedAccount ===
+          `${item.user_id}_${item.flat_no}_${item.society_name}` ? (
             <View style={styles.selectedCheck}>
               <Icon name="check" size={16} color="#fff" />
             </View>

@@ -4,9 +4,10 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
+  Animated,
   RefreshControl,
 } from "react-native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added caching
 import { ismServices } from "../../services/ismServices";
@@ -17,7 +18,46 @@ import Text from '../components/TranslatedText';
 const getCacheKey = (userId) => `@forms_screen_cache_${userId}`;
 
 const stripHtml = (html = "") =>
-  html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+    html.replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+
+const SkeletonCard = () => {
+  const opacity = new Animated.Value(0.3);
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View style={[styles.skeletonCard, { opacity }]}> 
+      <View style={styles.skeletonTitle} />
+      <View style={styles.skeletonLine} />
+      <View style={styles.skeletonButton} />
+    </Animated.View>
+  );
+};
 
 const FormsScreen = () => {
   const navigation = useNavigation();
@@ -79,8 +119,12 @@ const FormsScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1F78D1" />
+      <View style={styles.container}>
+        <View style={styles.listContainer}>
+          {[1, 2, 3, 4].map((item) => (
+            <SkeletonCard key={item} />
+          ))}
+        </View>
       </View>
     );
   }
@@ -109,22 +153,51 @@ const FormsScreen = () => {
         }
         renderItem={({ item }) => {
           const title = stripHtml(item.notice || "");
+          const noticeText = stripHtml(item.notice || "");
+
+          let fileUrls = [];
+
+          try {
+            if (item.file_urls) {
+              fileUrls =
+                typeof item.file_urls === 'string'
+                  ? JSON.parse(item.file_urls)
+                  : item.file_urls;
+            }
+          } catch (e) {
+            console.log('File URL Parse Error:', e);
+            fileUrls = [];
+          }
 
           return (
             <TouchableOpacity
               style={styles.card}
               activeOpacity={0.8}
               onPress={() =>
-                navigation.navigate("NoticeDetail", {
+                navigation.navigate("NoticeDetailScreen", {
                   notice: item,
+                  noticeText,
+                  fileUrls,
+                  headerTitle: "Forms",
                 })
               }
             >
-              <Text style={styles.title} numberOfLines={2}>
-                {title}
-              </Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.title} numberOfLines={2}>
+                  {title || item.subject || 'Untitled Form'}
+                </Text>
 
-              {item.subject && (
+                {Array.isArray(fileUrls) && fileUrls.length > 0 ? (
+                  <Ionicons
+                    name="attach-outline"
+                    size={18}
+                    color="#1F78D1"
+                    style={styles.attachIcon}
+                  />
+                ) : null}
+              </View>
+
+              {!!item.subject && item.subject !== title && (
                 <Text style={styles.subject} numberOfLines={2}>
                   {item.subject}
                 </Text>
@@ -165,6 +238,10 @@ const FormsScreen = () => {
           </View>
         }
         showsVerticalScrollIndicator={false}
+        initialNumToRender={6}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews={true}
       />
     </View>
   );
@@ -194,13 +271,27 @@ const styles = StyleSheet.create({
     elevation: 0.7,
   },
 
+titleRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start", 
+    alignItems: "flex-start",
+    position: "relative", // Needed so the absolute icon stays inside this row
+  },
+
   title: {
+    flex: 1, 
     fontSize: 15,
     fontWeight: "700",
     color: "#0F172A",
     marginBottom: 6,
+    paddingRight: 24, // Extra padding ensures long text never overlaps the corner icon
   },
 
+  attachIcon: {
+    position: "absolute",
+    top: -8,   // Pushes the icon up into the card's top padding space
+    right: -8, // Pushes the icon right into the card's right padding space
+  },
   subject: {
     fontSize: 13,
     color: "#64748B",
@@ -213,15 +304,16 @@ const styles = StyleSheet.create({
     color: "#1F78D1",
   },
 
-  emptyState: {
+   emptyState: {
     alignItems: "center",
     justifyContent: "center",
   },
 
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 14,
-  },
+ emptyIcon: {
+  fontSize: 48,
+  marginTop: -90,
+  marginBottom: 10,
+},
 
   emptyTitle: {
     fontSize: 16,
@@ -233,6 +325,38 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     color: "#64748B",
+  },
+
+  skeletonCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+
+  skeletonTitle: {
+    height: 18,
+    width: '75%',
+    backgroundColor: '#E5E7EB',
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+
+  skeletonLine: {
+    height: 14,
+    width: '55%',
+    backgroundColor: '#E5E7EB',
+    borderRadius: 6,
+    marginBottom: 18,
+  },
+
+  skeletonButton: {
+    height: 14,
+    width: 90,
+    backgroundColor: '#DBEAFE',
+    borderRadius: 6,
   },
 
   center: {

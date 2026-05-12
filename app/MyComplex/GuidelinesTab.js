@@ -103,6 +103,7 @@ const NoticeCard = ({ item, onPress }) => {
       notice: item,
       noticeText: noticeText,
       fileUrls: fileUrls,
+      headerTitle: "Guidelines & Rules"
     });
   };
 

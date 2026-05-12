@@ -66,6 +66,8 @@ const AllServicesScreen = () => {
     { title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { title: 'Bounced Cheque', icon: 'alert-circle-outline', route: 'BouncedCheques' },
     { title: 'Debit Credit Note', icon: 'time-outline', route: 'PaymentHistory' },
+    { title: 'Events', icon: 'time-outline', route: 'event' },
+
     // { title: 'Survey', icon: 'survey-outline', route: 'surveypage' },
 
   ];
@@ -100,6 +102,8 @@ const AllServicesScreen = () => {
       if (item.title === "Settings") return hasPermission(permissions, "STG", "R");
       if (item.title === "Notices") return hasPermission(permissions, "NTC", "R");
       if (item.title === "My Complex") return hasPermission(permissions, "NTC", "R");
+      if (item.title === "Events") return hasPermission(permissions, "EVNT", "R");
+
 
       return true;
     })

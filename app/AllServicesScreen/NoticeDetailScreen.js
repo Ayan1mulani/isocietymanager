@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -8,7 +8,8 @@ import {
   ScrollView,
   Animated,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { WebView } from "react-native-webview";
 import sanitizeHtml from "sanitize-html";
 import AppHeader from "../components/AppHeader";
@@ -165,14 +166,14 @@ const buildHtml = (body = "", extractedCss = "") => `
     <style>
       html, body { overflow-x: hidden; max-width: 100%; margin: 0; padding: 0; }
       * { box-sizing: border-box; word-break: break-word; overflow-wrap: anywhere; unicode-bidi: embed; }
-    body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 17px;
-  line-height: 1.9;
-  color: #374151;
-  padding: 20px 10px 36px;
-  margin: 0;
-}
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 17px;
+        line-height: 1.9;
+        color: #374151;
+        padding: 20px 10px 36px;
+        margin: 0;
+      }
       h1,h2,h3,h4,h5,h6 { color: #111827; margin-top: 16px; margin-bottom: 8px; font-weight: 700; word-break: break-word; overflow-wrap: anywhere; }
       p { margin-bottom: 16px; }
       ul,ol { padding-left: 20px; margin-bottom: 12px; }
@@ -195,6 +196,18 @@ const buildHtml = (body = "", extractedCss = "") => `
       table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; overflow-x: hidden !important; }
       pre,code { white-space: pre-wrap !important; word-break: break-all !important; overflow-wrap: anywhere !important; overflow-x: hidden !important; }
       h1,h2,h3,h4,h5,h6 { word-break: break-word !important; overflow-wrap: anywhere !important; max-width: 100% !important; }
+      /* ── Fix: some notices inject "body { display:flex; height:100vh }" via
+         their own <style> block. That makes document.body.scrollHeight return
+         the viewport height instead of the real content height, causing the
+         WebView wrapper to be sized wrong and content to appear shifted up.
+         Force body back to normal block flow so height is always content-driven. ── */
+      html, body {
+        display: block !important;
+        height: auto !important;
+        min-height: unset !important;
+        align-items: unset !important;
+        justify-content: unset !important;
+      }
     </style>
   </head>
   <body>${body}</body>
@@ -249,7 +262,6 @@ const WebContentSkeleton = () => (
 // ─────────────────────────────────────────────────────────────────────────────
 // ATTACHMENT HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-
 const parseFileUrls = (raw) => {
   if (!raw) return [];
   try {
@@ -291,31 +303,26 @@ const AttachmentsSection = ({ fileUrls }) => {
 
   return (
     <View style={attachStyles.container}>
-      {/* ── divider ── */}
-
       <Text style={attachStyles.heading}>Attachments</Text>
 
-      {/* ── inline images ── */}
-     {images.map((url, idx) => (
-  <TouchableOpacity
-    key={`img-${idx}`}
-    activeOpacity={0.85}
-    onPress={() => handleOpen(url)}
-    style={attachStyles.imageWrapper}
-  >
-    <Image
-      source={{ uri: url }}
-      style={attachStyles.image}
-      resizeMode="contain"
-    />
+      {images.map((url, idx) => (
+        <TouchableOpacity
+          key={`img-${idx}`}
+          activeOpacity={0.85}
+          onPress={() => handleOpen(url)}
+          style={attachStyles.imageWrapper}
+        >
+          <Image
+            source={{ uri: url }}
+            style={attachStyles.image}
+            resizeMode="contain"
+          />
+          <View style={attachStyles.imageDownloadIconWrapper}>
+            <Text style={attachStyles.imageDownloadIcon}>↓</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
 
-    <View style={attachStyles.imageDownloadIconWrapper}>
-      <Text style={attachStyles.imageDownloadIcon}>↓</Text>
-    </View>
-  </TouchableOpacity>
-))}
-
-      {/* ── downloadable files ── */}
       {docs.map((url, idx) => {
         const ext = getFileExt(url);
         return (
@@ -325,20 +332,13 @@ const AttachmentsSection = ({ fileUrls }) => {
             onPress={() => handleOpen(url)}
             style={attachStyles.fileRow}
           >
-            {/* extension badge */}
             <View style={attachStyles.fileBadge}>
               <Text style={attachStyles.fileBadgeText}>{ext}</Text>
             </View>
-
-            {/* label + hint */}
             <View style={attachStyles.fileInfo}>
-              <Text style={attachStyles.fileName}>
-                Attachment {idx + 1}
-              </Text>
+              <Text style={attachStyles.fileName}>Attachment {idx + 1}</Text>
               <Text style={attachStyles.fileSub}>Tap to download</Text>
             </View>
-
-            {/* download icon */}
             <View style={attachStyles.downloadIconWrapper}>
               <Text style={attachStyles.downloadIcon}>↓</Text>
             </View>
@@ -354,9 +354,22 @@ const AttachmentsSection = ({ fileUrls }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const NoticeDetailScreenWithHeight = ({ route }) => {
   const { t, i18n } = useTranslation();
-  const { notice } = route.params;
+  const { notice, headerTitle } = route.params;
   const [loading, setLoading] = useState(true);
   const [webViewHeight, setWebViewHeight] = useState(400);
+
+  // ✅ FIX 1: Read the real bottom inset so the scroll view always clears
+  //            the home indicator / gesture bar on every device.
+  const insets = useSafeAreaInsets();
+
+  // Reset loading + height every time this screen is navigated to,
+  // so stale content/height from a previous visit never shows.
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      setWebViewHeight(400);
+    }, [])
+  );
 
   const fullHtml = prepareNoticeHtml(notice?.notice);
   const fileUrls = parseFileUrls(notice?.file_urls);
@@ -369,36 +382,45 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
     : "";
 
   return (
-    <SafeAreaView style={styles.container}>
-      <AppHeader title={t("Notice Details")} showBack />
+    // ✅ FIX 2: Only apply top + left + right safe-area via SafeAreaView.
+    //            Bottom is handled manually via useSafeAreaInsets so the
+    //            ScrollView's rubber-band area stays white instead of being
+    //            double-inset or clipped.
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <AppHeader
+        title={t(headerTitle || "Notice Details")}
+        showBack
+      />
+
+      {/* ── Header (title + date) — kept outside ScrollView so it stays fixed ── */}
+      <View style={styles.header}>
+        <Text style={styles.title}>{notice.subject}</Text>
+        <Text style={styles.meta}>{formattedDate}</Text>
+      </View>
 
       <ScrollView
         style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
+        // ✅ FIX 3: Use the real bottom inset + extra breathing room instead
+        //            of the hardcoded 40 px that was too small on many devices.
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 24 },
+        ]}
         showsVerticalScrollIndicator={true}
         bounces={false}
       >
-        {/* ── Header ── */}
-        <View style={styles.header}>
-          <Text style={styles.title}>{notice.subject}</Text>
-          <Text style={styles.meta}>
-            {notice.category}
-            {notice.category && formattedDate ? " • " : ""}
-            {formattedDate}
-          </Text>
-        </View>
-
-
         {/* ── Body (WebView — height grows to content) ── */}
-        {/* We fix the height to 400 initially to ensure the skeleton is visible properly before it calculates */}
-        <View style={[styles.webViewWrapper, { height: loading ? 400 : webViewHeight }]}>
-
+        <View style={[styles.webViewWrapper, { height: webViewHeight }]}>
           {loading && <WebContentSkeleton />}
 
           <WebView
             originWhitelist={["about:blank", "about:*", "data:*"]}
             source={{ html: fullHtml }}
-            style={[styles.webView, { opacity: loading ? 0 : 1 }]} // Hide webview while loading to prevent overlap with skeleton
+            // ✅ FIX 4: Keep opacity transition but also set pointerEvents so
+            //            the invisible WebView can't accidentally swallow taps
+            //            while the skeleton is showing.
+            style={[styles.webView, { opacity: loading ? 0 : 1 }]}
+            pointerEvents={loading ? "none" : "auto"}
             onLoadEnd={() => setLoading(false)}
             javaScriptEnabled={true}
             domStorageEnabled={false}
@@ -413,11 +435,10 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
               (function() {
                 function postHeight() {
                   window.ReactNativeWebView.postMessage(
-                    JSON.stringify({ type: 'height', value: document.body.scrollHeight })
+                    JSON.stringify({ type: 'height', value: Math.max(document.documentElement.scrollHeight, document.documentElement.offsetHeight) })
                   );
                 }
                 postHeight();
-                // Re-post after images / fonts load
                 window.addEventListener('load', postHeight);
                 setTimeout(postHeight, 300);
               })();
@@ -427,13 +448,17 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
               try {
                 const msg = JSON.parse(e.nativeEvent.data);
                 if (msg.type === "height" && msg.value > 0) {
-                  setWebViewHeight(msg.value + 24); // 24px breathing room
+                  setWebViewHeight(msg.value + 24);
                 }
               } catch { }
             }}
             onShouldStartLoadWithRequest={(req) => {
               const url = req.url || "";
-              if (url === "about:blank" || url === "" || url.startsWith("data:")) {
+              if (
+                url === "about:blank" ||
+                url === "" ||
+                url.startsWith("data:")
+              ) {
                 return true;
               }
               Linking.openURL(url).catch((err) =>
@@ -464,13 +489,12 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
   },
-  scrollContent: {
-    paddingBottom: 40,
-  },
+  // paddingBottom is now set dynamically via insets — no static value here
+  scrollContent: {},
   header: {
     paddingHorizontal: 16,
     paddingTop: 14,
-    marginBottom:5,
+    marginBottom: 5,
     backgroundColor: "#FFFFFF",
   },
   title: {
@@ -484,7 +508,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
   },
-
   webViewWrapper: {
     paddingHorizontal: 8,
     overflow: "hidden",
@@ -510,11 +533,6 @@ const attachStyles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 16,
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#F0F2F4",
-    marginBottom: 16,
-  },
   heading: {
     fontSize: 13,
     fontWeight: "600",
@@ -523,8 +541,6 @@ const attachStyles = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: 12,
   },
-
-  // ── image attachments ──
   imageWrapper: {
     marginBottom: 12,
     borderRadius: 10,
@@ -538,14 +554,6 @@ const attachStyles = StyleSheet.create({
     height: 200,
     backgroundColor: "#E5E7EB",
   },
-  imageCaption: {
-    fontSize: 12,
-    color: "#6B7280",
-    padding: 8,
-    paddingTop: 6,
-  },
-
-  // ── document / PDF attachments ──
   fileRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -594,7 +602,6 @@ const attachStyles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   downloadIcon: {
     fontSize: 22,
     color: "#1565A9",
@@ -602,21 +609,20 @@ const attachStyles = StyleSheet.create({
     lineHeight: 24,
   },
   imageDownloadIconWrapper: {
-  position: "absolute",
-  top: 10,
-  right: 10,
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  backgroundColor: "rgba(21, 101, 169, 0.9)",
-  justifyContent: "center",
-  alignItems: "center",
-},
-
-imageDownloadIcon: {
-  fontSize: 22,
-  color: "#FFFFFF",
-  fontWeight: "700",
-  lineHeight: 24,
-},
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(21, 101, 169, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageDownloadIcon: {
+    fontSize: 22,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    lineHeight: 24,
+  },
 });

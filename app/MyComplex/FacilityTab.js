@@ -89,13 +89,15 @@ const NoticeCard = ({ item, onPress }) => {
   const fileUrls = parseFileUrls(item.file_urls);
   const noticeText = stripHtml(item.notice || "");
   const hasContact = !!item.contact;
+  const contactNumbers = item.contact
+    ? item.contact
+        .split(',')
+        .map((num) => num.trim())
+        .filter(Boolean)
+    : [];
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.7}
-      onPress={onPress}
-    >
+    <View style={styles.card}>
       {/* Left Column: Image/Avatar takes exactly the bounds of its wrapper */}
       <View style={styles.imageSection}>
         <Avatar urls={fileUrls} label={noticeText} />
@@ -104,10 +106,9 @@ const NoticeCard = ({ item, onPress }) => {
       {/* Right Column: Content */}
       <View style={styles.contentSection}>
         <View>
-          {/* Top Row: Category (Left) and Date (Right) */}
+          {/* Top Row: Category (Left) */}
           <View style={styles.contentHeader}>
             <Text style={styles.category}>{item.group || "NOTICE"}</Text>
-            <Text style={styles.date}>{formatDate(item.created_at)}</Text>
           </View>
 
           {/* Title & Description */}
@@ -122,21 +123,33 @@ const NoticeCard = ({ item, onPress }) => {
         </View>
 
         {/* Footer: Phone Number (Bottom Left) */}
-        {hasContact && (
+        {contactNumbers.length > 0 && (
           <View style={styles.footer}>
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                Linking.openURL(`tel:${item.contact}`);
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              nestedScrollEnabled
+              contentContainerStyle={styles.contactList}
             >
-              <Text style={styles.contactText}> {item.contact}</Text>
-            </TouchableOpacity>
+              {contactNumbers.map((number, index) => (
+                <TouchableOpacity
+                  key={`${number}-${index}`}
+                  style={styles.contactChip}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Linking.openURL(`tel:${number}`);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.contactText}>{number}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -228,7 +241,12 @@ const MGTFacilityTeamTab = () => {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.chipsList}
-            scrollEnabled={groups.length > 3}
+            scrollEnabled={true}
+            nestedScrollEnabled={true}
+            directionalLockEnabled={true}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            overScrollMode="never"
           >
             {groups.map((group) => (
               <FilterChip
@@ -296,7 +314,7 @@ const COLORS = {
   text: "#0F172A",
   textSecondary: "#475569", // slightly darker for better readability
   textTertiary: "#94A3B8",
-  background: "#F8FAFC",
+  background: "#ffffff",
   cardBackground: "#FFFFFF",
   border: "#E2E8F0",
 };
@@ -316,7 +334,8 @@ const styles = StyleSheet.create({
   chipsList: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   chip: {
     paddingHorizontal: 14,
@@ -327,6 +346,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     minHeight: 32,
     justifyContent: "center",
+    marginRight: 8,
   },
   chipActive: {
     backgroundColor: COLORS.primary,
@@ -442,13 +462,27 @@ const styles = StyleSheet.create({
   },
 
   /* ─── Footer (Phone) ─── */
-/* ─── Footer (Phone) ─── */
   footer: {
-    flexDirection: "row",
-    justifyContent: "flex-end", // <--- This pushes the contact to the right
-    alignItems: "center",
-    marginTop: "auto", // <--- This keeps it pushed to the bottom
+    marginTop: 'auto',
+    paddingTop: 6,
   },
+
+  contactList: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 10,
+  },
+
+  contactChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: COLORS.primaryLight,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+
   contactText: {
     fontSize: 12,
     color: COLORS.primary,

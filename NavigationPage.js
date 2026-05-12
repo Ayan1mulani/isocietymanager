@@ -42,9 +42,6 @@ import { ismServices } from './services/ismServices';
 import ServiceRequestTabs from './app/ServiceRequestScreen/ServiceHeader';
 import CategorySelectionScreen from './app/ServiceRequestScreen/complaintCatModel';
 import SubCategorySelectionScreen from './app/ServiceRequestScreen/subCateScreen';
-import SurveysPage from './app/AllServicesScreen/SurveyPage';
-import SurveyDetailsPage from './app/AllServicesScreen/SurveyDetials';
-
 import ComplaintInputScreen from './app/ServiceRequestScreen/complaintInput';
 import AccountsScreen from './app/AccountsScreen/AccountsPage';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -83,6 +80,9 @@ import ResidentIdCardScreen from './app/HomeScreen/VirtualIdcard';
 import VisitorNotificationMessage from './app/VisitorsScreen/VisitorRequestScreen';
 import BillPaymentScreen from './app/AllServicesScreen/BillPaymentScreen';
 import PaymentDetailScreen from './app/AllServicesScreen/PaymentDetailScreen';
+import SurveyPage from './app/AllServicesScreen/SurveyPage';
+import Event from './app/AllServicesScreen/Event';
+
 
 import Payment from './app/AllServicesScreen/Payment';
 
@@ -127,9 +127,19 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   const { t } = useTranslation(); // <--- 1. ADD THIS HERE
   const COLORS = BRAND.COLORS;
 
-  const PRIMARY_COLOR = nightMode ? "#2A2A2Aee" : COLORS.bottomNavBackground;
-  const SECONDARY_COLOR = nightMode ? "#4A90E2" : "#FFFFFF";
-  const ICON_COLOR_INACTIVE = nightMode ? "#B0B0B0" : "#E0E0E0";
+  const NAVBAR_BG = nightMode
+    ? "#2A2A2Aee"
+    : COLORS.bottomNavBackground;
+
+  const ACTIVE_COLOR = nightMode
+    ? "#4A90E2"
+    : COLORS.bottomNavActiveIcon;
+
+  const SECONDARY_COLOR = "#FFFFFF";
+
+  const ICON_COLOR_INACTIVE = nightMode
+    ? "#B0B0B0"
+    : "#FFFF";
 
   // Calculate tab width based on number of routes
   const totalTabs = state.routes.length;
@@ -195,7 +205,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
   return (
     <View style={styles.bottomNavContainer}>
-      <View style={[styles.bottomNavBar, { backgroundColor: PRIMARY_COLOR }]}>
+      <View style={[styles.bottomNavBar, { backgroundColor: NAVBAR_BG }]}>
         {/* Sliding White Background Indicator */}
         <Animated.View
           style={[
@@ -257,12 +267,12 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               <View style={styles.tabContent}>
                 {getIconByRouteName(
                   route.name,
-                  isFocused ? PRIMARY_COLOR : ICON_COLOR_INACTIVE,
+                  isFocused ? ACTIVE_COLOR : ICON_COLOR_INACTIVE,
                   isFocused
                 )}
                 {isFocused && (
                   <Text
-                    style={[styles.tabLabel, { color: PRIMARY_COLOR }]}
+                    style={[styles.tabLabel, { color: ACTIVE_COLOR }]}
                     numberOfLines={1}
                   >
                    {t(shortLabel)}
@@ -279,6 +289,15 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
 const NavigationTabs = () => {
   const { nightMode, permissions } = usePermissions();
+
+  const permissionsLoaded = permissions !== null && permissions !== undefined;
+
+  const canViewVisitors =
+    !permissionsLoaded || hasPermission(permissions, 'VMS', 'R');
+
+  const canViewComplaints =
+    !permissionsLoaded || hasPermission(permissions, 'COM', 'R');
+
 
   useEffect(() => {
     const checkPendingNavigation = async () => {
@@ -309,10 +328,6 @@ const NavigationTabs = () => {
     checkPendingNavigation();
   }, []);
 
-
-  // Permission checks for tabs
-  const canViewVisitors = hasPermission(permissions, 'VMS', 'R');
-  const canViewComplaints = hasPermission(permissions, 'COM', 'R');
 
   return (
     <SafeAreaView
@@ -437,9 +452,10 @@ const NavigationPage = () => {
         <Stack.Screen name="ExportMeter" component={ExportMeterScreen} /> 
         <Stack.Screen name="BouncedCheques" component={BouncedChequeListScreen} />
         <Stack.Screen name="BouncedChequeDetail" component={BouncedChequeDetailScreen} />
-        <Stack.Screen name="surveypage" component={SurveysPage} />
-        <Stack.Screen name="SurveyDetailsPage" component={SurveyDetailsPage} />
+        <Stack.Screen name="surveypage" component={SurveyPage} />
+        <Stack.Screen name="event" component={Event} />
 
+        
 
 
         <Stack.Screen

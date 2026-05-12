@@ -61,7 +61,12 @@ const HomeNoticeSection = () => {
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => navigation.navigate("NoticeDetail", { notice: item })}
+        onPress={() =>
+          navigation.navigate("NoticeDetailScreen", {
+            notice: item,
+            headerTitle: "Important Information",
+          })
+        }
       >
         <View style={styles.cardTitleRow}>
           <Ionicons 
@@ -101,6 +106,13 @@ const HomeNoticeSection = () => {
       <FlatList
         data={listData}
         horizontal
+        pagingEnabled={false}
+        scrollEventThrottle={8}
+        directionalLockEnabled
+        nestedScrollEnabled
+        bounces={false}
+        overScrollMode="never"
+        decelerationRate="fast"
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item, index) => item.id?.toString() || index.toString()}
         renderItem={renderItem}

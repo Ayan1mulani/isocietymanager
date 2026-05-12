@@ -63,6 +63,12 @@ const cleanHtml = (html) => {
     .replace(/\n/g, " ")
     .replace(/\r/g, " ")
     .replace(/\s+/g, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
     .trim();
 };
 
