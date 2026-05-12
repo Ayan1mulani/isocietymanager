@@ -17,6 +17,7 @@ import { ismServices } from "../../services/ismServices";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
 import Text from "../components/TranslatedText";
+import { complaintService } from "../../services/complaintService";
 import BRAND from "../config";
 
 const COLORS = BRAND.COLORS;
@@ -76,6 +77,7 @@ const MeterReadingTab = () => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [loadingLive, setLoadingLive] = useState(false);
     const [userId, setUserId] = useState(null);
+    const [showLiveButton, setShowLiveButton] = useState(false);
 
     const onEndReachedCalledDuringMomentum = useRef(false);
 
@@ -85,7 +87,27 @@ const MeterReadingTab = () => {
 
     useEffect(() => {
         loadData(1);
+        fetchSocietyConfig();
     }, []);
+    const fetchSocietyConfig = async () => {
+        try {
+            const response = await complaintService.getSocietyConfigNew();
+
+            console.log("🏢 Society Config:", response);
+
+            if (
+                response?.status === "success" &&
+                response?.data?.res_app_switch === 1
+            ) {
+                setShowLiveButton(true);
+            } else {
+                setShowLiveButton(false);
+            }
+        } catch (error) {
+            console.log("❌ Society config error:", error);
+            setShowLiveButton(false);
+        }
+    };
 
     const loadData = async (page = 1) => {
         try {
@@ -196,11 +218,12 @@ const MeterReadingTab = () => {
                         {t("Last Sync")}: {lastSync || "--"}
                     </Text>
                 </View>
-
-                <TouchableOpacity style={styles.liveButton} onPress={handleInfoPress}>
-                    <Ionicons name="pulse" size={16} color="#FFF" />
-                    <Text style={styles.liveButtonText}>{t("Live")}</Text>
-                </TouchableOpacity>
+                {showLiveButton && (
+                    <TouchableOpacity style={styles.liveButton} onPress={handleInfoPress}>
+                        <Ionicons name="pulse" size={16} color="#FFF" />
+                        <Text style={styles.liveButtonText}>{t("Live")}</Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             <View style={styles.tableHeaderRow}>
@@ -281,13 +304,43 @@ const MeterReadingTab = () => {
                                         <Text style={styles.label}>{t("AHU")}</Text>
                                         <Text style={styles.value}>{selectedItem.ahu}</Text>
                                     </View>
+
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("Balance")}</Text>
+                                        <Text style={styles.value}>{selectedItem.balance}</Text>
+                                    </View>
+
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("CAM Balance")}</Text>
+                                        <Text style={styles.value}>{selectedItem.cam_balance}</Text>
+                                    </View>
+
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("Society ID")}</Text>
+                                        <Text style={styles.value}>{selectedItem.society_id}</Text>
+                                    </View>
+
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("Updated By")}</Text>
+                                        <Text style={styles.value}>{selectedItem.updated_by}</Text>
+                                    </View>
+
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.label}>{t("Is Previous")}</Text>
+                                        <Text style={styles.value}>{selectedItem.is_previous}</Text>
+                                    </View>
+
                                     <View style={styles.infoRow}>
                                         <Text style={styles.label}>{t("Date Time")}</Text>
                                         <Text style={styles.value}>{moment(selectedItem.date_time).format("D MMM YY, h:mm A")}</Text>
                                     </View>
-                                    <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                                    <View style={[styles.infoRow]}>
                                         <Text style={styles.label}>{t("Last Updated")}</Text>
                                         <Text style={styles.value}>{moment(selectedItem.updated_at).format("D MMM YY, h:mm A")}</Text>
+                                    </View>
+                                    <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                                        <Text style={styles.label}>{t("Created At")}</Text>
+                                        <Text style={styles.value}>{moment(selectedItem.created_at).format("D MMM YY, h:mm A")}</Text>
                                     </View>
                                 </View>
                             ) : (
@@ -333,6 +386,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 7,
         borderRadius: 22,
+        elevation:20,
         gap: 5,
     },
     liveButtonText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
@@ -348,23 +402,51 @@ const styles = StyleSheet.create({
     dgText: { color: "#D97706", fontWeight: "700" },
     footerLoader: { paddingVertical: 20, alignItems: "center" },
     modalOverlay: { flex: 1, backgroundColor: "rgba(17, 24, 39, 0.6)", justifyContent: "center", alignItems: "center" },
-    modalBox: { width: "88%", maxHeight: "85%", backgroundColor: "#FFFFFF", borderRadius: 20, overflow: "hidden", elevation: 10 },
+    modalBox: {
+        width: "92%",
+        maxHeight: "88%",
+        backgroundColor: "#FFFFFF",
+        borderRadius: 20,
+        overflow: "hidden",
+        elevation: 10,
+    },
     modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 18, borderBottomWidth: 1, borderColor: "#F3F4F6", backgroundColor: "#FAFAFA" },
     pulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#10B981", marginRight: 8 },
     modalTitle: { fontSize: 17, fontWeight: "700", color: "#111827" },
     modalDataContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
-    infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderColor: "#F3F4F6" },
-    label: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
-    value: { fontSize: 14, color: "#111827", fontWeight: "600", textAlign: "right", flex: 1, marginLeft: 20 },
+    infoRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderColor: "#F3F4F6",
+        gap: 12,
+    },
+    label: {
+        fontSize: 13,
+        color: "#6B7280",
+        fontWeight: "500",
+        flex: 1,
+    },
+    value: {
+        fontSize: 14,
+        color: "#111827",
+        fontWeight: "600",
+        textAlign: "right",
+        flex: 1.4,
+        flexWrap: "wrap",
+        includeFontPadding: false,
+    },
     modalLoader: { paddingVertical: 40, alignItems: "center" },
     modalLoaderText: { marginTop: 12, color: "#6B7280", fontSize: 14, fontWeight: "500" },
-okButton: {
-  backgroundColor: COLORS.primary,
-  marginHorizontal: 20,
-  marginBottom: 20,
-  paddingVertical: 14,
-  borderRadius: 14,
-  alignItems: 'center',
-},
+    okButton: {
+        backgroundColor: COLORS.primary,
+        marginHorizontal: 20,
+        marginBottom: 20,
+        paddingVertical: 14,
+        borderRadius: 14,
+        alignItems: 'center',
+    },
     okText: { color: "#FFFFFF", fontWeight: "700", fontSize: 15 },
 });

@@ -4,7 +4,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { otherServices } from "../../services/otherServices";
@@ -14,6 +13,7 @@ import BRAND from '../config'
 import { usePermissions } from "../../Utils/ConetextApi";
 import { hasPermission } from "../../Utils/PermissionHelper";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── Translation Imports ──
 import { useTranslation } from 'react-i18next';
@@ -128,6 +128,50 @@ const EmptyState = () => {
   );
 };
 
+const VehicleSkeleton = () => {
+  return (
+    <View style={styles.card}>
+      <View
+        style={[
+          styles.iconWrapper,
+          { backgroundColor: "#E5E7EB" },
+        ]}
+      />
+
+      <View style={{ flex: 1 }}>
+        <View
+          style={{
+            height: 16,
+            width: "55%",
+            backgroundColor: "#E5E7EB",
+            borderRadius: 6,
+            marginBottom: 10,
+          }}
+        />
+
+        <View
+          style={{
+            height: 12,
+            width: "40%",
+            backgroundColor: "#F3F4F6",
+            borderRadius: 6,
+            marginBottom: 12,
+          }}
+        />
+
+        <View
+          style={{
+            height: 24,
+            width: 90,
+            backgroundColor: "#E5E7EB",
+            borderRadius: 20,
+          }}
+        />
+      </View>
+    </View>
+  );
+};
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 const MyVehiclesScreen = ({ navigation }) => {
   const route = useRoute();
@@ -138,12 +182,27 @@ const MyVehiclesScreen = ({ navigation }) => {
   const canCreateVehicle = permissions && hasPermission(permissions, "VEH", "C");
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const CACHE_KEY = "my_vehicles_cache";
 
   const fetchVehicles = async () => {
     try {
       setLoading(true);
+
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
+
+      if (cached) {
+        setVehicles(JSON.parse(cached));
+      }
+
       const res = await otherServices.getMyVehicles();
-      setVehicles(res?.data || []);
+      const vehicleData = res?.data || [];
+
+      setVehicles(vehicleData);
+
+      await AsyncStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify(vehicleData)
+      );
     } catch (e) {
       console.log(e);
     } finally {
@@ -181,10 +240,14 @@ const MyVehiclesScreen = ({ navigation }) => {
       <AppHeader title={t("My Vehicles")} />
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={PRIMARY} />
-          <Text style={styles.loadingText}>{t("Loading vehicles...")}</Text>
-        </View>
+        <FlatList
+          data={[1, 2, 3, 4]}
+          keyExtractor={(item) => item.toString()}
+          contentContainerStyle={styles.list}
+          renderItem={() => <VehicleSkeleton />}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          showsVerticalScrollIndicator={false}
+        />
       ) : (
         <FlatList
           data={vehicles}
@@ -215,12 +278,15 @@ const MyVehiclesScreen = ({ navigation }) => {
       )}
 
       {canCreateVehicle && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate("AddVehicleScreen")}
-        >
-          <Ionicons name="add" size={28} color="#fff" />
-        </TouchableOpacity>
+        <View pointerEvents="box-none" style={styles.fabContainer}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.fab}
+            onPress={() => navigation.navigate("AddVehicleScreen")}
+          >
+            <Ionicons name="add" size={28} color="#fff" />
+          </TouchableOpacity>
+        </View>
       )}
 
     </SafeAreaView>
@@ -353,20 +419,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Loading
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#F4F6F9",
-  },
-  loadingText: {
-    fontSize: 13,
-    color: "#9CA3AF",
+  fabContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+    elevation: 9999,
   },
 
-  // FAB
   fab: {
     position: "absolute",
     bottom: 30,
@@ -377,7 +439,8 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 6,
+    elevation: 10,
+    overflow: "hidden",
     shadowColor: PRIMARY,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,

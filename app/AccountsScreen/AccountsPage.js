@@ -505,11 +505,6 @@ export default function AccountsScreen() {
         <>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('Outstanding')}</Text>
-            {!outLoading && plansWithDue.length > 0 && (
-              <View style={[styles.badge, { backgroundColor: theme.pillBg }]}>
-                <Text style={[styles.badgeText, { color: THEME.primary }]}>{plansWithDue.length}</Text>
-              </View>
-            )}
           </View>
 
           {outLoading ? (

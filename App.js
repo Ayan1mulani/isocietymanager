@@ -159,6 +159,7 @@ export default function App() {
         const existing = await AsyncStorage.getItem("SOCIETY_CONFIG");
         if (!existing) {
           const res = await complaintService.getSocietyConfigNew();
+          console.log(res,"Societyconfig")
           if (res) await AsyncStorage.setItem("SOCIETY_CONFIG", JSON.stringify(res));
         }
       } catch (e) { }

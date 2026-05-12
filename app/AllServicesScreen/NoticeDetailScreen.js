@@ -167,23 +167,23 @@ const buildHtml = (body = "", extractedCss = "") => `
       * { box-sizing: border-box; word-break: break-word; overflow-wrap: anywhere; unicode-bidi: embed; }
     body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 17px;
+  line-height: 1.9;
   color: #374151;
-  padding: 18px 8px 32px;
+  padding: 20px 10px 36px;
   margin: 0;
 }
       h1,h2,h3,h4,h5,h6 { color: #111827; margin-top: 16px; margin-bottom: 8px; font-weight: 700; word-break: break-word; overflow-wrap: anywhere; }
-      p { margin-bottom: 12px; }
+      p { margin-bottom: 16px; }
       ul,ol { padding-left: 20px; margin-bottom: 12px; }
       li { margin-bottom: 4px; }
       a { color: #1565A9; text-decoration: underline; }
       img { max-width: 100%; height: auto; border-radius: 6px; display: block; }
       table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 12px; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; }
-      th,td { border: 1px solid #E5E7EB; padding: 8px 10px; font-size: 14px; text-align: left; overflow: hidden; word-break: break-word; overflow-wrap: anywhere; max-width: 0; }
+      th,td { border: 1px solid #E5E7EB; padding: 10px 12px; font-size: 15px; text-align: left; overflow: hidden; word-break: break-word; overflow-wrap: anywhere; max-width: 0; }
       th { background: #F3F4F6; font-weight: 600; color: #111827; }
       blockquote { border-left: 3px solid #1565A9; padding-left: 12px; color: #6B7280; font-style: italic; margin-bottom: 12px; }
-      pre,code { white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; font-size: 13px; background: #F3F4F6; padding: 8px; border-radius: 4px; }
+      pre,code { white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; font-size: 14px; background: #F3F4F6; padding: 10px; border-radius: 6px; }
       strong,b { font-weight: 700; color: #111827; }
       hr { border: none; border-top: 1px solid #E5E7EB; margin: 16px 0; }
     </style>
@@ -292,7 +292,6 @@ const AttachmentsSection = ({ fileUrls }) => {
   return (
     <View style={attachStyles.container}>
       {/* ── divider ── */}
-      <View style={attachStyles.divider} />
 
       <Text style={attachStyles.heading}>Attachments</Text>
 
@@ -389,7 +388,6 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
           </Text>
         </View>
 
-        <View style={styles.divider} />
 
         {/* ── Body (WebView — height grows to content) ── */}
         {/* We fix the height to 400 initially to ensure the skeleton is visible properly before it calculates */}
@@ -472,7 +470,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 50,
+    marginBottom:5,
     backgroundColor: "#FFFFFF",
   },
   title: {
@@ -486,15 +484,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#F0F2F4",
-    marginHorizontal: 16,
-  },
+
   webViewWrapper: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    marginTop: 6,
+    paddingHorizontal: 8,
     overflow: "hidden",
   },
   skeletonContainer: {
