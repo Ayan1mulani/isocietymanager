@@ -32,11 +32,9 @@ export const PermissionsProvider = ({ children }) => {
       console.log("🔥 Fetching fresh permissions from API");
 
       const res = await ismServices.getUserProfileData();
-      
 
       if (res?.data?.permissions) {
         setPermissions(res.data.permissions);
-        console.log("Permissions updated from API:", res.data.permissions);
 
         // ✅ Update storage also
         const updatedUser = {

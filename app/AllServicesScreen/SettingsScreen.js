@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, Switch,
   ScrollView, ActivityIndicator, Platform, TextInput, TouchableOpacity,
-  Animated // Added for skeleton pulse
+  Animated,
+  DeviceEventEmitter
 } from "react-native";
 import DefaultPreference from 'react-native-default-preference';
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -218,9 +219,20 @@ const SettingsScreen = () => {
 
   const toggleAway = (value) => {
     markSettingsSaved();
+
+    // instant UI update
     setIsAway(value);
-    updateCache({ isAway: value });                        
-    silentSaveUserSettings({ home_away: value ? 1 : 0 });   
+
+    // update cache immediately
+    updateCache({ isAway: value });
+
+    // notify other screens instantly
+    DeviceEventEmitter.emit('AWAY_STATUS_CHANGED', value);
+
+    // backend sync in background
+    silentSaveUserSettings({
+      home_away: value ? 1 : 0
+    });
   };
 
   const toggleIvr = (value) => {

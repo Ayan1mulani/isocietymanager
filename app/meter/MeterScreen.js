@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -23,9 +23,37 @@ const MeterScreen = ({ navigation }) => {
   const scrollRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
+  const handleTabPress = (index) => {
+    if (index === activeTab) return;
+    
+    setActiveTab(index); // Instantly updates text color
+
+    const scrollView = scrollRef.current?.getNode 
+      ? scrollRef.current.getNode() 
+      : scrollRef.current;
+
+    // Smooth scroll triggers instantly because the heavy charts are memoized below
+    scrollView?.scrollTo({
+      x: index * screenWidth,
+      animated: true,
+    });
+  };
+
+  // 🔥 THE FIX: Memoize the heavy content so it doesn't re-render and freeze 
+  // the app every time you switch tabs.
+  const renderTabContent = useMemo(() => (
+    <>
+      <View style={{ width: screenWidth }}>
+        <MeterReadingTab />
+      </View>
+      <View style={{ width: screenWidth }}>
+        <MeterChartTab />
+      </View>
+    </>
+  ), []); // Empty array means it only renders once on mount
+
   return (
     <View style={styles.container}>
-
       {/* HEADER */}
       <AppHeader
         title={t("Energy Consumption")}
@@ -45,13 +73,7 @@ const MeterScreen = ({ navigation }) => {
         tabs={[t("Reading"), t("Consumption")]}
         activeIndex={activeTab}
         scrollX={scrollX}
-        onTabPress={(index) => {
-          setActiveTab(index);
-          scrollRef.current?.scrollTo({
-            x: index * screenWidth,
-            animated: true,
-          });
-        }}
+        onTabPress={handleTabPress}
       />
 
       {/* CONTENT */}
@@ -63,22 +85,19 @@ const MeterScreen = ({ navigation }) => {
         scrollEventThrottle={16}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false }
+          { useNativeDriver: true }
         )}
         onMomentumScrollEnd={(e) => {
-          const index = Math.round(
-            e.nativeEvent.contentOffset.x / screenWidth
-          );
+          const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+          setActiveTab(index);
+        }}
+        onScrollAnimationEnd={(e) => {
+          const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
           setActiveTab(index);
         }}
       >
-        <View style={{ width: screenWidth }}>
-          <MeterReadingTab />
-        </View>
-
-        <View style={{ width: screenWidth }}>
-          <MeterChartTab />
-        </View>
+        {/* Render the memoized heavy charts here */}
+        {renderTabContent}
       </Animated.ScrollView>
     </View>
   );

@@ -81,6 +81,8 @@ import VisitorNotificationMessage from './app/VisitorsScreen/VisitorRequestScree
 import BillPaymentScreen from './app/AllServicesScreen/BillPaymentScreen';
 import PaymentDetailScreen from './app/AllServicesScreen/PaymentDetailScreen';
 import SurveyPage from './app/AllServicesScreen/SurveyPage';
+import Event from './app/AllServicesScreen/Event';
+
 
 import Payment from './app/AllServicesScreen/Payment';
 
@@ -137,7 +139,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
   const ICON_COLOR_INACTIVE = nightMode
     ? "#B0B0B0"
-    : COLORS.bottomNavInactiveIcon;
+    : "#FFFF";
 
   // Calculate tab width based on number of routes
   const totalTabs = state.routes.length;
@@ -451,6 +453,9 @@ const NavigationPage = () => {
         <Stack.Screen name="BouncedCheques" component={BouncedChequeListScreen} />
         <Stack.Screen name="BouncedChequeDetail" component={BouncedChequeDetailScreen} />
         <Stack.Screen name="surveypage" component={SurveyPage} />
+        <Stack.Screen name="event" component={Event} />
+
+        
 
 
         <Stack.Screen

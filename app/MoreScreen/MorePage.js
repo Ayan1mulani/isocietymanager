@@ -8,6 +8,8 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  DeviceEventEmitter,
+  Pressable
 } from 'react-native';
 import useAlert from "../components/UseAlert";
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -79,9 +81,8 @@ const ProfileScreen = () => {
   const [loading, setLoading] = useState(true);
 
   const [ownerOpen, setOwnerOpen] = useState(false);
-  const [unitOpen, setUnitOpen] = useState(true);
+  const [unitOpen, setUnitOpen] = useState(false);
   const [meterOpen, setMeterOpen] = useState(false);
-  const [vehicleOpen, setVehicleOpen] = useState(false); // RESTORED
 
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -106,6 +107,7 @@ const ProfileScreen = () => {
   const [statusModal, setStatusModal] = useState({
     visible: false, type: 'loading', title: '', subtitle: '',
   });
+  const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
 
   const navigation = useNavigation();
 
@@ -125,7 +127,7 @@ const ProfileScreen = () => {
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       // Ensure no stale account data when screen is revisited
-   
+
     });
 
     return unsubscribe;
@@ -138,7 +140,7 @@ const ProfileScreen = () => {
   const loadUserProfile = async () => {
     try {
       setLoading(true);
-      setUserProfile(null);  
+      setUserProfile(null);
       setUserDetails(null);
 
       // RESTORED: null-guard — crash prevention
@@ -149,12 +151,31 @@ const ProfileScreen = () => {
       const uid = parsedUserForCache?.id || parsedUserForCache?.user_id || "default";
       const PROFILE_CACHE_KEY = getProfileCacheKey(uid);
       const DETAILS_CACHE_KEY = getDetailsCacheKey(uid);
+      const cachedProfileImage = await AsyncStorage.getItem('@cached_profile_image');
+      const cachedImageVersion = await AsyncStorage.getItem('@profile_image_version');
 
       // Doc 4 cache logic — keep for fast load
       const cachedProfile = await AsyncStorage.getItem(PROFILE_CACHE_KEY);
       const cachedDetails = await AsyncStorage.getItem(DETAILS_CACHE_KEY);
-      if (cachedProfile) setUserProfile(JSON.parse(cachedProfile));
-      if (cachedDetails) setUserDetails(JSON.parse(cachedDetails));
+      if (cachedProfile) {
+        const parsedCachedProfile = JSON.parse(cachedProfile);
+
+        setUserProfile({
+          ...parsedCachedProfile,
+          image_src: cachedProfileImage || parsedCachedProfile?.image_src,
+          image_version: cachedImageVersion || parsedCachedProfile?.image_version,
+        });
+      }
+
+      if (cachedDetails) {
+        const parsedCachedDetails = JSON.parse(cachedDetails);
+
+        setUserDetails({
+          ...parsedCachedDetails,
+          image_src: cachedProfileImage || parsedCachedDetails?.image_src,
+        });
+      }
+
       if (cachedProfile) setLoading(false);
 
       // RESTORED: role check — blocks non-resident roles from accessing the app
@@ -179,12 +200,49 @@ const ProfileScreen = () => {
       ]);
 
       if (res?.status === 'success') {
-        setUserProfile(res.data);
-        await AsyncStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(res.data));
+        const latestProfileImage =
+          res2?.image_src ??
+          res?.data?.image_src ??
+          null;
+        if (latestProfileImage) {
+          await AsyncStorage.setItem(
+            '@cached_profile_image',
+            latestProfileImage
+          );
+        } else {
+          await AsyncStorage.removeItem('@cached_profile_image');
+        }
+        const latestImageVersion =
+          cachedImageVersion || String(Date.now());
+
+        const mergedProfile = {
+          ...res.data,
+          image_src: latestProfileImage,
+          image_version: latestImageVersion,
+        };
+
+        setUserProfile(mergedProfile);
+
+        if (latestProfileImage) {
+          await AsyncStorage.setItem(
+            '@cached_profile_image',
+            latestProfileImage
+          );
+        }
+
+        await AsyncStorage.setItem(
+          '@profile_image_version',
+          latestImageVersion
+        );
       }
+
       if (res2) {
         setUserDetails(res2);
-        await AsyncStorage.setItem(DETAILS_CACHE_KEY, JSON.stringify(res2));
+
+        await AsyncStorage.setItem(
+          DETAILS_CACHE_KEY,
+          JSON.stringify(res2)
+        );
       }
     } catch (e) {
       console.error('Error loading profile:', e);
@@ -214,8 +272,46 @@ const ProfileScreen = () => {
           const res = await otherServices.changeProfilePicture(`data:image/jpeg;base64,${base64}`);
 
           if (res?.status === "success") {
-            setStatusModal({ visible: true, type: 'success', title: t('Success'), subtitle: t('Profile picture updated') });
+
+            const latestImage =
+              res?.data?.image_src ||
+              res?.image_src;
+            if (latestImage) {
+
+              const newVersion = String(Date.now());
+
+              await AsyncStorage.setItem(
+                '@cached_profile_image',
+                latestImage
+              );
+
+              await AsyncStorage.setItem(
+                '@profile_image_version',
+                newVersion
+              );
+
+              setUserProfile(prev => prev ? {
+                ...prev,
+                image_src: latestImage,
+                image_version: newVersion,
+              } : prev);
+
+              setUserDetails(prev => prev ? {
+                ...prev,
+                image_src: latestImage,
+              } : prev);
+            }
+
+            setStatusModal({
+              visible: true,
+              type: 'success',
+              title: t('Success'),
+              subtitle: t('Profile picture updated')
+            });
+
             await loadUserProfile();
+
+            DeviceEventEmitter.emit('PROFILE_IMAGE_UPDATED');
           } else {
             setStatusModal({ visible: true, type: 'error', title: t('Failed'), subtitle: t('Upload failed') });
           }
@@ -357,7 +453,11 @@ const ProfileScreen = () => {
         setModalVisible(true);
       } else {
         // RESTORED: feedback for single-account users
-        showAlert({ title: t('Notice'), message: t('No other accounts linked to your details.'), buttons: [{ text: t('OK') }] });
+        showAlert({
+          title: t('Alert'),
+          message: t('No other accounts are linked to your account.'),
+          buttons: [{ text: t('OK') }]
+        });
       }
     } catch (e) {
       showAlert({ title: t('Error'), message: t('No accounts found!'), buttons: [{ text: t('OK') }] });
@@ -468,9 +568,21 @@ const ProfileScreen = () => {
   };
 
   const avatarSource = useMemo(() => {
-    if (userProfile?.image_src) return { uri: userProfile.image_src };
-    return { uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile?.name || 'User')}&background=3B82F6&color=fff&size=200` };
-  }, [userProfile?.image_src, userProfile?.name]);
+    if (userProfile?.image_src) {
+      return {
+        uri: `${userProfile.image_src}?v=${userProfile?.image_version || '1'}`,
+        cache: 'force-cache',
+      };
+    }
+
+    return {
+      uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile?.name || 'User')}&background=3B82F6&color=fff&size=200`
+    };
+  }, [
+    userProfile?.image_src,
+    userProfile?.image_version,
+    userProfile?.name
+  ]);
 
   // Only bail out if loading is fully done and there is genuinely no data
   if (!loading && !userProfile) return null;
@@ -486,7 +598,16 @@ const ProfileScreen = () => {
             {loading && !userProfile ? (
               <View style={[styles.avatar, { backgroundColor: theme.skeleton }]} />
             ) : (
-              <Image source={avatarSource} style={styles.avatar} />
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => {
+                  if (userProfile?.image_src) {
+                    setImagePreviewVisible(true);
+                  }
+                }}
+              >
+                <Image source={avatarSource} style={styles.avatar} />
+              </TouchableOpacity>
             )}
             <TouchableOpacity onPress={handleChangeProfileImage} disabled={!userProfile}>
               <Text style={[styles.changeText, !userProfile && { opacity: 0 }]}>{t("Change")}</Text>
@@ -538,6 +659,40 @@ const ProfileScreen = () => {
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.textSub} />
         </TouchableOpacity>
+        {/* ── My Vehicle Card ───────────────────────────────────────── */}
+        <TouchableOpacity
+          style={[styles.virtualIdCard, { backgroundColor: theme.cardBg }]}
+          onPress={() => navigation.navigate('MyVehiclesScreen')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.virtualIdLeft}>
+            <View style={[styles.virtualIdIcon, { backgroundColor: theme.primary + '18' }]}>
+              <Ionicons name="car-sport-outline" size={22} color={theme.primary} />
+            </View>
+
+            <View style={styles.virtualIdText}>
+              <Text
+                style={[styles.virtualIdTitle, { color: theme.textMain }]}
+                numberOfLines={1}
+              >
+                {t("My Vehicles")}
+              </Text>
+
+              <Text
+                style={[styles.virtualIdSub, { color: theme.textSub }]}
+                numberOfLines={1}
+              >
+                {t("View and manage your vehicles")}
+              </Text>
+            </View>
+          </View>
+
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={theme.textSub}
+          />
+        </TouchableOpacity>
 
         {/* ── Unit Details ─────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
@@ -547,10 +702,17 @@ const ProfileScreen = () => {
           </TouchableOpacity>
           {unitOpen && (
             <View style={styles.dropdownContent}>
-              <InfoRow label={t("Tower")} value={userDetails?.tower} theme={theme} loading={loading && !userDetails} />
-              <InfoRow label={t("Flat No")} value={userDetails?.flat_no} theme={theme} loading={loading && !userDetails} />
-              <InfoRow label={t("Area (Sq Ft)")} value={userDetails?.size_sf} theme={theme} loading={loading && !userDetails} />
-              <InfoRow label={t("Category")} value={userDetails?.fc_name} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Possession date")} value={userDetails?.possession_date} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Maintenance start date")} value={userDetails?.maint_start_date} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Handover date")} value={userDetails?.handover_date} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("First bill date")} value={userDetails?.bill_start_date} theme={theme} loading={loading && !userDetails} />
+
+              <InfoRow label={t("Serial No")} value={userDetails?.serial_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("GSTIN No")} value={userDetails?.gstin_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("SAP code")} value={userDetails?.sap_code} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Extension No")} value={userDetails?.ext_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("PAN No")} value={userDetails?.pan_no} theme={theme} loading={loading && !userDetails} />
+              <InfoRow label={t("Security Deposit")} value={userDetails?.sec_depo} theme={theme} loading={loading && !userDetails} />
             </View>
           )}
         </View>
@@ -584,10 +746,18 @@ const ProfileScreen = () => {
               <InfoRow label={t("Grid Demand Load")} value={userDetails?.grid_demand_load} theme={theme} loading={loading && !userDetails} />
               <InfoRow label={t("DG Meter No")} value={userDetails?.dg_meter_no} theme={theme} loading={loading && !userDetails} />
               <InfoRow label={t("DG Demand Load")} value={userDetails?.dg_demand_load} theme={theme} loading={loading && !userDetails} />
+              <InfoRow
+                label={t("Connection Type")}
+                value={userDetails?.is_prepaid == 1 ? t("Prepaid") : t("Postpaid")}
+                theme={theme}
+                loading={loading && !userDetails}
+              />
               <InfoRow label={t("Meter Seal No")} value={userDetails?.meter_seal_no} theme={theme} loading={loading && !userDetails} />
             </View>
           )}
         </View>
+
+
 
         {/* ── Settings ─────────────────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
@@ -630,6 +800,7 @@ const ProfileScreen = () => {
             </Text>
           </TouchableOpacity>
         </View>
+
 
         <Text style={[styles.versionText, { color: theme.textSub }]}>
           v{version} ({buildNumber})
@@ -781,6 +952,27 @@ const ProfileScreen = () => {
         </View>
       </Modal>
 
+      <Modal
+        visible={imagePreviewVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImagePreviewVisible(false)}
+      >
+        <View style={styles.previewOverlay}>
+          <Pressable
+            style={styles.previewCloseBtn}
+            onPress={() => setImagePreviewVisible(false)}
+          >
+            <Ionicons name="close" size={28} color="#fff" />
+          </Pressable>
+          <Image
+            source={avatarSource}
+            style={styles.previewImage}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
+
       <StatusModal
         visible={statusModal.visible}
         type={statusModal.type}
@@ -808,6 +1000,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   avatar: { width: 70, height: 70, borderRadius: 35, flexShrink: 0, backgroundColor: '#E5E7EB' },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  previewImage: {
+    width: '92%',
+    height: '70%',
+  },
+
+  previewCloseBtn: {
+    position: 'absolute',
+    top: 60,
+    right: 25,
+    zIndex: 10,
+  },
   // RESTORED: overflow hidden to prevent long names from overflowing
   profileInfo: { flex: 1, marginLeft: 14, overflow: 'hidden' },
   userName: { fontSize: 18, fontWeight: '700', marginBottom: 2 },

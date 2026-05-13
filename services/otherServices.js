@@ -1400,6 +1400,74 @@ getBouncedChequeById: async (id) => {
     }
   },
 
+  markNoticeAsRead: async (noticeId) => {
+  try {
+    const user = await Common.getLoggedInUser();
+
+    const userObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId,
+    };
+
+    const params = {
+      "api-token": user.api_token,
+      "user-id": JSON.stringify(userObj),
+    };
+
+    const url = otherServices.appendParamsInUrl(
+      `${API_URL2}/notice/markread`,
+      params
+    );
+
+    const headers = await Util.getCommonAuth();
+
+    return await ApiCommon.putReq(
+      url,
+      { id: noticeId },
+      headers
+    );
+
+  } catch (error) {
+    console.log("Mark Notice Read Error:", error);
+    throw error;
+  }
+},
+
+markAllNoticesAsRead: async () => {
+  try {
+    const user = await Common.getLoggedInUser();
+
+    const userObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId,
+    };
+
+    const params = {
+      "api-token": user.api_token,
+      "user-id": JSON.stringify(userObj),
+    };
+
+    const url = otherServices.appendParamsInUrl(
+      `${API_URL2}/notice/markallread`,
+      params
+    );
+
+    const headers = await Util.getCommonAuth();
+
+    return await ApiCommon.putReq(url, {}, headers);
+
+  } catch (error) {
+    console.log("Mark All Notices Read Error:", error);
+    throw error;
+  }
+},
+
   addOrUpdateRating: async (staffId, rating, review) => {
     try {
       const user = await Common.getLoggedInUser();

@@ -919,9 +919,12 @@ const ComplaintInputScreen = ({ navigation, route }) => {
     if (selectedArea === 'common' && !location) {
       newErrors.location = t('Please select a specific location.');
     }
-    if (!remarks.trim()) {
-      newErrors.remarks = t('Please describe the issue.');
-    }
+  const isOtherSubCategory =
+    subCategory?.name?.toLowerCase() === 'other';
+
+  if (isOtherSubCategory && !remarks.trim()) {
+    newErrors.remarks = t('Please describe the issue.');
+  }
     if (!isASAP && canScheduleComplaint) {
       if (!selectedDate) newErrors.date = t('Please select a date.');
       if (!fromTime || !toTime) {
@@ -1133,7 +1136,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[s.areaBtnText, { color: selectedArea === 'unit' ? PRIMARY : th.text }]}>{t('My Unit')}</Text>
-              <Text style={[s.areaBtnDesc, { color: th.sub }]}>{t('Issue is inside your flat / apartment')}</Text>
+              <Text style={[s.areaBtnDesc, { color: th.sub }]}>{t('Issue is inside your Unit')}</Text>
             </View>
             {selectedArea === 'unit' && (
               <View style={[s.areaCheck, { backgroundColor: PRIMARY }]}>
@@ -1158,7 +1161,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[s.areaBtnText, { color: selectedArea === 'common' ? PRIMARY : th.text }]}>{t('Common Area')}</Text>
-                <Text style={[s.areaBtnDesc, { color: th.sub }]}>{t('Lobby, gym, pool, corridor & shared spaces')}</Text>
+                <Text style={[s.areaBtnDesc, { color: th.sub }]}>{t('Issue is in a common area')}</Text>
               </View>
               {selectedArea === 'common' && (
                 <View style={[s.areaCheck, { backgroundColor: PRIMARY }]}>
@@ -1235,7 +1238,12 @@ const ComplaintInputScreen = ({ navigation, route }) => {
         </Section>
 
         {/* ── Remarks ──────────────────────────────────────────────────────── */}
-        <Section label={t('Remarks')} required error={errors.remarks} t={th}>
+        <Section
+          label={t('Remarks')}
+          required={subCategory?.name?.toLowerCase() === 'other'}
+          error={errors.remarks}
+          t={th}
+        >
           <TextInput
             style={[s.textarea, {
               backgroundColor: th.input,

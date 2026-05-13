@@ -1,17 +1,14 @@
 import './app/i18n';
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
-  View, ActivityIndicator, Text, StatusBar,
-  StyleSheet, AppState, NativeModules, TextInput, Platform,
-  Modal, TouchableOpacity, Linking,
+View, ActivityIndicator, Text, StatusBar,
+StyleSheet, AppState, NativeModules, TextInput, Platform
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import notifee, { EventType } from "@notifee/react-native";
-import InAppUpdate from 'sp-react-native-in-app-updates';
 
-import { useTranslation } from 'react-i18next';
 
 import NavigationPage from "./NavigationPage";
 import BRAND from "./app/config";
@@ -19,7 +16,7 @@ import initializeOneSignal, { setOnVisitorPending } from "./Utils/PushNotificati
 import { complaintService } from "./services/complaintService";
 import { visitorServices } from "./services/visitorServices";
 import { navigationRef } from "./NavigationService";
-import { PermissionsProvider, usePermissions } from "./Utils/ConetextApi";
+import { PermissionsProvider } from "./Utils/ConetextApi";
 import { fetchAndCacheSettings } from "./services/settingsCache";
 
 Text.defaultProps = Text.defaultProps || {};
@@ -31,12 +28,9 @@ const { VisitorModule, IntentModule } = NativeModules;
 
 const TAG = "[App]";
 
-const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.factech.maxestate";
-
 const handledInMemory = new Set();
 const VISITOR_HANDLED_KEY = "HANDLED_VISITORS";
 const DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
-const IVR_POPUP_DISMISSED = "IVR_POPUP_DISMISSED";
 
 const isAlreadyHandled = async (id) => {
   if (handledInMemory.has(id)) return true;
@@ -50,6 +44,7 @@ const isAlreadyHandled = async (id) => {
 
 const checkTenant = async () => {
   const tenant = await AsyncStorage.getItem("isTenant");
+  console.log("Tenant value:", tenant);
 };
 checkTenant();
 
@@ -68,166 +63,16 @@ const markHandled = async (id) => {
 const AUTH_SCREENS = ["Login", "OtpLoginScreen", "OtpLogin", "OtpVerify"];
 const isUserLoggedIn = (route) => route && !AUTH_SCREENS.includes(route);
 
-/* ─── Soft Update Modal ─────────────────────────────────────────────────── */
-// ✅ User CAN dismiss this — not a force block
-const UpdateModal = ({ visible, onDismiss }) => {
-  const { t } = useTranslation();
-
-  const openPlayStore = () => {
-    Linking.openURL(PLAY_STORE_URL).catch(e =>
-      console.log("Failed to open Play Store:", e)
-    );
-  };
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => {}} // ❌ Back button does nothing
-    >
-      {/* ❌ Removed TouchableOpacity wrapper — tapping outside does nothing */}
-      <View style={updateStyles.overlay}>
-        <View style={updateStyles.card}>
-
-          <View style={updateStyles.iconCircle}>
-            <Text style={updateStyles.iconText}>🔄</Text>
-          </View>
-
-          <Text style={updateStyles.title}>
-            {t("Update Available")}
-          </Text>
-
-          <Text style={updateStyles.message}>
-            {t("A new version of the app is available. Update now for the latest features and fixes.")}
-          </Text>
-
-          <TouchableOpacity
-            style={updateStyles.primaryBtn}
-            onPress={openPlayStore}
-            activeOpacity={0.85}
-          >
-            <Text style={updateStyles.primaryBtnText}>
-              {t("Update Now")}
-            </Text>
-          </TouchableOpacity>
-
-          {/* ✅ ONLY this can dismiss the modal */}
-          <TouchableOpacity
-            style={updateStyles.secondaryBtn}
-            onPress={onDismiss}
-            activeOpacity={0.7}
-          >
-            <Text style={updateStyles.secondaryBtnText}>
-              {t("Maybe Later")}
-            </Text>
-          </TouchableOpacity>
-
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-/* ─── Permissions component ─────────────────────────────────────────────── */
+/* ─── Permissions & IVR Check Component ────────────────────────────────── */
 const AppContent = () => {
-  const { loadPermissions } = usePermissions();
-
-  useEffect(() => {
-    const loadPerms = async () => {
-      try {
-        await new Promise(res => setTimeout(res, 500));
-        await loadPermissions(true);
-      } catch (e) {
-        console.log("[App] Permission load error:", e);
-      }
-    };
-    loadPerms();
-  }, []);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", async (state) => {
-      if (state === "active") {
-        try {
-          await loadPermissions(true);
-        } catch (e) {
-          console.log("[App] Permission refresh error:", e);
-        }
-      }
-    });
-    return () => sub.remove();
-  }, []);
-
   return <NavigationPage />;
 };
 
 /* ─── Main App ──────────────────────────────────────────────────────────── */
 export default function App() {
-
-  const { t } = useTranslation();
-const [processing, setProcessing] = React.useState(false);
-
-const [showIvrModal, setShowIvrModal] = useState(false);
-const [dontShowAgain, setDontShowAgain] = useState(false);
-
-  // ✅ Controls soft update modal visibility
-  const [showUpdateModal, setShowUpdateModal] = React.useState(false);
-
+  const [processing, setProcessing] = React.useState(false);
   const pendingVisitorRef = useRef(null);
   const pendingStaffRef = useRef(null);
-
-/* ── Play Store Version Check ────────────────────────────────────────── */
-useEffect(() => {
-  const checkUpdate = async () => {
-    try {
-      const result = await InAppUpdate.checkNeedsUpdate();
-      console.log(TAG, "Update check result:", result);
-
-      if (result.shouldUpdate) {
-        console.log(TAG, "Update available → showing modal");
-        setShowUpdateModal(true);
-      } else {
-        console.log(TAG, "App is up to date");
-      }
-    } catch (e) {
-      console.log(TAG, "Update check failed — skipping:", e);
-    }
-  };
-
-  checkUpdate();
-}, []);
-
-useEffect(() => {
-  const checkIVRPopup = async () => {
-    try {
-      const userRaw = await AsyncStorage.getItem("userInfo");
-
-      if (!userRaw) return;
-
-      const user = JSON.parse(userRaw);
-
-      // show popup only if IVR disabled
-      if (Number(user?.ivr_enable) !== 0) {
-        return;
-      }
-
-      const dismissed = await AsyncStorage.getItem(
-        IVR_POPUP_DISMISSED
-      );
-
-      if (dismissed === "true") {
-        return;
-      }
-
-      setShowIvrModal(true);
-
-    } catch (e) {
-      console.log(TAG, "IVR popup error:", e);
-    }
-  };
-
-  checkIVRPopup();
-}, []);
 
   /* ── Visitor navigation with retry ───────────────────────────────────── */
   const tryNavigate = async (attempts = 0) => {
@@ -286,6 +131,7 @@ useEffect(() => {
 
       if (extras?.notification_type === "STAFF") {
         console.log(TAG, "Staff intent detected → navigating to StaffScreen");
+
         await IntentModule.clearIntentExtras();
 
         pendingStaffRef.current = {
@@ -313,6 +159,7 @@ useEffect(() => {
         const existing = await AsyncStorage.getItem("SOCIETY_CONFIG");
         if (!existing) {
           const res = await complaintService.getSocietyConfigNew();
+          console.log(res,"Societyconfig")
           if (res) await AsyncStorage.setItem("SOCIETY_CONFIG", JSON.stringify(res));
         }
       } catch (e) { }
@@ -400,7 +247,7 @@ useEffect(() => {
     checkColdStart();
   }, []);
 
-  /* ── Cold start: staff intent ────────────────────────────────────────── */
+  /* ── Cold start: staff intent (app opened from locked screen tap) ─────── */
   useEffect(() => {
     const timer = setTimeout(() => {
       checkStaffIntent();
@@ -427,26 +274,13 @@ useEffect(() => {
         }
       } catch (e) { }
 
-      setTimeout(() => { checkStaffIntent(); }, 600);
+      setTimeout(() => {
+        checkStaffIntent();
+      }, 600);
     });
 
     return () => sub.remove();
   }, []);
-
-  const handleCloseIvrModal = async () => {
-  try {
-    if (dontShowAgain) {
-      await AsyncStorage.setItem(
-        IVR_POPUP_DISMISSED,
-        "true"
-      );
-    }
-  } catch (e) {
-    console.log(TAG, e);
-  }
-
-  setShowIvrModal(false);
-};
 
   /* ── Render ──────────────────────────────────────────────────────────── */
   return (
@@ -459,79 +293,7 @@ useEffect(() => {
           ]}
         >
           <StatusBar barStyle="dark-content" />
-
-          {/* ✅ Soft update modal — user can dismiss and continue */}
-          <UpdateModal
-            visible={showUpdateModal}
-            onDismiss={() => setShowUpdateModal(false)}
-          />
-
-<Modal
-  visible={showIvrModal}
-  transparent
-  animationType="fade"
-  onRequestClose={handleCloseIvrModal}
->
-  <View style={updateStyles.overlay}>
-    <View style={ivrStyles.card}>
-
-      <TouchableOpacity
-        style={ivrStyles.closeBtn}
-        onPress={handleCloseIvrModal}
-      >
-        <Text style={ivrStyles.closeText}>✕</Text>
-      </TouchableOpacity>
-
-      <Text style={ivrStyles.title}>
-        IVR NOT SET
-      </Text>
-
-      <Text style={ivrStyles.message}>
-        IVR number is not configured. Click below to set one.
-      </Text>
-
-      <TouchableOpacity
-        style={ivrStyles.checkboxRow}
-        onPress={() =>
-          setDontShowAgain(!dontShowAgain)
-        }
-      >
-        <View
-          style={[
-            ivrStyles.checkbox,
-            dontShowAgain &&
-              ivrStyles.checkboxSelected,
-          ]}
-        >
-          {dontShowAgain && (
-            <Text style={ivrStyles.checkmark}>
-              ✓
-            </Text>
-          )}
-        </View>
-
-        <Text style={ivrStyles.checkboxText}>
-          DONT_SHOW_AGAIN
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={ivrStyles.button}
-        onPress={() => {
-          setShowIvrModal(false);
-          navigationRef.navigate("ProfileScreen");
-        }}
-      >
-        <Text style={ivrStyles.buttonText}>
-          Set IVR
-        </Text>
-      </TouchableOpacity>
-
-    </View>
-  </View>
-</Modal>
           <AppContent />
-
           {processing && (
             <View style={styles.overlay}>
               <ActivityIndicator size="large" color="#22C55E" />
@@ -554,156 +316,56 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   overlayText: { marginTop: 10, fontSize: 16, fontWeight: "bold" },
-});
-
-const updateStyles = StyleSheet.create({
-  overlay: {
+  
+  /* ── IVR Modal Styles ── */
+  modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 28,
-    alignItems: "center",
-    width: "100%",
-    elevation: 10,
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#EFF6FF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  iconText: { fontSize: 34 },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  message: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  primaryBtn: {
-    backgroundColor: BRAND.COLORS.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 40,
+  modalContainer: {
+    width: '80%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 10,
+    padding: 24,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  primaryBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  // ✅ Maybe Later — subtle, clearly optional
-  secondaryBtn: {
-    paddingVertical: 10,
-    alignItems: "center",
-    width: "100%",
-  },
-  secondaryBtnText: {
-    color: "#6B7280",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-});
-
-const ivrStyles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    width: "85%",
-    overflow: "hidden",
-  },
-
-  closeBtn: {
-    position: "absolute",
-    right: 18,
-    top: 16,
-    zIndex: 10,
-  },
-
-  closeText: {
-    fontSize: 26,
-    color: "#111827",
-  },
-
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginTop: 26,
-    marginHorizontal: 24,
-    marginBottom: 18,
-  },
-
-  message: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: "#4B5563",
-    marginHorizontal: 24,
-    marginBottom: 26,
-  },
-
-  checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 24,
-    marginBottom: 32,
-  },
-
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 1.5,
-    borderColor: "#9CA3AF",
-    borderRadius: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-
-  checkboxSelected: {
-    backgroundColor: BRAND.COLORS.primary,
-    borderColor: BRAND.COLORS.primary,
-  },
-
-  checkmark: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-
-  checkboxText: {
-    fontSize: 15,
-    color: "#111827",
-    fontWeight: "500",
-  },
-
-  button: {
-    backgroundColor: "#14B8E6",
-    paddingVertical: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
+  modalTitle: {
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
   },
+  modalMessage: {
+    fontSize: 15,
+    color: '#555',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  closeButton: {
+    padding: 10,
+    marginRight: 15,
+  },
+  closeButtonText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  setButton: {
+    backgroundColor: BRAND.COLORS?.primary || '#22C55E', 
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+
 });

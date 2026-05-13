@@ -6,7 +6,7 @@ export default {
     appName: "ism_resident",
   },
 
-  APP_VERSION_CODE: "464",
+  APP_VERSION_CODE: "465",
 
   PRIMARY_COLOR: "#0169B2",
 
@@ -61,6 +61,9 @@ export default {
     /* Special */
     white: "#FFFFFF",
     black: "#000000",
+
+    iconBackground: "#EAF4FB",
+    iconBorder: "#CFE5F5",
 
     bottomNavBackground: "#1996D3ee",
     bottomNavBorder: "#E5E7EB",

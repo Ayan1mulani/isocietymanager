@@ -1,9 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL2, APP_VERSION_CODE } from '../app/config/env';
+import { API_URL2, APP_VERSION_CODE, APP_NAME } from '../app/config/env';
 import { OneSignal } from 'react-native-onesignal';
 import { ApiCommon } from './ApiCommon';
 import { Common } from './Common';
-
 
 
 /* ================================
@@ -47,9 +46,10 @@ export const RegisterAppOneSignal = async () => {
     }
     const tenant = Number(tenantValue ?? 0); // ✅ define before payload
 
+
     const payload = {
-      app_name: "max_resident",
-      app_version_code: 33,
+      app_name: APP_NAME,
+      app_version_code: APP_VERSION_CODE,
       app_device_id: deviceId, 
       userId: deviceId,
       tenant: tenant,

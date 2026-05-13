@@ -64,30 +64,41 @@ const MyBookingsScreen = ({ navigation }) => {
   
   const currentLocale = i18n.language === 'km' ? 'km-KH' : 'en-IN';
 
-  const formatDateOnly = (dateString) => {
-    if (!dateString) return "—";
-    const d = new Date(dateString.replace(" ", "T") + "Z");
-    return d.toLocaleDateString(currentLocale, { day: "2-digit", month: "short", year: "numeric" });
-  };
+const formatDateOnly = (dateString) => {
+  if (!dateString) return "—";
+  // Split "2026-04-01 00:36:00" → date part "2026-04-01"
+  const [datePart] = dateString.split(" ");
+  const [year, month, day] = datePart.split("-");
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString(currentLocale, { day: "2-digit", month: "short", year: "numeric" });
+};
 
-  const formatTimeOnly = (dateString) => {
-    if (!dateString) return "—";
-    const d = new Date(dateString.replace(" ", "T") + "Z");
-    return d.toLocaleTimeString(currentLocale, { hour: "2-digit", minute: "2-digit", hour12: true });
-  };
+const formatTimeOnly = (dateString) => {
+  if (!dateString) return "—";
+  // Split "2026-04-01 00:36:00" → time part "00:36:00"
+  const timePart = dateString.split(" ")[1] ?? "00:00:00";
+  const [hours, minutes] = timePart.split(":");
+  const h = parseInt(hours, 10);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${minutes} ${ampm}`;
+};
 
-  const getDuration = (from, to) => {
-    if (!from || !to) return null;
-    const diffMs = new Date(to.replace(" ", "T") + "Z") - new Date(from.replace(" ", "T") + "Z");
-    if (diffMs <= 0) return null;
-    const hrs = Math.floor(diffMs / 3600000);
-    const mins = Math.floor((diffMs % 3600000) / 60000);
-    
-    let parts = [];
-    if (hrs > 0) parts.push(`${hrs}${t('h')}`);
-    if (mins > 0) parts.push(`${mins}${t('m')}`);
-    return parts.join(' ');
-  };
+const getDuration = (from, to) => {
+  if (!from || !to) return null;
+  const [fd, ft] = from.split(" ");
+  const [td, tt] = to.split(" ");
+  const fromMs = new Date(`${fd}T${ft}`).getTime();
+  const toMs   = new Date(`${td}T${tt}`).getTime();
+  const diffMs = toMs - fromMs;
+  if (diffMs <= 0) return null;
+  const hrs  = Math.floor(diffMs / 3600000);
+  const mins = Math.floor((diffMs % 3600000) / 60000);
+  const parts = [];
+  if (hrs  > 0) parts.push(`${hrs}${t('h')}`);
+  if (mins > 0) parts.push(`${mins}${t('m')}`);
+  return parts.join(' ');
+};
 
   const fetchBookings = async (isRefresh = false) => {
     try {

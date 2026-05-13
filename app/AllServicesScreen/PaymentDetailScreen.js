@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   Linking,
-  ActivityIndicator
+  Animated
 } from "react-native";
 import AppHeader from "../components/AppHeader";
 import Ionicons from "react-native-vector-icons/Ionicons";
@@ -21,9 +21,20 @@ const PaymentDetailScreen = ({ route }) => {
 
   const [payment, setPayment] = useState(null);
   const [loading, setLoading] = useState(true);
+  const shimmer = useRef(new Animated.Value(-1)).current;
 
   useEffect(() => {
     loadPayment();
+  }, []);
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(shimmer, {
+        toValue: 1,
+        duration: 1400,
+        useNativeDriver: true,
+      })
+    ).start();
   }, []);
 
   const loadPayment = async () => {
@@ -54,9 +65,72 @@ const PaymentDetailScreen = ({ route }) => {
   };
 
   if (loading) {
+    const translateX = shimmer.interpolate({
+      inputRange: [-1, 1],
+      outputRange: [-320, 320],
+    });
+
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color={BRAND.COLORS.primary} />
+      <View style={{ flex: 1, backgroundColor: "#F4F6F9" }}>
+        <AppHeader title="Payment Details" />
+
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+          <View
+            style={{
+              backgroundColor: '#E5E7EB',
+              height: 120,
+              borderRadius: 16,
+              marginBottom: 12,
+              overflow: 'hidden',
+            }}
+          >
+            <Animated.View
+              style={{
+                width: 120,
+                height: '100%',
+                backgroundColor: 'rgba(255,255,255,0.45)',
+                transform: [{ translateX }],
+              }}
+            />
+          </View>
+
+          <View
+            style={{
+              backgroundColor: '#E5E7EB',
+              height: 360,
+              borderRadius: 16,
+              marginBottom: 12,
+              overflow: 'hidden',
+            }}
+          >
+            <Animated.View
+              style={{
+                width: 120,
+                height: '100%',
+                backgroundColor: 'rgba(255,255,255,0.45)',
+                transform: [{ translateX }],
+              }}
+            />
+          </View>
+
+          <View
+            style={{
+              backgroundColor: '#E5E7EB',
+              height: 60,
+              borderRadius: 12,
+              overflow: 'hidden',
+            }}
+          >
+            <Animated.View
+              style={{
+                width: 120,
+                height: '100%',
+                backgroundColor: 'rgba(255,255,255,0.45)',
+                transform: [{ translateX }],
+              }}
+            />
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -71,18 +145,17 @@ const PaymentDetailScreen = ({ route }) => {
 
   // ✅ PARSE JSON
   let parsedData = {};
-  let createdBy = {};
 
   try {
     parsedData = payment.data ? JSON.parse(payment.data) : {};
   } catch { }
 
-  try {
-    createdBy = payment.created_by ? JSON.parse(payment.created_by) : {};
-  } catch { }
-
   const isCredit =
     payment.type === "CREDIT" || payment.p_type === "CR";
+
+  const transactionType = payment.mode || payment.type || "Payment";
+  const billPlan = payment.bill_plan_name || payment.bill_plan || payment.bill_type || "-";
+
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F4F6F9" }}>
@@ -128,38 +201,25 @@ const PaymentDetailScreen = ({ route }) => {
         {/* Main Details */}
         <Card>
           <Row label="Status" value={payment.status} />
-          <Row label="Type" value={payment.type} />
+          <Row label="Transaction Type" value={transactionType} />
+          <Row label="Payment Type" value={isCredit ? 'Credit' : 'Debit'} />
           <Row label="Mode" value={payment.mode} />
-          <Row label="Flat No" value={payment.flat_no} />
-          <Row label="Date" value={payment.transaction_date_time} />
-          <Row label="Remarks" value={payment.remarks} />
+          <Row label="Bill Plan" value={billPlan} />
+          <Row label="Amount" value={`₹ ${formatAmount(payment.amount)}`} />
+          <Row label="Transaction Date" value={payment.transaction_date_time} />
+          <Row label="Bank" value={payment.bank_name} />
+          <Row label="Account To" value={payment.account_to} />
+          <Row label="Payment Status" value={payment.status} />
+          <Row label="Processed" value={payment.processed === 1 ? 'Yes' : 'No'} />
+          <Row label="Payment Tag" value={payment.tag} />
+          <Row label="Order Bank" value={payment.o_bank} />
+          <Row label="Order Date" value={payment.o_date} />
           <Row label="Sequence No" value={payment.sequence_no} />
-          <Row label="URN" value={payment.urn} />
           <Row label="Reference ID" value={payment.reference_id} />
-          <Row label="Bill Type" value={payment.bill_type} />
-          <Row label="Tax" value={payment.tax} />
+          <Row label="URN" value={payment.urn} />
+          <Row label="Order Number" value={payment.o_number} />
           <Row label="Created At" value={payment.created_at} />
-          <Row label="Updated At" value={payment.updated_at} />
         </Card>
-
-        {/* Created By */}
-        {createdBy?.name && (
-          <Card title="Created By">
-            <Row label="Name" value={createdBy.name} />
-            <Row label="Email" value={createdBy.email} />
-            <Row label="User ID" value={String(createdBy.user_id)} />
-          </Card>
-        )}
-
-        {/* Extra JSON Data */}
-        {Object.keys(parsedData).length > 0 && (
-          <Card title="Extra Details">
-            <Row label="User ID" value={String(parsedData.user_id)} />
-            <Row label="Flat No" value={parsedData.flatNo} />
-            <Row label="TDS" value={String(parsedData.TDS)} />
-            <Row label="Time" value={parsedData.CURRENT_TIME_LOCAL} />
-          </Card>
-        )}
 
         {/* Receipt */}
         {payment.url && (
@@ -214,7 +274,8 @@ const Row = ({ label, value }) => {
       <Text style={{
         color: "#111827",
         fontWeight: "600",
-        maxWidth: "60%",
+        flexShrink: 1,
+        maxWidth: "65%",
         textAlign: "right"
       }}>
         {value}

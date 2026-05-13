@@ -137,10 +137,13 @@ const Payment = () => {
     if (!raw) return '-';
     const d = new Date(raw);
     if (isNaN(d.getTime())) return raw;
-    return d.toLocaleDateString(i18n.language === 'km' ? 'km-KH' : 'en-GB', { 
-      day: '2-digit', 
-      month: 'short', 
-      year: 'numeric' 
+    return d.toLocaleString(i18n.language === 'km' ? 'km-KH' : 'en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
     });
   };
 
@@ -184,6 +187,8 @@ const Payment = () => {
     const isCredit  = item.type === 'CREDIT' || item.p_type === 'CR';
     const typeColor = isCredit ? THEME.success : THEME.danger;
     const typeLabel = isCredit ? t('CREDIT') : t('DEBIT');
+    const transactionType = item.mode || item.type || t('Payment');
+    const billPlan = item.bill_plan_name || item.bill_plan || item.bill_type || '';
 
     return (
       <TouchableOpacity
@@ -197,9 +202,25 @@ const Payment = () => {
 
         <View style={styles.mid}>
           <Text style={[styles.remarks, { color: theme.text }]} numberOfLines={1}>
-            {item.remarks || item.transaction_id || t('Payment')}
+            {transactionType}
           </Text>
-          <Text style={[styles.date, { color: theme.secondaryText }]}>
+
+          <Text
+            style={[
+              styles.date,
+              {
+                color: theme.secondaryText,
+                marginTop: 2,
+                fontSize: 11,
+                fontWeight: '500',
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {billPlan || t('Bill Plan Not Available')}
+          </Text>
+
+          <Text style={[styles.date, { color: theme.secondaryText, marginTop: 2 }]}>
             {formatDate(item.transaction_date_time)}
           </Text>
         </View>
@@ -298,8 +319,8 @@ const styles = StyleSheet.create({
   },
   iconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   mid:     { flex: 1 },
-  remarks: { fontSize: 13, fontWeight: '600', marginBottom: 3 },
-  date:    { fontSize: 11 },
+  remarks: { fontSize: 13, fontWeight: '700', marginBottom: 2 },
+  date:    { fontSize: 11, lineHeight: 16 },
   right:  { alignItems: 'flex-end', gap: 4 },
   amount: { fontSize: 14, fontWeight: '700', letterSpacing: -0.3 },
   typeBadge:     { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 5 },

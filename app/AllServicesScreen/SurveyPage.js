@@ -195,7 +195,17 @@ const SurveysPage = () => {
           activeOpacity={0.8}
           style={[styles.btn, { backgroundColor: isActive ? THEME.primary : theme.borderColor }]} 
           disabled={!isActive}
-          onPress={() => console.log('Open Survey Form ID:', item.form_id)}
+          onPress={() =>
+            navigation.navigate('SurveyDetailsPage', {
+              surveyId: item.survey_id,
+              formId: item.form_id,
+              surveyName: item.name,
+              description: cleanDescription,
+              startDate: item.start_date,
+              closeDate: item.close_date,
+              surveyData: item,
+            })
+          }
         >
           <Text style={[styles.btnText, { color: isActive ? '#fff' : theme.sub }]}>
             {t("Take Survey")}
