@@ -293,6 +293,7 @@ const MyEventsScreen = ({ navigation }) => {
   {
     notice: item,
     screenType: "event",
+    headerTitle: "Event",
   }
 );
         }}

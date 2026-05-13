@@ -666,6 +666,32 @@ getSurveyQuestions: async (surveyId) => {
   },
 
 
+  getRentBalance: async (billTypeId) => {
+    const user = await Common.getLoggedInUser();
+
+    const uObj = {
+      user_id: user.id,
+      group_id: user.role_id,
+      flat_no: user.flat_no,
+      unit_id: user.unit_id,
+      society_id: user.societyId
+    };
+
+    const url =
+      `${API_URL2}/getOutstandingBalance/${encodeURIComponent(JSON.stringify(uObj))}` +
+      `?api-token=${user.api_token}` +
+      `&user-id=${encodeURIComponent(JSON.stringify(uObj))}` +
+      `&cache=0` +
+      `&bill_type=${billTypeId}`;
+
+    console.log("🏠 OUTSTANDING URL:", url);
+    console.log("🏠 BILL TYPE ID:", billTypeId);
+
+    const headers = await Util.getCommonAuth();
+
+    return ApiCommon.getReq(url, headers);
+  },
+
   getMyNotices: async (category = "COMMON") => {
     const user = await Common.getLoggedInUser();
 

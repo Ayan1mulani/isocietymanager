@@ -1136,7 +1136,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[s.areaBtnText, { color: selectedArea === 'unit' ? PRIMARY : th.text }]}>{t('My Unit')}</Text>
-              <Text style={[s.areaBtnDesc, { color: th.sub }]}>{t('Issue is inside your flat / apartment')}</Text>
+              <Text style={[s.areaBtnDesc, { color: th.sub }]}>{t('Issue is inside your Unit')}</Text>
             </View>
             {selectedArea === 'unit' && (
               <View style={[s.areaCheck, { backgroundColor: PRIMARY }]}>
@@ -1161,7 +1161,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[s.areaBtnText, { color: selectedArea === 'common' ? PRIMARY : th.text }]}>{t('Common Area')}</Text>
-                <Text style={[s.areaBtnDesc, { color: th.sub }]}>{t('Lobby, gym, pool, corridor & shared spaces')}</Text>
+                <Text style={[s.areaBtnDesc, { color: th.sub }]}>{t('Issue is in a common area')}</Text>
               </View>
               {selectedArea === 'common' && (
                 <View style={[s.areaCheck, { backgroundColor: PRIMARY }]}>
