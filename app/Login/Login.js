@@ -433,6 +433,15 @@ const NewLoginScreen = () => {
                 >
                   <Text style={styles.loginButtonText}>{isLoading ? 'Signing in...' : 'Sign in'}</Text>
                 </TouchableOpacity>
+
+
+                <View style={styles.signUpContainer}>
+                  <Text style={styles.signUpText}>Don't have an account? </Text>
+                  <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
+                    <Text style={styles.signUpLink}>Sign up</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <TouchableOpacity
                   style={styles.termsContainer}
                   onPress={() => setAgreedToTerms(!agreedToTerms)}
@@ -455,18 +464,9 @@ const NewLoginScreen = () => {
                     </Text>
                   </Text>
                 </TouchableOpacity>
-
-                <View style={styles.signUpContainer}>
-                  <Text style={styles.signUpText}>Don't have an account? </Text>
-                  <TouchableOpacity onPress={() => navigation.navigate("SignUp")}>
-                    <Text style={styles.signUpLink}>Sign up</Text>
-                  </TouchableOpacity>
-                </View>
-
-
                 <Text style={styles.poweredBy}>
                   Powered By{' '}
-                  <Text style={styles.poweredByBrand}>Factech Automation Solutions Private Limited</Text>
+                  <Text style={styles.poweredByBrand}>Max Estates Private Limited</Text>
                 </Text>
                 <Text style={styles.versionText}>v{version}</Text>
               </View>
@@ -495,7 +495,7 @@ const NewLoginScreen = () => {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safeArea: { flex: 1, backgroundColor: BRAND.PRIMARY_COLOR },
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
 
   // ── Splash / session-check screen ──────────────────────────────────────────
   splashContainer: {
@@ -534,12 +534,13 @@ const styles = StyleSheet.create({
     borderColor: '#e53935',   // red border on error
     backgroundColor: '#fff5f5',
   },
-  termsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-  },
+ termsContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 12,
+  marginBottom: 0,
+},
 
   termsText: {
     fontSize: 12,
@@ -568,9 +569,15 @@ const styles = StyleSheet.create({
   loginButton: { backgroundColor: BRAND.COLORS.button, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 25, height: 60, elevation: 5 },
   loginButtonDisabled: { backgroundColor: '#B0B0B0', elevation: 0 },
   loginButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 18 },
-  signUpContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 13 },
-  signUpText: { fontSize: 14, color: '#9e9e9e' },
-  signUpLink: { fontSize: 14, color: '#074B7C', fontWeight: 'bold' },
+
+  signUpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 28,
+  }, signUpText: { fontSize: 14, color: '#9e9e9e' },
+  signUpLink: { fontSize: 15, color: '#074B7C', fontWeight: 'bold' },
   poweredBy: { textAlign: 'center', fontSize: 12, color: '#9e9e9e', marginTop: 4 },
   poweredByBrand: { color: BRAND.PRIMARY_COLOR, fontWeight: '500' },
   versionText: { textAlign: 'center', fontSize: 12, color: '#9e9e9e', marginTop: 6 },

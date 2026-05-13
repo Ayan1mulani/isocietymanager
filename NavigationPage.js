@@ -203,88 +203,88 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   console.log("BillPaymentScreen:", typeof BillPaymentScreen);
   console.log("Payment:", typeof Payment);
 
-  return (
-    <View style={styles.bottomNavContainer}>
-      <View style={[styles.bottomNavBar, { backgroundColor: NAVBAR_BG }]}>
-        {/* Sliding White Background Indicator */}
-        <Animated.View
-          style={[
-            styles.slidingIndicator,
-            {
-              width:
-                state.routes[state.index].name === "Service Requests" ||
-                  state.routes[state.index].name === "Visitors"
-                  ? tabWidth + 20   // increase only active indicator width
-                  : tabWidth,
-              backgroundColor: SECONDARY_COLOR,
-              transform: [{ translateX }],
-            },
-          ]}
-        />
+  // return (
+  //   <View style={styles.bottomNavContainer}>
+  //     <View style={[styles.bottomNavBar, { backgroundColor: NAVBAR_BG }]}>
+  //       {/* Sliding White Background Indicator */}
+  //       <Animated.View
+  //         style={[
+  //           styles.slidingIndicator,
+  //           {
+  //             width:
+  //               state.routes[state.index].name === "Service Requests" ||
+  //                 state.routes[state.index].name === "Visitors"
+  //                 ? tabWidth + 20   // increase only active indicator width
+  //                 : tabWidth,
+  //             backgroundColor: SECONDARY_COLOR,
+  //             transform: [{ translateX }],
+  //           },
+  //         ]}
+  //       />
 
-        {state.routes.map((route, index) => {
-          const { options } = descriptors[route.key];
-          const isFocused = state.index === index;
+  //       {state.routes.map((route, index) => {
+  //         const { options } = descriptors[route.key];
+  //         const isFocused = state.index === index;
 
-          const label = options.tabBarLabel !== undefined
-            ? options.tabBarLabel
-            : options.title !== undefined
-              ? options.title
-              : route.name;
+  //         const label = options.tabBarLabel !== undefined
+  //           ? options.tabBarLabel
+  //           : options.title !== undefined
+  //             ? options.title
+  //             : route.name;
 
-          const shortLabel = getShortLabel(label);
+  //         const shortLabel = getShortLabel(label);
 
-          const onPress = () => {
-            // Haptic feedback
-            try {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            } catch (error) {
-              // Haptics not available
-            }
+  //         const onPress = () => {
+  //           // Haptic feedback
+  //           try {
+  //             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  //           } catch (error) {
+  //             // Haptics not available
+  //           }
 
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
+  //           const event = navigation.emit({
+  //             type: 'tabPress',
+  //             target: route.key,
+  //             canPreventDefault: true,
+  //           });
 
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
+  //           if (!isFocused && !event.defaultPrevented) {
+  //             navigation.navigate(route.name);
+  //           }
+  //         };
 
-          return (
-            <TouchableOpacity
-              key={route.key}
-              onPress={onPress}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel={`${label} tab`}
-              accessibilityState={{ selected: isFocused }}
-              activeOpacity={0.7}
-              style={[styles.tabItem, { width: tabWidth }]}
-            >
-              <View style={styles.tabContent}>
-                {getIconByRouteName(
-                  route.name,
-                  isFocused ? ACTIVE_COLOR : ICON_COLOR_INACTIVE,
-                  isFocused
-                )}
-                {isFocused && (
-                  <Text
-                    style={[styles.tabLabel, { color: ACTIVE_COLOR }]}
-                    numberOfLines={1}
-                  >
-                   {t(shortLabel)}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
+  //         return (
+  //           <TouchableOpacity
+  //             key={route.key}
+  //             onPress={onPress}
+  //             accessible={true}
+  //             accessibilityRole="button"
+  //             accessibilityLabel={`${label} tab`}
+  //             accessibilityState={{ selected: isFocused }}
+  //             activeOpacity={0.7}
+  //             style={[styles.tabItem, { width: tabWidth }]}
+  //           >
+  //             <View style={styles.tabContent}>
+  //               {getIconByRouteName(
+  //                 route.name,
+  //                 isFocused ? ACTIVE_COLOR : ICON_COLOR_INACTIVE,
+  //                 isFocused
+  //               )}
+  //               {isFocused && (
+  //                 <Text
+  //                   style={[styles.tabLabel, { color: ACTIVE_COLOR }]}
+  //                   numberOfLines={1}
+  //                 >
+  //                  {t(shortLabel)}
+  //                 </Text>
+  //               )}
+  //             </View>
+  //           </TouchableOpacity>
+  //         );
+  //       })}
+  //     </View>
+  //   </View>
+  // );
 };
 
 const NavigationTabs = () => {
@@ -454,6 +454,8 @@ const NavigationPage = () => {
         <Stack.Screen name="BouncedChequeDetail" component={BouncedChequeDetailScreen} />
         <Stack.Screen name="surveypage" component={SurveyPage} />
         <Stack.Screen name="event" component={Event} />
+        <Stack.Screen name="more" component={MoreScreen}  screenOptions={{ headerShown: true }}/>
+
 
         
 

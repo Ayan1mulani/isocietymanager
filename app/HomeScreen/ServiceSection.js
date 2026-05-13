@@ -58,18 +58,28 @@ const ServicesSection = () => {
   const canSendPanic = permissionsLoaded && hasPermission(permissions, 'PNC', 'C');
 
   const allServices = [
-    { id: '1', title: 'Accounts', icon: 'card-outline', route: 'Accounts' },
-    { id: '2', title: "Notices", icon: "megaphone-outline", route: "MyNoticesScreen" },
-    { id: '3', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
-    { id: '4', title: 'SOS', icon: 'alert-circle', isPanic: true },
-    { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
-    { id: '6', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
-    { id: '7', title: 'Family', icon: 'person-add-outline', route: 'FamilyMember' },
-    { id: '8', title: 'Complaints', icon: 'construct-outline', route: 'Service Requests' },
-    { id: '9', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
-    { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
-    { id: '11', title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
-    { id: '12', title: 'More', icon: 'ellipsis-horizontal-outline', route: 'AllServicesScreen' },
+    // { id: '1', title: 'Accounts', icon: 'card-outline', route: 'Accounts' },
+    { id: '1', title: "Notices", icon: "clipboard-outline", route: "MyNoticesScreen" },
+    { id: '3', title: "Amenities", icon: "bookmarks-outline", route: "AmenitiesListScreen" },
+    { id: "4", title: "Have a Query?", icon: "alert-outline", route: "CategorySelection" },
+    { id: '5', title: 'Request Status', icon: 'construct-outline', route: 'Service Requests' },
+    { id: '6', title: 'Events', icon: 'calendar-outline', route: 'event' },
+
+
+
+    // { id: '3', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
+    // { id: '4', title: 'SOS', icon: 'alert-circle', isPanic: true },
+    // { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
+    // { id: '6', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
+    // { id: '7', title: 'Family', icon: 'person-add-outline', route: 'FamilyMember' },
+
+
+
+
+    // { id: '9', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
+    // { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
+    // { id: '11', title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
+    // { id: '12', title: 'More', icon: 'ellipsis-horizontal-outline', route: 'AllServicesScreen' },
   ];
 
   const panicReasons = [
@@ -81,7 +91,7 @@ const ServicesSection = () => {
 
   const theme = {
     iconBgUnselected: nightMode ? '#1F2937' : '#F3F4F6',
-    iconColorUnselected: nightMode ? '#D1D5DB' : '#4B5563',
+    iconColorUnselected: '#ee760d',
     textColor: nightMode ? '#D1D5DB' : '#374151',
   };
 
@@ -118,14 +128,14 @@ const ServicesSection = () => {
       if (res?.status === 'success') {
         const phoneData = res.data?.phone_nos;
         let freshContacts = [];
-        
+
         if (phoneData) {
           freshContacts = Array.isArray(phoneData) ? phoneData : [phoneData];
         }
-        
+
         // Update state with fresh data
         setContacts(freshContacts);
-        
+
         // Update cache
         await AsyncStorage.setItem(CONTACTS_CACHE_KEY, JSON.stringify(freshContacts));
       } else if (!cachedData) {
@@ -203,7 +213,7 @@ const ServicesSection = () => {
             <View
               style={[
                 styles.iconContainer,
-                { backgroundColor: service.isPanic ? '#FCEEED' : "#f7fafd", borderColor: service.isPanic ? '#FEE2E2' : '#f2f7fb', borderWidth: 1 , elevation: 0.3},
+                { backgroundColor: service.isPanic ? '#FCEEED' : "#fdfcf7", borderColor: service.isPanic ? '#FEE2E2' : '#fbf5f2', borderWidth: 1, elevation: 0.3 },
               ]}
             >
               <Ionicons
@@ -329,19 +339,19 @@ export default ServicesSection;
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 0, 
+    marginBottom: 0,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20, 
-    marginTop: 20,        
+    marginHorizontal: 20,
+    marginTop: 20,
     marginBottom: 10
   },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: 10, 
+    marginHorizontal: 10,
   },
   inputContainer: { paddingHorizontal: 16, marginTop: 12 },
   messageInput: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 12, color: '#374151', minHeight: 45 },

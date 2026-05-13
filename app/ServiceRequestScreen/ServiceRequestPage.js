@@ -110,7 +110,7 @@ const ComplaintListScreen = ({
   if (hasMore && !isLoadingMore && !isLoading && uniqueComplaints.length > 0){
       onLoadMore?.();
     }
-  }, [hasMore, isLoadingMore, isLoading, filteredComplaints.length, onLoadMore]);
+  }, [hasMore, isLoadingMore, isLoading, onLoadMore]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
@@ -181,11 +181,15 @@ const emptyTitle = selectedSegment
         ListFooterComponent={renderFooter}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.3}
-        removeClippedSubviews={true}
+        removeClippedSubviews={false}
+        nestedScrollEnabled
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+        }}
         maxToRenderPerBatch={8}
         updateCellsBatchingPeriod={30}
-        windowSize={7}
-        initialNumToRender={10}
+        windowSize={10}
+        initialNumToRender={15}
         ListEmptyComponent={
           <EmptyState
             icon="mail-open-outline"

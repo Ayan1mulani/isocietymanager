@@ -15,9 +15,7 @@ export default {
     uri: "https://images.unsplash.com/photo-1519501025264-65ba15a82390"
   },
 
-  LOGO: {
-    uri: "https://play-lh.googleusercontent.com/OOthMsBK0TMVv2yGZRuE7bUtKU0vups2a7qQ3eDDbE5Sks2hCRl_13ciob-xf7gDw9peDQSqxXLLiVwWwHWPYQ=w480-h960-rw"
-  },
+  LOGO: require('../../assets/images/maxLife_logo_screen.png'),
 
   COLORS: {
 
@@ -65,5 +63,7 @@ export default {
     bottomNavIndicator: "#FFF4E6",
     bottomNavActiveIcon: "#F27B22",
     bottomNavInactiveIcon: "#9CA3AF",
+    skeleton: "#1F3D72",
+    scrollablePill: "#1F3D72",
   }
 };

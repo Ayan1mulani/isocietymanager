@@ -32,6 +32,7 @@ import DeviceInfo from 'react-native-device-info';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 import { clearAccountsCache } from '../AccountsScreen/AccountsPage';
+import AppHeader from '../components/AppHeader';
 
 const { VisitorModule } = NativeModules;
 const version = DeviceInfo.getVersion();
@@ -589,6 +590,7 @@ const ProfileScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <AppHeader title={"Profile"}/>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* ── Profile Header ───────────────────────────────────────────── */}
@@ -639,7 +641,7 @@ const ProfileScreen = () => {
         </View>
 
         {/* ── Virtual ID Card ──────────────────────────────────────────── */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={[styles.virtualIdCard, { backgroundColor: theme.cardBg }]}
           onPress={() => navigation.navigate('ResidentIdCard')}
           activeOpacity={0.8}
@@ -658,9 +660,9 @@ const ProfileScreen = () => {
             </View>
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.textSub} />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         {/* ── My Vehicle Card ───────────────────────────────────────── */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={[styles.virtualIdCard, { backgroundColor: theme.cardBg }]}
           onPress={() => navigation.navigate('MyVehiclesScreen')}
           activeOpacity={0.8}
@@ -692,10 +694,10 @@ const ProfileScreen = () => {
             size={20}
             color={theme.textSub}
           />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {/* ── Unit Details ─────────────────────────────────────────────── */}
-        <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
+        {/* <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <TouchableOpacity style={styles.dropdownHeader} onPress={() => setUnitOpen(p => !p)}>
             <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Unit Details")}</Text>
             <Ionicons name={unitOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color={theme.textSub} />
@@ -715,10 +717,10 @@ const ProfileScreen = () => {
               <InfoRow label={t("Security Deposit")} value={userDetails?.sec_depo} theme={theme} loading={loading && !userDetails} />
             </View>
           )}
-        </View>
+        </View> */}
 
         {/* ── Owner Details — RESTORED ─────────────────────────────────── */}
-        {userProfile?.tenant == 1 && (
+        {/* {userProfile?.tenant == 1 && (
           <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
             <TouchableOpacity style={styles.dropdownHeader} onPress={() => setOwnerOpen(p => !p)}>
               <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Owner Details")}</Text>
@@ -732,10 +734,10 @@ const ProfileScreen = () => {
               </View>
             )}
           </View>
-        )}
+        )} */}
 
         {/* ── Meter Details — RESTORED ─────────────────────────────────── */}
-        <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
+        {/* <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <TouchableOpacity style={styles.dropdownHeader} onPress={() => setMeterOpen(p => !p)}>
             <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Meter Details")}</Text>
             <Ionicons name={meterOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={20} color={theme.textSub} />
@@ -755,7 +757,7 @@ const ProfileScreen = () => {
               <InfoRow label={t("Meter Seal No")} value={userDetails?.meter_seal_no} theme={theme} loading={loading && !userDetails} />
             </View>
           )}
-        </View>
+        </View> */}
 
 
 

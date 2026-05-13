@@ -27,10 +27,10 @@ const SHIMMER_TRAVEL = PAGE_WIDTH * 2;
 const getOutstandingCacheKey = (userId) => `@outstanding_cache_${userId}`;
 
 const HTML_THEME = {
-  background: "#1a2540f7",
-  card: "rgba(255, 255, 255, 0.1)",
+  background: "#F27B22",
+  card: "#ffff",
   cardBorder: "rgb(255, 255, 255)",
-  text: "#FFFFFF",
+  text: "#000000",
   subText: "rgba(255, 255, 255, 0.6)",
   accent: "#0ea98a",
   shimBase: "rgba(255, 255, 255, 0.05)",
@@ -312,7 +312,7 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
     const handleRefresh = async () => {
       try {
         setRefreshingCardId(billData?.id);
-    const freshRes = await ismServices.getRentBalance(billData?.id);
+        const freshRes = await ismServices.getRentBalance(billData?.id);
 
         if (
           freshRes?.status === "success" &&
@@ -345,11 +345,11 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
       }
     };
 
-    return (
+    return (  
       <TouchableOpacity
         activeOpacity={isPayable ? 0.7 : 1}
         disabled={!isPayable}
-        style={[styles.cardOuter, { flex: flexValue, opacity: isPayable ? 1 : 0.6 }]}
+        style={[styles.cardOuter, { flex: flexValue, opacity: isPayable ? 1 : 0.8 }]}
         onPress={() =>
           navigation.navigate("BillPaymentScreen", {
             billType: billData?.id,
@@ -373,41 +373,41 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
               style={styles.refreshBtn}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Easier to tap without taking up layout space
             >
-              <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
+              <Ionicons name="refresh-outline" size={15} color="#000000" />
             </TouchableOpacity>
           </View>
 
           <Text style={styles.label} numberOfLines={1}>
             {label}
           </Text>
-    <View style={styles.amountRow}>
-{isRefreshing ? (
-  <AnimatedDots />
-) : shouldShowBalance ? (
-  <Text
-    style={styles.amount}
-    numberOfLines={1}
-    adjustsFontSizeToFit
-    minimumFontScale={0.6}
-  >
-    ₹{rawAmount}
-  </Text>
-) : (
-  <Text style={styles.amount} numberOfLines={1}>
-    ₹ 0
-  </Text>
-)}
+          <View style={styles.amountRow}>
+            {isRefreshing ? (
+              <AnimatedDots />
+            ) : shouldShowBalance ? (
+              <Text
+                style={styles.amount}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
+                ₹{rawAmount}
+              </Text>
+            ) : (
+              <Text style={styles.amount} numberOfLines={1}>
+                ₹ 0
+              </Text>
+            )}
 
-  <View style={styles.arrowInline}>
-    <Ionicons
-      name={isPayable ? "arrow-forward" : "lock-closed"}
-      size={14}
-      color="#FFF"
-    />
-  </View>
-</View>
+            <View style={styles.arrowInline}>
+              <Ionicons
+                name={isPayable ? "arrow-forward" : "lock-closed"}
+                size={14}
+                color="#000"
+              />
+            </View>
+          </View>
         </View>
-    
+
       </TouchableOpacity>
     );
   };
@@ -480,26 +480,26 @@ const styles = StyleSheet.create({
   pageContainer: { flexDirection: "row", gap: 10 },
   cardOuter: {
     borderRadius: 14,
-    padding: 10, // Reduced from 12
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    padding: 10,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1.2,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    borderColor: "rgba(0, 0, 0, 0.08)",
     justifyContent: "space-between",
-    minHeight: 70, // Reduced from 85 to make height slightly lower
+    minHeight: 70,
   },
   topGroup: {
     width: "100%",
   },
-refreshBtn: {
-  width: 27,
-  height: 27,
-  borderRadius: 17,
-  justifyContent: "center",
-  alignItems: "center",
-  backgroundColor: "rgba(255,255,255,0.12)",
-  marginTop: -5,
-  marginRight: -2,
-},
+  refreshBtn: {
+    width: 27,
+    height: 27,
+    borderRadius: 17,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.06)",
+    marginTop: -5,
+    marginRight: -2,
+  },
   topRow: {
     width: "100%",
     flexDirection: "row",
@@ -508,49 +508,49 @@ refreshBtn: {
     marginBottom: 6, // Tighter spacing
   },
   billDate: {
-    color: "rgba(255, 255, 255, 0.86)",
+    color: "rgba(0, 0, 0, 0.7)",
     fontSize: 10,
     flex: 1,
     marginRight: 8,
   },
   label: {
-    color: "rgba(255, 255, 255, 0.86)",
+    color: "#ff6f00",
     fontSize: 9.5,
     letterSpacing: 0.8,
     textTransform: "uppercase",
-    marginBottom: 0, // Removed bottom margin for tighter fit
+    marginBottom: 0,
   },
   amount: {
-    color: "#FFFFFF",
-    fontSize: 20, // Slightly reduced font size to match new height
+    color: "#000000",
+    fontSize: 20,
     fontWeight: "700",
     letterSpacing: -0.5,
   },
   refreshLoading: {
-    color: "#FFFFFF",
+    color: "#ff5100",
     fontSize: 20,
     fontWeight: "700",
     letterSpacing: 3,
   },
 
-amountRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  marginTop: 2,
-},
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
 
-arrowInline: {
-  marginLeft: 8,
-  justifyContent: "center",
-  alignItems: "center",
-},
+  arrowInline: {
+    marginLeft: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   dotsRow: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     marginTop: 10, // Brought dots closer
-  
+
   },
   dot: { height: 5, borderRadius: 4, marginHorizontal: 3 },
 });

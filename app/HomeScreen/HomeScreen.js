@@ -356,10 +356,10 @@ const HomeScreen = () => {
             <CarouselSection refreshTrigger={refreshTrigger} />
             <ServicesSection refreshTrigger={refreshTrigger} />
             <Action />
-            <QuickActionsScreen />
-            {canViewStaff && <StaffSection refreshTrigger={refreshTrigger} />}
-            {canViewVisitors && <VisitorSection refreshTrigger={refreshTrigger} />}
-            <HomeNoticeSection />
+            {/* <QuickActionsScreen /> */}
+            {/* {canViewStaff && <StaffSection refreshTrigger={refreshTrigger} />} */}
+            {/* {canViewVisitors && <VisitorSection refreshTrigger={refreshTrigger} />} */}
+            {/* <HomeNoticeSection /> */}
             <ImportantContacts />
           </View>
         </View>

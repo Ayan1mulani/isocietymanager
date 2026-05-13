@@ -29,8 +29,8 @@ const ResidentHeader = () => {
   
 
   const theme = {
-    background: '#1a2540f7',
-    text: '#FFFFFF',       
+background: '#F27B22'  ,
+    text: '#ffffff',       
     subText: 'rgba(255, 255, 255, 0.6)',
     border: 'transparent', 
     avatarBg: 'rgba(255, 255, 255, 0.15)', 
@@ -197,20 +197,20 @@ const ResidentHeader = () => {
             onPress={() => navigation.navigate('AllServicesScreen')}
             style={styles.iconBtn}
           >
-            <Ionicons name="search-outline" size={22} color={theme.text} />
+            <Ionicons name="search" size={22} color={theme.text} />
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => navigation.navigate('NotificationsScreen')}
             style={styles.iconBtn}
           >
-            <Ionicons name="notifications-outline" size={22} color={theme.text} />
+            <Ionicons name="notifications" size={22} color={theme.text} />
           </TouchableOpacity>
 
           {/* Profile Icon */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('ResidentIdCard', { userDetails })}
+            onPress={() => navigation.navigate('more')}
             style={[styles.avatarContainer, { borderColor: theme.avatarBorder }]}
           >
             {profilePic ? (
@@ -257,7 +257,7 @@ const ResidentHeader = () => {
           activeOpacity={0.8}
         >
           <Text style={styles.awayText}>{t("You are marked as away")}</Text>
-          <Ionicons name="chevron-forward" size={14} color="#EF4444" style={{ marginLeft: 4 }} />
+          <Ionicons name="chevron-forward" size={14} color="#ffffff" style={{ marginLeft: 4 }} />
         </TouchableOpacity>
       )}
     </View>
@@ -282,18 +282,19 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   logoBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
+    padding: 2,
   },
   logoImage: {
-    width: '100%',
-    height: '100%',
+    width: '112%',
+    height: '112%',
   },
   societyName: {
     fontSize: 16,
@@ -338,13 +339,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#ebcfcf',
     paddingVertical: 6,
     paddingHorizontal: 12,
   },
   awayText: {
     fontSize: 12,
-    color: '#EF4444',
+    color: '#1F3D72',
     fontWeight: '500',
     marginLeft: 6,
   },

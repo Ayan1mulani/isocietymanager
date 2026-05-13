@@ -140,14 +140,14 @@ const CarouselSection = ({ refreshTrigger }) => {
           )}
         />
       )}
-
+{/* 
       {!loading && images.length > 1 && (
         <View style={styles.paginationWrapper}>
           <View style={[styles.paginationPill, { backgroundColor: theme.pillBg, borderColor: theme.pillBorder, borderWidth: 1 }]}>
             {images.map((_, index) => <AnimatedDot key={index} index={index} scrollX={scrollX} theme={theme} />)}
           </View>
         </View>
-      )}
+      )} */}
 
       {/* ─── NATIVE ZOOM MODAL ─── */}
       <Modal visible={!!fullScreenImage} transparent={true} animationType="fade" onRequestClose={() => setFullScreenImage(null)}>
