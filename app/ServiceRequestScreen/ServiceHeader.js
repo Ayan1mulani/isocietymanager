@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   View,
@@ -11,7 +11,6 @@ import {
 
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added import
 import { usePermissions } from '../../Utils/ConetextApi';
 import { hasPermission } from '../../Utils/PermissionHelper';
 import ComplaintListScreen from './ServiceRequestPage';
@@ -25,16 +24,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const TABS = ['Open', 'Closed', 'All'];
 const PER_PAGE = 15;
 
-const getCacheKey = (userId) => `@service_requests_page_1_${userId}`;
-
 const COLORS = {
   primary: BRAND.COLORS.primary,
   light: { background: '#FFFFFF', text: '#111827', textSecondary: '#6C757D' },
   dark: { background: '#121212', text: '#FFFFFF', textSecondary: '#9E9E9E' },
 };
-
-const TERMINAL_STATUSES = ['closed', 'resolved', 'completed', 'cancelled', 'rejected', 'withdrawn'];
-const normalizeStatus = (status) => (status || '').trim().toLowerCase();
 
 const LazyTabPage = React.memo(({ tabIndex, activeIndex, backgroundColor, children }) => {
   const hasBeenActive = useRef(tabIndex === 0);
@@ -53,13 +47,34 @@ const LazyTabPage = React.memo(({ tabIndex, activeIndex, backgroundColor, childr
 const ServiceRequestTabs = () => {
   const { t } = useTranslation();
   const [activeTabIndex, setActiveTabIndex] = useState(0);
-  const [allComplaints, setAllComplaints] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const isFetchingRef = useRef(false);
+  // ✅ Store data, page, and hasMore separately for EACH tab
+  const [tabStates, setTabStates] = useState({
+    Open: { data: [], page: 1, hasMore: true },
+    Closed: { data: [], page: 1, hasMore: true },
+    All: { data: [], page: 1, hasMore: true },
+  });
+
+  // ✅ Ref to track if a tab has already been loaded initially
+  const loadedTabsRef = useRef({ Open: false, Closed: false, All: false });
+
+  const [loadingStates, setLoadingStates] = useState({
+    Open: false,
+    Closed: false,
+    All: false,
+  });
+
+  const [loadingMoreStates, setLoadingMoreStates] = useState({
+    Open: false,
+    Closed: false,
+    All: false,
+  });
+
+  const isFetchingRef = useRef({
+    Open: false,
+    Closed: false,
+    All: false,
+  });
   const scrollViewRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
@@ -72,106 +87,134 @@ const ServiceRequestTabs = () => {
   const canCreateComplaint = permissionsLoaded && hasPermission(permissions, 'COM', 'C');
   const canReopen = permissionsLoaded && hasPermission(permissions, 'COM', 'REOPEN');
 
-  const requests = useMemo(() => ({
-    open: allComplaints.filter(i => !TERMINAL_STATUSES.includes(normalizeStatus(i.status))),
-    closed: allComplaints.filter(i => TERMINAL_STATUSES.includes(normalizeStatus(i.status))),
-    all: allComplaints,
-  }), [allComplaints]);
-
-  const tabData = useMemo(() => ({
-    Open: requests.open,
-    Closed: requests.closed,
-    All: requests.all,
-  }), [requests]);
-
-  // ✅ API Call with Caching Logic
-  const fetchServiceRequests = useCallback(async (page = 1, reset = false) => {
-    if (isFetchingRef.current) return;
-    isFetchingRef.current = true;
+  const fetchServiceRequests = useCallback(async (tabName, page = 1, reset = false) => {
+    if (isFetchingRef.current[tabName]) return;
+    isFetchingRef.current[tabName] = true;
 
     try {
-      const userInfoRaw = await AsyncStorage.getItem("userInfo");
-      const userInfo = userInfoRaw ? JSON.parse(userInfoRaw) : null;
-      const userId = userInfo?.id || userInfo?.user_id || "default";
-      const CACHE_KEY = getCacheKey(userId);
-
       if (reset) {
-        setIsLoading(true);
-        // ✅ INSTANT LOAD: Check cache only for the first page
-        if (page === 1) {
-          const cachedData = await AsyncStorage.getItem(CACHE_KEY);
-          if (cachedData) {
-            setAllComplaints(JSON.parse(cachedData));
-            setIsLoading(false); // Turn off main loader immediately
-          }
-        }
+        setLoadingStates(prev => ({
+          ...prev,
+          [tabName]: true,
+        }));
       } else {
-        setIsLoadingMore(true);
+        setLoadingMoreStates(prev => ({
+          ...prev,
+          [tabName]: true,
+        }));
       }
 
-      // BACKGROUND FETCH: Get fresh data
-      const res = await complaintService.getMyComplaints({ page, perPage: PER_PAGE });
+      let apiStatus = '';
+      if (tabName === 'Open') apiStatus = 'Open';
+      else if (tabName === 'Closed') apiStatus = 'Closed';
+
+      const res = await complaintService.getMyComplaints({
+        page,
+        perPage: PER_PAGE,
+        status: apiStatus,
+      });
+
       const pageData = Array.isArray(res?.data) ? res.data : [];
 
-      const cleaned = pageData.map((item) => ({
-        ...item,
-        status: normalizeStatus(item.status),
-      }));
+      setTabStates(prev => {
+        const currentTabData = prev[tabName].data;
+        let newData = pageData;
 
-      setCurrentPage(page);
-      setHasMore(pageData.length === PER_PAGE);
-
-      if (reset) {
-        setAllComplaints(cleaned);
-        // ✅ STORAGE PROTECTION: Only cache Page 1
-        if (page === 1) {
-          await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(cleaned));
+        if (!reset) {
+          const ids = new Set(currentTabData.map(i => i.id ?? i.com_no));
+          const newItems = pageData.filter(i => !ids.has(i.id ?? i.com_no));
+          newData = [...currentTabData, ...newItems];
         }
-      } else {
-        setAllComplaints(prev => {
-          const ids = new Set(prev.map(i => i.id ?? i.com_no));
-          const newItems = cleaned.filter(i => !ids.has(i.id ?? i.com_no));
-          return [...prev, ...newItems];
-        });
-      }
+
+        return {
+          ...prev,
+          [tabName]: {
+            data: newData,
+            page,
+            hasMore: pageData.length === PER_PAGE,
+          }
+        };
+      });
+
+      // Mark this specific tab as loaded so we don't fetch it again purely from scrolling
+      loadedTabsRef.current[tabName] = true;
 
     } catch (err) {
       console.error(err);
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
-      isFetchingRef.current = false;
+      setLoadingStates(prev => ({
+        ...prev,
+        [tabName]: false,
+      }));
+
+      setLoadingMoreStates(prev => ({
+        ...prev,
+        [tabName]: false,
+      }));
+      isFetchingRef.current[tabName] = false;
     }
   }, []);
 
   const handleLoadMore = useCallback(() => {
-    if (hasMore && !isLoadingMore && !isLoading) {
-      fetchServiceRequests(currentPage + 1, false);
+    const currentTab = TABS[activeTabIndex];
+    const currentState = tabStates[currentTab];
+
+    if (
+      currentState.hasMore &&
+      !loadingMoreStates[currentTab] &&
+      !loadingStates[currentTab]
+    ) {
+      fetchServiceRequests(currentTab, currentState.page + 1, false);
     }
-  }, [hasMore, isLoadingMore, isLoading, currentPage]);
+  }, [
+    activeTabIndex,
+    tabStates,
+    loadingMoreStates,
+    loadingStates,
+    fetchServiceRequests,
+  ]);
 
   const handleRefresh = useCallback(() => {
-    setHasMore(true);
-    fetchServiceRequests(1, true);
-  }, []);
-
-  // ❌ The dangerous auto-load Closed tab useEffect has been permanently removed.
+    const currentTab = TABS[activeTabIndex];
+    fetchServiceRequests(currentTab, 1, true);
+  }, [activeTabIndex, fetchServiceRequests]);
 
   useEffect(() => {
-    if (canViewComplaints) {
-      fetchServiceRequests(1, true);
+    // Only load initial 'Open' tab if it hasn't been loaded yet
+    if (canViewComplaints && !loadedTabsRef.current['Open']) {
+      fetchServiceRequests('Open', 1, true);
     }
-  }, [canViewComplaints]);
+  }, [canViewComplaints, fetchServiceRequests]);
 
   const handleTabPress = useCallback((index) => {
+    if (index === activeTabIndex) return;
+
+    const tab = TABS[index];
+
+    // ✅ ONLY fetch if we have never loaded this tab before
+    if (!loadedTabsRef.current[tab]) {
+      fetchServiceRequests(tab, 1, true);
+    }
+
     setActiveTabIndex(index);
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
+
+    scrollViewRef.current?.scrollTo({
+      x: index * SCREEN_WIDTH,
+      animated: true,
     });
-  }, []);
+  }, [activeTabIndex, fetchServiceRequests]);
 
   const handleMomentumScrollEnd = (e) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    if (index === activeTabIndex) return;
+
+    const tab = TABS[index];
+
+    // ✅ ONLY fetch if we have never loaded this tab before
+    if (!loadedTabsRef.current[tab]) {
+      fetchServiceRequests(tab, 1, true);
+    }
+
     setActiveTabIndex(index);
   };
 
@@ -191,15 +234,6 @@ const ServiceRequestTabs = () => {
     );
   }
 
-  if (isLoading && allComplaints.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text>{t("Loading requests...")}</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <SlidingTabs tabs={TABS} activeIndex={activeTabIndex} onTabPress={handleTabPress} scrollX={scrollX} />
@@ -208,32 +242,53 @@ const ServiceRequestTabs = () => {
         ref={scrollViewRef}
         horizontal
         pagingEnabled
+        nestedScrollEnabled
+        directionalLockEnabled
+        disableIntervalMomentum
+        removeClippedSubviews={false}
+        contentContainerStyle={{ flexGrow: 1 }}
         bounces={false}
         overScrollMode="never"
+        automaticallyAdjustContentInsets={false}
         showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
+        scrollEventThrottle={8}
         onMomentumScrollEnd={handleMomentumScrollEnd}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false }
+          {
+            useNativeDriver: true,
+          }
         )}
       >
-        {TABS.map((tab, index) => (
-          <LazyTabPage key={tab} tabIndex={index} activeIndex={activeTabIndex} backgroundColor={theme.background}>
-            <ComplaintListScreen
-              nightMode={nightMode}
-              status={tab}
-              complaints={tabData[tab]}
-              isLoading={isLoading}
-              isLoadingMore={isLoadingMore}
-              hasMore={hasMore}
-              onRefresh={handleRefresh}
-              onLoadMore={handleLoadMore}
-              showStats={tab === 'All'}
-              canReopen={canReopen}
-            />
-          </LazyTabPage>
-        ))}
+        {TABS.map((tab, index) => {
+          const currentTabState = tabStates[tab];
+          // ✅ We only show the skeleton loading if THIS specific tab has no data yet
+          const isTabLoading =
+            loadingStates[tab] && currentTabState.data.length === 0;
+
+          return (
+            <LazyTabPage
+              key={tab}
+              tabIndex={index}
+              activeIndex={activeTabIndex}
+              backgroundColor={theme.background}
+            >
+              <ComplaintListScreen
+                key={`complaints-${tab}`}
+                nightMode={nightMode}
+                status={tab}
+                complaints={currentTabState.data}
+                isLoading={isTabLoading}
+                isLoadingMore={loadingMoreStates[tab]}
+                hasMore={currentTabState.hasMore}
+                onRefresh={handleRefresh}
+                onLoadMore={handleLoadMore}
+                showStats={tab === 'All'}
+                canReopen={canReopen}
+              />
+            </LazyTabPage>
+          );
+        })}
       </Animated.ScrollView>
 
       {canCreateComplaint && (
