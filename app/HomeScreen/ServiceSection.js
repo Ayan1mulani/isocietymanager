@@ -65,7 +65,7 @@ const ServicesSection = () => {
     { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
     { id: '6', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
     { id: '7', title: 'Family', icon: 'person-add-outline', route: 'FamilyMember' },
-    { id: '8', title: 'Complaints', icon: 'construct-outline', route: 'Service Requests' },
+    { id: '8', title: 'Service Request', icon: 'construct-outline', route: 'Service Requests' },
     { id: '9', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
     { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { id: '11', title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
@@ -180,7 +180,7 @@ const ServicesSection = () => {
     if (service.title === 'Setting') return hasPermission(permissions, 'STG', 'R');
     if (service.title === 'Amenities') return hasPermission(permissions, 'FBK', 'R');
     if (service.title === 'Energy') return hasPermission(permissions, 'MTR', 'R');
-    if (service.title === 'Complaints') return hasPermission(permissions, 'COM', 'R');
+    if (service.title === 'Service Request') return hasPermission(permissions, 'COM', 'R');
     if (service.title === 'SOS') return canViewPanic;
 
     return true;

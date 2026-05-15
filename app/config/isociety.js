@@ -14,9 +14,7 @@ export default {
     uri: "https://images.unsplash.com/photo-1492724441997-5dc865305da7"
   },
 
-  LOGO: {
-    uri: "https://play-lh.googleusercontent.com/ZywUf3jfp2LbbCss4aFZoNIt18Bap-tp3mVVcdD9DhZv-YuQJS22AmbgPhmzWic2dpo=s96-rw"
-  },
+  LOGO: require('../../assets/images/ism.png'),
 
   COLORS: {
 

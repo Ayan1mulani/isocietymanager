@@ -1,73 +1,205 @@
-import { API_URL2, API_URL4,PAYMENT_URL } from "../app/config/env"
+import { API_URL2, API_URL4, PAYMENT_URL } from "../app/config/env"
 import { ApiCommon } from "./ApiCommon"
 import { Common } from "./Common";
 import { Util } from "./Util";
+import { ismServices } from "./ismServices";
 import { OneSignal } from "react-native-onesignal";
 
 const otherServices = {
 
 
-getCommonAreas: async () => {
-  try {
-    const user = await Common.getLoggedInUser();
 
-    const userObj = {
-      user_id: user.id,
-      group_id: user.role_id,
-      flat_no: user.flat_no,
-      unit_id: user.unit_id,
-      society_id: user.societyId,
+sendTestNotification: async () => {
+  try {
+    console.log("🚀 Sending Test Notification...");
+
+    /* ---------------------------------
+       GET FRESH USER PROFILE
+    --------------------------------- */
+    const profileResponse = await ismServices.getUserProfileData();
+    console.log("👤 PROFILE RESPONSE:", profileResponse);
+
+    const profileData = profileResponse?.data;
+
+    if (!profileData) {
+      throw new Error("Profile data not found");
+    }
+
+    /* ---------------------------------
+       CREATE RESIDENT OBJECT
+    --------------------------------- */
+    let parsedUserId;
+
+    try {
+      parsedUserId =
+        typeof profileData.id === "string"
+          ? JSON.parse(profileData.id).user_id
+          : profileData.id;
+    } catch (e) {
+      parsedUserId = profileData.id;
+    }
+
+    const residentObject = {
+      user_id: parsedUserId,
+      group_id: profileData.role_id,
+      flat_no: profileData.flat_no,
+      unit_id: profileData.unit_id,
+      society_id: profileData.societyId,
     };
 
-    const url = otherServices.appendParamsInUrl(
-      `${API_URL2}/getAllCustomAndCommonArea`,
-      {
-        "api-token": user.api_token,
-        "user-id": JSON.stringify(userObj),
-      }
-    );
+    console.log("👤 Resident Object:", residentObject);
 
+    /* ---------------------------------
+       STRINGIFY USER OBJECT
+    --------------------------------- */
+    const residentId = JSON.stringify(residentObject);
+    console.log("🆔 Resident ID:", residentId);
+
+    /* ---------------------------------
+       ENCODING (FIXED)
+    --------------------------------- */
+    const encodedResidentPath = encodeURI(residentId);
+    const encodedUserId = encodeURI(residentId)
+      .replace(/%7B/g, '{')
+      .replace(/%7D/g, '}');
+
+    /* ---------------------------------
+       GET ONESIGNAL DEVICE ID
+    --------------------------------- */
+    let osid = await OneSignal.User.pushSubscription.getIdAsync();
+
+    if (!osid) {
+      console.log("⚠️ Waiting for OneSignal ID...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      osid = await OneSignal.User.pushSubscription.getIdAsync();
+    }
+
+    if (!osid) {
+      throw new Error("OneSignal Device ID not found");
+    }
+
+    console.log("📱 Device ID:", osid);
+
+    /* ---------------------------------
+       TEST SERVER URL
+    --------------------------------- */
+    const BASE_VMS_URL =
+      "https://test.isocietymanager.com/vms.isocietymanager/public";
+
+    /* ---------------------------------
+       BUILD FINAL URL
+    --------------------------------- */
+    const apiUrl =
+      `${BASE_VMS_URL}/v1/society/${profileData.societyId}` +
+      `/resident/${encodedResidentPath}` +
+      `/testnotifyring` +
+      `?api-token=${profileData.api_token}` +
+      `&user-id=${encodedUserId}` +
+      `&deviceid=${osid}` +
+      `&group-id=${profileData.role_id}` +
+      `&app_id=ism_resident`;
+
+    console.log("🌐 FINAL API URL:", apiUrl);
+
+    /* ---------------------------------
+       HEADERS (🔥 FIXED HERE)
+    --------------------------------- */
     const headers = await Util.getCommonAuth();
+    
+    // Override whatever is in local storage with the fresh data
+    headers["api-token"] = profileData.api_token;
+    headers["user-id"] = encodedUserId;
+    
+    console.log("📨 HEADERS:", headers);
 
-    const response = await ApiCommon.getReq(url, headers);
+    /* ---------------------------------
+       PAYLOAD
+    --------------------------------- */
+    const payload = { test: true };
+    console.log("📦 PAYLOAD:", payload);
 
+    /* ---------------------------------
+       API CALL
+    --------------------------------- */
+    const response = await ApiCommon.postReq(apiUrl, payload, headers);
+
+    console.log("✅ Test Notification Response:", response);
     return response;
 
   } catch (error) {
-    console.log("Get Common Areas Error:", error);
+    console.log("❌ Test Notification Error:", error);
+
+    if (error?.response) {
+      console.log("❌ Response Data:", error.response.data);
+      console.log("❌ Response Status:", error.response.status);
+    }
     throw error;
   }
 },
 
-changeProfilePicture: async (image) => {
-  try {
-    const user = await Common.getLoggedInUser();
+  getCommonAreas: async () => {
+    try {
+      const user = await Common.getLoggedInUser();
 
-    const url = otherServices.appendParamsInUrl(
-      `${API_URL2}/addPhoto`,
-      {
-        "api-token": user.api_token,   // 🔥 REQUIRED
-        "user-id": user.id,            // 🔥 REQUIRED (NOT JSON)
-      }
-    );
+      const userObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
 
-    const headers = await Util.getCommonAuth();
+      const url = otherServices.appendParamsInUrl(
+        `${API_URL2}/getAllCustomAndCommonArea`,
+        {
+          "api-token": user.api_token,
+          "user-id": JSON.stringify(userObj),
+        }
+      );
 
-    const payload = {
-      file: image,
-      societyId: user.societyId,
-      userId: user.id,
-    };
+      const headers = await Util.getCommonAuth();
 
-    const response = await ApiCommon.postReq(url, payload, headers);
+      const response = await ApiCommon.getReq(url, headers);
 
-    return response;
+      return response;
 
-  } catch (error) {
-    console.log("Change Profile Picture Error:", error);
-    throw error;
-  }
-},
+    } catch (error) {
+      console.log("Get Common Areas Error:", error);
+      throw error;
+    }
+  },
+
+
+
+  changeProfilePicture: async (image) => {
+    try {
+      const user = await Common.getLoggedInUser();
+
+      const url = otherServices.appendParamsInUrl(
+        `${API_URL2}/addPhoto`,
+        {
+          "api-token": user.api_token,   // 🔥 REQUIRED
+          "user-id": user.id,            // 🔥 REQUIRED (NOT JSON)
+        }
+      );
+
+      const headers = await Util.getCommonAuth();
+
+      const payload = {
+        file: image,
+        societyId: user.societyId,
+        userId: user.id,
+      };
+
+      const response = await ApiCommon.postReq(url, payload, headers);
+
+      return response;
+
+    } catch (error) {
+      console.log("Change Profile Picture Error:", error);
+      throw error;
+    }
+  },
   getOutStandings: async () => {
     const user = await Common.getLoggedInUser();
 
@@ -215,99 +347,7 @@ changeProfilePicture: async (image) => {
     }
   },
 
-  sendTestNotification: async () => {
-    try {
 
-      console.log("🚀 Sending Test Notification...");
-
-      /* -------------------------------
-         GET LOGGED IN USER
-      -------------------------------- */
-      const user = await Common.getLoggedInUser();
-
-      console.log("👤 Logged In User:", user);
-
-      /* -------------------------------
-         GET ONESIGNAL DEVICE ID
-      -------------------------------- */
-      let osid = await OneSignal.User.pushSubscription.getIdAsync();
-
-      // Sometimes OneSignal is not ready immediately
-      if (!osid) {
-        console.log("⚠️ Device ID not ready, waiting 2 seconds...");
-
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        osid = await OneSignal.User.pushSubscription.getIdAsync();
-      }
-
-      if (!osid) {
-        console.log("❌ OneSignal device ID not found");
-        return;
-      }
-
-      console.log("📱 Device ID being sent:", osid);
-
-      /* -------------------------------
-         PARSE USER ID
-      -------------------------------- */
-
-      let parsedUserId;
-
-      try {
-        // user.id may be JSON string
-        parsedUserId = JSON.parse(user.id).user_id;
-      } catch (e) {
-        // or may already be number
-        parsedUserId = user.unit_id || user.id;
-      }
-
-      console.log("🆔 Parsed User ID:", parsedUserId);
-
-      /* -------------------------------
-         BUILD API URL
-      -------------------------------- */
-
-      const apiUrl =
-        `${API_URL4}/v1/society/${user.societyId}/resident/${parsedUserId}/testnotifyring` +
-        `?api-token=${user.api_token}` +
-        `&user-id=${parsedUserId}` +
-        `&deviceid=${osid}`;
-
-      console.log("🌐 Final API URL:", apiUrl);
-
-      /* -------------------------------
-         HEADERS
-      -------------------------------- */
-
-      const headers = await Util.getCommonAuth();
-
-      /* -------------------------------
-         PAYLOAD
-      -------------------------------- */
-
-      const payload = {
-        test: true
-      };
-
-      /* -------------------------------
-         API CALL
-      -------------------------------- */
-
-      const response = await ApiCommon.postReq(apiUrl, payload, headers);
-
-      console.log("✅ Test Notification Response:", response);
-
-      return response;
-
-    } catch (error) {
-
-      console.log("❌ Test Notification Error:", error);
-
-      throw error;
-
-    }
-  },
 
 
   sendFeedback: async (subject, body) => {
@@ -376,73 +416,73 @@ changeProfilePicture: async (image) => {
 
 
   // 🔥 GET ALL BOUNCED CHEQUES
-getBouncedCheques: async () => {
-  try {
-    const user = await Common.getLoggedInUser();
+  getBouncedCheques: async () => {
+    try {
+      const user = await Common.getLoggedInUser();
 
-    const userObj = {
-      user_id: user.id,
-      group_id: user.role_id,
-      flat_no: user.flat_no,
-      unit_id: user.unit_id,
-      society_id: user.societyId,
-    };
+      const userObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
 
-    const params = {
-      "api-token": user.api_token,
-      "user-id": JSON.stringify(userObj),
-      flat_no_x: user.flat_no,
-      status: "RETURNED", // 🔥 IMPORTANT
-    };
+      const params = {
+        "api-token": user.api_token,
+        "user-id": JSON.stringify(userObj),
+        flat_no_x: user.flat_no,
+        status: "RETURNED", // 🔥 IMPORTANT
+      };
 
-    const url = otherServices.appendParamsInUrl(
-      `${PAYMENT_URL}/v1/society/${user.societyId}/getpayments`,
-      params
-    );
+      const url = otherServices.appendParamsInUrl(
+        `${PAYMENT_URL}/v1/society/${user.societyId}/getpayments`,
+        params
+      );
 
-    const headers = await Util.getCommonAuth();
+      const headers = await Util.getCommonAuth();
 
-    return await ApiCommon.getReq(url, headers);
+      return await ApiCommon.getReq(url, headers);
 
-  } catch (error) {
-    console.log("Bounced Cheques Error:", error);
-    throw error;
-  }
-},
+    } catch (error) {
+      console.log("Bounced Cheques Error:", error);
+      throw error;
+    }
+  },
 
-// 🔥 GET SINGLE BOUNCED CHEQUE DETAILS
-getBouncedChequeById: async (id) => {
-  try {
-    const user = await Common.getLoggedInUser();
+  // 🔥 GET SINGLE BOUNCED CHEQUE DETAILS
+  getBouncedChequeById: async (id) => {
+    try {
+      const user = await Common.getLoggedInUser();
 
-    const userObj = {
-      user_id: user.id,
-      group_id: user.role_id,
-      flat_no: user.flat_no,
-      unit_id: user.unit_id,
-      society_id: user.societyId,
-    };
+      const userObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
 
-    const params = {
-      "api-token": user.api_token,
-      "user-id": JSON.stringify(userObj),
-      id: id,
-    };
+      const params = {
+        "api-token": user.api_token,
+        "user-id": JSON.stringify(userObj),
+        id: id,
+      };
 
-    const url = otherServices.appendParamsInUrl(
-      `${PAYMENT_URL}/v1/society/${user.societyId}/getpayments`,
-      params
-    );
+      const url = otherServices.appendParamsInUrl(
+        `${PAYMENT_URL}/v1/society/${user.societyId}/getpayments`,
+        params
+      );
 
-    const headers = await Util.getCommonAuth();
+      const headers = await Util.getCommonAuth();
 
-    return await ApiCommon.getReq(url, headers);
+      return await ApiCommon.getReq(url, headers);
 
-  } catch (error) {
-    console.log("Bounced Cheque Detail Error:", error);
-    throw error;
-  }
-},
+    } catch (error) {
+      console.log("Bounced Cheque Detail Error:", error);
+      throw error;
+    }
+  },
 
   updateUserSettings: async (payload) => {
     const user = await Common.getLoggedInUser();
@@ -1086,7 +1126,7 @@ getBouncedChequeById: async (id) => {
     }
   },
 
-// Update the function signature to include 'message'
+  // Update the function signature to include 'message'
   sendPanicAlert: async (type, message) => {
     try {
       const user = await Common.getLoggedInUser();
@@ -1125,7 +1165,7 @@ getBouncedChequeById: async (id) => {
     }
   },
 
- 
+
 
   createOrUpdateVehicleTag: async (vehicleId, payload) => {
     try {
@@ -1323,150 +1363,75 @@ getBouncedChequeById: async (id) => {
   },
 
 
-  sendTestNotificationSound: async () => {
-    try {
-      console.log("🚀 Sending Test Notification...");
+ 
 
-      /* -------------------------------
-         GET USER
-      -------------------------------- */
+  markNoticeAsRead: async (noticeId) => {
+    try {
       const user = await Common.getLoggedInUser();
 
-      console.log("👤 USER:", user);
+      const userObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
 
-      // ✅ FIX: ALWAYS USE DIRECT ID
-      const userId = user?.id;
-
-      if (!userId) {
-        console.log("❌ User ID missing");
-        throw new Error("User ID not found");
-      }
-
-      /* -------------------------------
-         GET ONESIGNAL DEVICE ID
-      -------------------------------- */
-      let osid = await OneSignal.User.pushSubscription.getIdAsync();
-
-      if (!osid) {
-        console.log("⚠️ Waiting for OneSignal ID...");
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        osid = await OneSignal.User.pushSubscription.getIdAsync();
-      }
-
-      if (!osid) {
-        console.log("❌ Device ID not found");
-        throw new Error("Device not registered");
-      }
-
-      console.log("📱 Device ID:", osid);
-
-      /* -------------------------------
-         BUILD URL (CORRECT)
-      -------------------------------- */
       const params = {
         "api-token": user.api_token,
-        "user-id": userId,   // ✅ FIXED
-        deviceid: osid,
+        "user-id": JSON.stringify(userObj),
       };
 
       const url = otherServices.appendParamsInUrl(
-        `${API_URL4}/v1/society/${user.societyId}/resident/${userId}/testnotifyring`,
+        `${API_URL2}/notice/markread`,
         params
       );
 
-      console.log("🌐 FINAL URL:", url);
-
-      /* -------------------------------
-         HEADERS
-      -------------------------------- */
       const headers = await Util.getCommonAuth();
 
-      /* -------------------------------
-         API CALL
-      -------------------------------- */
-      const response = await ApiCommon.postReq(
+      return await ApiCommon.putReq(
         url,
-        { test: true },
+        { id: noticeId },
         headers
       );
 
-      console.log("✅ RESPONSE:", response);
-
-      return response;
-
     } catch (error) {
-      console.log("❌ Test Notification Error:", error);
+      console.log("Mark Notice Read Error:", error);
       throw error;
     }
   },
 
-  markNoticeAsRead: async (noticeId) => {
-  try {
-    const user = await Common.getLoggedInUser();
+  markAllNoticesAsRead: async () => {
+    try {
+      const user = await Common.getLoggedInUser();
 
-    const userObj = {
-      user_id: user.id,
-      group_id: user.role_id,
-      flat_no: user.flat_no,
-      unit_id: user.unit_id,
-      society_id: user.societyId,
-    };
+      const userObj = {
+        user_id: user.id,
+        group_id: user.role_id,
+        flat_no: user.flat_no,
+        unit_id: user.unit_id,
+        society_id: user.societyId,
+      };
 
-    const params = {
-      "api-token": user.api_token,
-      "user-id": JSON.stringify(userObj),
-    };
+      const params = {
+        "api-token": user.api_token,
+        "user-id": JSON.stringify(userObj),
+      };
 
-    const url = otherServices.appendParamsInUrl(
-      `${API_URL2}/notice/markread`,
-      params
-    );
+      const url = otherServices.appendParamsInUrl(
+        `${API_URL2}/notice/markallread`,
+        params
+      );
 
-    const headers = await Util.getCommonAuth();
+      const headers = await Util.getCommonAuth();
 
-    return await ApiCommon.putReq(
-      url,
-      { id: noticeId },
-      headers
-    );
+      return await ApiCommon.putReq(url, {}, headers);
 
-  } catch (error) {
-    console.log("Mark Notice Read Error:", error);
-    throw error;
-  }
-},
-
-markAllNoticesAsRead: async () => {
-  try {
-    const user = await Common.getLoggedInUser();
-
-    const userObj = {
-      user_id: user.id,
-      group_id: user.role_id,
-      flat_no: user.flat_no,
-      unit_id: user.unit_id,
-      society_id: user.societyId,
-    };
-
-    const params = {
-      "api-token": user.api_token,
-      "user-id": JSON.stringify(userObj),
-    };
-
-    const url = otherServices.appendParamsInUrl(
-      `${API_URL2}/notice/markallread`,
-      params
-    );
-
-    const headers = await Util.getCommonAuth();
-
-    return await ApiCommon.putReq(url, {}, headers);
-
-  } catch (error) {
-    console.log("Mark All Notices Read Error:", error);
-    throw error;
-  }
-},
+    } catch (error) {
+      console.log("Mark All Notices Read Error:", error);
+      throw error;
+    }
+  },
 
   addOrUpdateRating: async (staffId, rating, review) => {
     try {

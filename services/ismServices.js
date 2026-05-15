@@ -559,6 +559,8 @@ getSurveyQuestions: async (surveyId) => {
 
     // ✅ RAW JSON (NO encoding)
     const u = JSON.stringify(uObj);
+    // Some APIs like IVR require plain numeric user-id instead of encoded object
+    const plainUserId = user.id;
 
     // ✅ FULL manual URL (NO helper)
     const url = `${API_URL2}/userDetailsById/${u}?api-token=${user.api_token}&user-id=${u}&group-id=${user.role_id}&app_id=ism_resident`;
@@ -739,17 +741,20 @@ getSurveyQuestions: async (surveyId) => {
     };
 
     const u = JSON.stringify(uObj);
+    const plainUserId = user.id;
 
     const commonParams = {
       "api-token": user.api_token,
-      "user-id": u,
+      "user-id": extraParams?.usePlainUserId ? plainUserId : u,
       "group-id": user.role_id,
       "app_id": "ism_resident"
     };
 
     const finalParams = {
       ...commonParams,
-      ...extraParams
+      ...Object.fromEntries(
+        Object.entries(extraParams).filter(([key]) => key !== "usePlainUserId")
+      )
     };
 
     const queryParams = Object.keys(finalParams)

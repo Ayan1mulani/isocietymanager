@@ -7,6 +7,7 @@ import {
   Image,
   ScrollView,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -19,6 +20,7 @@ import Text from "../components/TranslatedText";
 // ─────────────────────────────────────────────────────────────────────────────
 // ALLOWED_TAGS
 // ─────────────────────────────────────────────────────────────────────────────
+
 const ALLOWED_TAGS = [
   "div", "span", "p", "br", "hr",
   "section", "article", "main", "aside", "nav",
@@ -171,7 +173,8 @@ const buildHtml = (body = "", extractedCss = "") => `
         font-size: 17px;
         line-height: 1.9;
         color: #374151;
-        padding: 20px 10px 36px;
+        /* FIX: Changed bottom padding from 36px to 0px to prevent double-gap */
+        padding: 20px 10px 0px; 
         margin: 0;
       }
       h1,h2,h3,h4,h5,h6 { color: #111827; margin-top: 16px; margin-bottom: 8px; font-weight: 700; word-break: break-word; overflow-wrap: anywhere; }
@@ -196,11 +199,6 @@ const buildHtml = (body = "", extractedCss = "") => `
       table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; overflow-x: hidden !important; }
       pre,code { white-space: pre-wrap !important; word-break: break-all !important; overflow-wrap: anywhere !important; overflow-x: hidden !important; }
       h1,h2,h3,h4,h5,h6 { word-break: break-word !important; overflow-wrap: anywhere !important; max-width: 100% !important; }
-      /* ── Fix: some notices inject "body { display:flex; height:100vh }" via
-         their own <style> block. That makes document.body.scrollHeight return
-         the viewport height instead of the real content height, causing the
-         WebView wrapper to be sized wrong and content to appear shifted up.
-         Force body back to normal block flow so height is always content-driven. ── */
       html, body {
         display: block !important;
         height: auto !important;
@@ -226,6 +224,7 @@ const prepareNoticeHtml = (raw = "") => {
 // ─────────────────────────────────────────────────────────────────────────────
 // SKELETON LOADER COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
+
 const SkeletonItem = ({ width, height, style }) => {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
@@ -262,6 +261,7 @@ const WebContentSkeleton = () => (
 // ─────────────────────────────────────────────────────────────────────────────
 // ATTACHMENT HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
+
 const parseFileUrls = (raw) => {
   if (!raw) return [];
   try {
@@ -286,14 +286,67 @@ const getFileExt = (url = "") => {
   }
 };
 
+const AttachmentImage = ({ url, onPress }) => {
+  const [loaded, setLoaded] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const handleLoaded = () => {
+    setLoaded(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={attachStyles.imageWrapper}
+    >
+      {!loaded && (
+        <View style={attachStyles.imageSkeleton}>
+          <ActivityIndicator size="small" color="#1565A9" />
+        </View>
+      )}
+
+      <Animated.Image
+        source={{ uri: url }}
+        resizeMode="contain"
+        resizeMethod="resize"
+        progressiveRenderingEnabled={true}
+        fadeDuration={300}
+        onLoad={handleLoaded}
+        style={[
+          attachStyles.image,
+          {
+            opacity: fadeAnim,
+            position: loaded ? "relative" : "absolute",
+          },
+        ]}
+      />
+
+      <View style={attachStyles.imageDownloadIconWrapper}>
+        <Text style={attachStyles.imageDownloadIcon}>↓</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AttachmentsSection
 // ─────────────────────────────────────────────────────────────────────────────
-const AttachmentsSection = ({ fileUrls }) => {
-  if (!fileUrls.length) return null;
 
-  const images = fileUrls.filter(isImageUrl);
-  const docs = fileUrls.filter((u) => !isImageUrl(u));
+const AttachmentsSection = ({ fileUrls }) => {
+  if (!fileUrls || !fileUrls.length) return null;
+
+  // FIX: Ensure only valid string URLs are processed so empty spaces don't render
+  const validUrls = fileUrls.filter(url => typeof url === "string" && url.trim() !== "");
+  if (validUrls.length === 0) return null;
+
+  const images = validUrls.filter(isImageUrl);
+  const docs = validUrls.filter((u) => !isImageUrl(u));
 
   const handleOpen = (url) => {
     Linking.openURL(url).catch((err) =>
@@ -306,21 +359,11 @@ const AttachmentsSection = ({ fileUrls }) => {
       <Text style={attachStyles.heading}>Attachments</Text>
 
       {images.map((url, idx) => (
-        <TouchableOpacity
+        <AttachmentImage
           key={`img-${idx}`}
-          activeOpacity={0.85}
+          url={url}
           onPress={() => handleOpen(url)}
-          style={attachStyles.imageWrapper}
-        >
-          <Image
-            source={{ uri: url }}
-            style={attachStyles.image}
-            resizeMode="contain"
-          />
-          <View style={attachStyles.imageDownloadIconWrapper}>
-            <Text style={attachStyles.imageDownloadIcon}>↓</Text>
-          </View>
-        </TouchableOpacity>
+        />
       ))}
 
       {docs.map((url, idx) => {
@@ -352,18 +395,15 @@ const AttachmentsSection = ({ fileUrls }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // NoticeDetailScreenWithHeight
 // ─────────────────────────────────────────────────────────────────────────────
+
 const NoticeDetailScreenWithHeight = ({ route }) => {
   const { t, i18n } = useTranslation();
   const { notice, headerTitle } = route.params;
   const [loading, setLoading] = useState(true);
   const [webViewHeight, setWebViewHeight] = useState(400);
 
-  // ✅ FIX 1: Read the real bottom inset so the scroll view always clears
-  //            the home indicator / gesture bar on every device.
   const insets = useSafeAreaInsets();
 
-  // Reset loading + height every time this screen is navigated to,
-  // so stale content/height from a previous visit never shows.
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
@@ -382,17 +422,12 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
     : "";
 
   return (
-    // ✅ FIX 2: Only apply top + left + right safe-area via SafeAreaView.
-    //            Bottom is handled manually via useSafeAreaInsets so the
-    //            ScrollView's rubber-band area stays white instead of being
-    //            double-inset or clipped.
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <AppHeader
         title={t(headerTitle || "Notice Details")}
         showBack
       />
 
-      {/* ── Header (title + date) — kept outside ScrollView so it stays fixed ── */}
       <View style={styles.header}>
         <Text style={styles.title}>{notice.subject}</Text>
         <Text style={styles.meta}>{formattedDate}</Text>
@@ -400,25 +435,20 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
 
       <ScrollView
         style={styles.scrollContainer}
-        // ✅ FIX 3: Use the real bottom inset + extra breathing room instead
-        //            of the hardcoded 40 px that was too small on many devices.
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 24 },
+          // FIX: Removed +24 extra padding here. Now it just uses insets.bottom.
+          { paddingBottom: insets.bottom }, 
         ]}
         showsVerticalScrollIndicator={true}
         bounces={false}
       >
-        {/* ── Body (WebView — height grows to content) ── */}
         <View style={[styles.webViewWrapper, { height: webViewHeight }]}>
           {loading && <WebContentSkeleton />}
 
           <WebView
             originWhitelist={["about:blank", "about:*", "data:*"]}
             source={{ html: fullHtml }}
-            // ✅ FIX 4: Keep opacity transition but also set pointerEvents so
-            //            the invisible WebView can't accidentally swallow taps
-            //            while the skeleton is showing.
             style={[styles.webView, { opacity: loading ? 0 : 1 }]}
             pointerEvents={loading ? "none" : "auto"}
             onLoadEnd={() => setLoading(false)}
@@ -434,8 +464,10 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
             injectedJavaScript={`
               (function() {
                 function postHeight() {
+                  // FIX: Used offsetHeight to get the exact tight bounding box of the body
+                  var height = document.body.offsetHeight;
                   window.ReactNativeWebView.postMessage(
-                    JSON.stringify({ type: 'height', value: Math.max(document.documentElement.scrollHeight, document.documentElement.offsetHeight) })
+                    JSON.stringify({ type: 'height', value: height })
                   );
                 }
                 postHeight();
@@ -448,7 +480,8 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
               try {
                 const msg = JSON.parse(e.nativeEvent.data);
                 if (msg.type === "height" && msg.value > 0) {
-                  setWebViewHeight(msg.value + 24);
+                  // Reduced extra buffer added here to prevent massive white space
+                  setWebViewHeight(msg.value + 12); 
                 }
               } catch { }
             }}
@@ -469,7 +502,6 @@ const NoticeDetailScreenWithHeight = ({ route }) => {
           />
         </View>
 
-        {/* ── Attachments at the bottom ── */}
         <AttachmentsSection fileUrls={fileUrls} />
       </ScrollView>
     </SafeAreaView>
@@ -481,6 +513,7 @@ export default NoticeDetailScreenWithHeight;
 // ─────────────────────────────────────────────────────────────────────────────
 // STYLES
 // ─────────────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -489,7 +522,6 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
   },
-  // paddingBottom is now set dynamically via insets — no static value here
   scrollContent: {},
   header: {
     paddingHorizontal: 16,
@@ -520,6 +552,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: "#FFFFFF",
     zIndex: 10,
+  },
+  imageSkeleton: {
+    width: "100%",
+    height: 200,
+    backgroundColor: "#E5E7EB",
+    justifyContent: "center",
+    alignItems: "center",
   },
   webView: {
     flex: 1,

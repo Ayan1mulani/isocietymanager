@@ -19,7 +19,7 @@ switch (brand) {
 
   case "jaypee":
   default:
-    selectedBrand = require("./maxEstate").default;
+    selectedBrand = require("./isociety").default;
 }
 
 export default selectedBrand;

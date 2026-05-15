@@ -718,7 +718,6 @@ const ProfileScreen = () => {
         </View>
 
         {/* ── Owner Details — RESTORED ─────────────────────────────────── */}
-        {userProfile?.tenant == 1 && (
           <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
             <TouchableOpacity style={styles.dropdownHeader} onPress={() => setOwnerOpen(p => !p)}>
               <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Owner Details")}</Text>
@@ -726,13 +725,18 @@ const ProfileScreen = () => {
             </TouchableOpacity>
             {ownerOpen && (
               <View style={styles.dropdownContent}>
-                <InfoRow label={t("Owner Name")} value={userDetails?.name} theme={theme} loading={loading && !userDetails} />
-                <InfoRow label={t("Phone")} value={userDetails?.phone_no || userDetails?.owner_alt_phone_no} theme={theme} loading={loading && !userDetails} />
-                <InfoRow label={t("Email")} value={userDetails?.email || userDetails?.owner_alt_email} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Name")} value={userDetails?.name} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Mobile")} value={userDetails?.phone_no} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Email")} value={userDetails?.email} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Unit")} value={userDetails?.flat_no} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Display Unit No.")} value={userDetails?.display_unit_no} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Area")} value={userDetails?.size_sf} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Category")} value={userDetails?.flat_category} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Alternate Phone No.")} value={userDetails?.alt_phone_no} theme={theme} loading={loading && !userDetails} />
+                <InfoRow label={t("Address")} value={userDetails?.address} theme={theme} loading={loading && !userDetails} />
               </View>
             )}
           </View>
-        )}
 
         {/* ── Meter Details — RESTORED ─────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>

@@ -126,7 +126,7 @@ const complaintService = {
     }
   },
 
-  getSocietyConfiguration: async () => {
+getSocietyConfiguration: async () => {
     try {
       const user = await Common.getLoggedInUser();
 
@@ -141,10 +141,20 @@ const complaintService = {
       const encodedUser = encodeURIComponent(JSON.stringify(userObj));
       const url = `${API_URL2}/getSocietyConfigurationToResident/${user.societyId}?api-token=${user.api_token}&user-id=${encodedUser}`;
       const headers = await Util.getCommonAuth();
-      const response = await ApiCommon.getReq(url, headers);
 
-      console.log("🏢 Society Config:", response);
-      if (response?.status === "success") return response;
+      // 🚨 Bypass ApiCommon.getReq and use standard fetch to prevent the "Invalid response" format error
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: headers
+      });
+
+      const data = await response.json();
+      console.log("🏢 Society Config (Parsed):", data);
+
+      // Return the data directly since there is no 'status' wrapper
+      if (data) {
+        return data; 
+      }
       return null;
 
     } catch (error) {

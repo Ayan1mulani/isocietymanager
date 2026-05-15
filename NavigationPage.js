@@ -73,7 +73,6 @@ import AmenityBookingScreen from './app/AllServicesScreen/AmenityBookingScreen';
 import MyBookingsScreen from './app/AllServicesScreen/MyBookingsScreen';
 import OtpLoginScreen from './app/Login/OtpLoginScreen';
 import MyComplexScreen from './app/MyComplex/MyComplexScreen';
-import myNoticeDetailScreen from './app/MyComplex/MyNoticeDetailScreen';
 import MembersScreen from './app/AllServicesScreen/MembersScreen';
 import OtpVerifyScreen from './app/Login/OtpVerifyScreen';
 import ResidentIdCardScreen from './app/HomeScreen/VirtualIdcard';
@@ -441,7 +440,6 @@ const NavigationPage = () => {
         <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
         <Stack.Screen name="OtpLoginScreen" component={OtpLoginScreen} />
         <Stack.Screen name="Notices" component={MyComplexScreen} />
-        <Stack.Screen name="NoticeDetail" component={myNoticeDetailScreen} />
         <Stack.Screen name="FamilyMember" component={MembersScreen} />
         <Stack.Screen name="OtpLogin" component={OtpLoginScreen} />
         <Stack.Screen name="OtpVerify" component={OtpVerifyScreen} />
