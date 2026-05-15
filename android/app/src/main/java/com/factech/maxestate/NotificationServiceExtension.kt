@@ -27,23 +27,33 @@ class MyNotificationServiceExtension : INotificationServiceExtension {
         private val handledAt = HashMap<String, Long>()
     }
 
-    override fun onNotificationReceived(event: INotificationReceivedEvent) {
-        val notification = event.notification
-        val context = event.context
+   override fun onNotificationReceived(event: INotificationReceivedEvent) {
+    val notification = event.notification
+    val context = event.context
 
-        Log.d(TAG, "🔥 EXTENSION RECEIVED NOTIFICATION → ${notification.title}")
+    Log.d(TAG, "🔥 EXTENSION RECEIVED NOTIFICATION → ${notification.title}")
 
-        val raw = notification.additionalData
-        val data = raw?.optJSONObject("data") ?: raw
-        val type = data?.optString("type", "")?.uppercase()
+    val raw = notification.additionalData
+    val data = raw?.optJSONObject("data") ?: raw
+    val type = data?.optString("type", "")?.uppercase()
+    val title = notification.title?.trim()?.lowercase() ?: ""
 
-        when {
-            type == "STAFF" -> handleStaffNotification(event, context, data!!)
-            notification.title?.trim()?.lowercase() == "add visit" ->
-                handleVisitorNotification(event, context, data)
+    // Check if this is a notification we need to handle manually
+    if (type == "STAFF" || title.contains("add visit")) {
+        
+        // 🔥 CRITICAL FIX: Tell OneSignal immediately NOT to show its own notification
+        event.preventDefault()
+
+        if (type == "STAFF") {
+            handleStaffNotification(event, context, data!!)
+        } else {
+            handleVisitorNotification(event, context, data)
         }
+    } else {
+        // Let OneSignal display it normally if it's a generic or marketing message
+        Log.d(TAG, "Standard notification, letting OneSignal handle it.")
     }
-
+}
     private fun isSoundEnabled(context: Context, key: String): Boolean {
         val prefs = context.getSharedPreferences("${context.packageName}_preferences", Context.MODE_PRIVATE)
         return prefs.getString(key, "true") == "true"

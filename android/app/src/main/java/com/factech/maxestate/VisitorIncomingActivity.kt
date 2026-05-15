@@ -25,7 +25,7 @@ class VisitorIncomingActivity : Activity() {
         private const val PREFS_NAME     = "VisitorPrefs"
         private const val KEY_VISITOR    = "PENDING_VISITOR"
         private const val AUTO_DISMISS   = 60_000L
-        private const val ACTION_HANDLED = "com.factech.maxestate.VISITOR_HANDLED"
+        private const val ACTION_HANDLED = "com.sumasamu.iSocietyManager.VISITOR_HANDLED"
     }
 
     private val timeoutHandler = Handler(Looper.getMainLooper())
@@ -148,39 +148,41 @@ class VisitorIncomingActivity : Activity() {
 
     // 🚀 NEW: Kills the sound but keeps a quiet banner in the tray
     private fun silenceAndKeepNotification() {
-        if (notifId == 0) return
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        // 1. Instantly kill the loud, ringing notification
-        nm.cancel(notifId)
+    if (notifId == 0) return
+    val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    
+    // 1. Instantly kill the loud, ringing notification
+    nm.cancel(notifId)
 
-        // 2. Put it right back in the tray as a quiet, clickable alert
-        val intent = Intent(this, VisitorIncomingActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra("visitor_id", visitorId)
-            putExtra("visitor_name", visitorName)
-            putExtra("visitor_phone", visitorPhone)
-            putExtra("visitor_photo", visitorPhoto)
-            putExtra("visit_purpose", purpose)
-            putExtra("notif_id", notifId)
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            this, notifId, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val builder = NotificationCompat.Builder(this, "visitor_channel_v9")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Visitor Waiting")
-            .setContentText("$visitorName is at the gate")
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .setSilent(true) // 🔥 This ensures it doesn't ring a second time!
-
-        nm.notify(notifId, builder.build())
-        Log.d(TAG, "Notification silenced but kept in tray.")
+    // 2. Put it right back in the tray as a quiet, clickable alert
+    val intent = Intent(this, VisitorIncomingActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        putExtra("visitor_id", visitorId)
+        putExtra("visitor_name", visitorName)
+        putExtra("visitor_phone", visitorPhone)
+        putExtra("visitor_photo", visitorPhoto)
+        putExtra("visit_purpose", purpose)
+        putExtra("notif_id", notifId)
     }
+
+    val pendingIntent = PendingIntent.getActivity(
+        this, notifId, intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val builder = NotificationCompat.Builder(this, "visitor_channel_v9")
+        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setContentTitle("Missed Visitor: $visitorName")
+        .setContentText("Tap to view details")
+        .setContentIntent(pendingIntent)
+        .setAutoCancel(true)
+        .setSilent(true) // No sound
+        .setOngoing(false) // 🔥 FIX: Allow the user to swipe it away now
+        .setPriority(NotificationCompat.PRIORITY_LOW) // 🔥 FIX: Prevents it from popping up as a banner again
+
+    nm.notify(notifId, builder.build())
+    Log.d(TAG, "Notification silenced, priority lowered, and kept in tray.")
+}
 
     private fun bindUI() {
         findViewById<TextView>(R.id.tvVisitorName)?.text  = visitorName

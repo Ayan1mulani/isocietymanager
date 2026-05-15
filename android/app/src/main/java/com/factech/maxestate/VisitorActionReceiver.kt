@@ -50,7 +50,7 @@ class VisitorActionReceiver : BroadcastReceiver() {
 
                 // ── 5. Tell the Activity to close itself if it is open ────────────
                 context.sendBroadcast(
-                    Intent("com.factech.maxestate.VISITOR_HANDLED").apply {
+                    Intent("com.sumasamu.iSocietyManager.VISITOR_HANDLED").apply {
                         putExtra("visitor_id", visitorId)
                         putExtra("action",     action)
                         putExtra("success",    result.success)
