@@ -27,10 +27,10 @@ const SHIMMER_TRAVEL = PAGE_WIDTH * 2;
 const getOutstandingCacheKey = (userId) => `@outstanding_cache_${userId}`;
 
 const HTML_THEME = {
-  background: "#F27B22",
-  card: "#ffff",
+  background: "#1a2540f7",
+  card: "rgba(255, 255, 255, 0.1)",
   cardBorder: "rgb(255, 255, 255)",
-  text: "#000000",
+  text: "#FFFFFF",
   subText: "rgba(255, 255, 255, 0.6)",
   accent: "#0ea98a",
   shimBase: "rgba(255, 255, 255, 0.05)",
@@ -38,11 +38,10 @@ const HTML_THEME = {
   inactiveDot: "rgba(255, 255, 255, 0.3)",
 };
 
-// Helper to format date as "12 May"
 const formatDate = (dateString) => {
   if (!dateString) return "--";
   const d = new Date(dateString);
-  if (isNaN(d.getTime())) return dateString; // fallback if invalid
+  if (isNaN(d.getTime())) return dateString;
   const day = d.getDate();
   const monthNames = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -50,7 +49,6 @@ const formatDate = (dateString) => {
   ];
   return `${day} ${monthNames[d.getMonth()]}`;
 };
-
 
 const ShimmerBox = ({ w, h, style }) => {
   const translateX = useRef(new Animated.Value(-SHIMMER_TRAVEL)).current;
@@ -184,6 +182,9 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
   const [refreshingCardId, setRefreshingCardId] = useState(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
+  // ✅ New variable to strictly check if there is only 1 bill overall
+  const isOnlyOneTotal = outstanding.length === 1;
+
   useEffect(() => {
     const loadUser = async () => {
       const raw = await AsyncStorage.getItem("userInfo");
@@ -291,22 +292,20 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
     pages.push({ id: `page_${i}`, bills: [outstanding[i], outstanding[i + 1] ?? null] });
   }
 
-  const renderBillCard = (billData, flexValue = 1) => {
-    if (!billData) return <View style={{ flex: flexValue }} />;
+  // ✅ Updated renderBillCard parameters
+  const renderBillCard = (billData, centerCard = false) => {
+    if (!billData) return null;
+
+    const exactCardWidth = PAGE_WIDTH * 0.48;
 
     const label = billData?.realName || billData?.name;
     const shouldShowBalance = billData?.shouldShowBalance;
     const rawBackendMessage = billData?.message || t("No balance data found.");
-    const backendMessage =
-      rawBackendMessage?.trim()?.toLowerCase() === "balance not found."
-        ? "All dues cleared"
-        : rawBackendMessage;
     const rawAmount = billData.displayAmount || 0;
     const navAmount = rawAmount === 0 ? 1 : rawAmount;
     const isPayable = !!canPayBill;
     const isRefreshing = refreshingCardId === billData?.id;
 
-    // Apply the new date formatting logic here
     const displayDate = formatDate(billData?.data?.bill_date || billData?.data?.date);
 
     const handleRefresh = async () => {
@@ -345,11 +344,19 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
       }
     };
 
-    return (  
+    return (
       <TouchableOpacity
         activeOpacity={isPayable ? 0.7 : 1}
         disabled={!isPayable}
-        style={[styles.cardOuter, { flex: flexValue, opacity: isPayable ? 1 : 0.8 }]}
+        style={[
+          styles.cardOuter,
+          {
+            flex: centerCard ? 0 : 1, // Only drop flex if it's strictly centered
+            width: centerCard ? exactCardWidth : undefined,
+            maxWidth: centerCard ? exactCardWidth : undefined,
+            opacity: isPayable ? 1 : 0.6
+          }
+        ]}
         onPress={() =>
           navigation.navigate("BillPaymentScreen", {
             billType: billData?.id,
@@ -361,7 +368,6 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
         }
       >
         <View style={styles.topGroup}>
-          {/* Tighter top row layout */}
           <View style={styles.topRow}>
             <Text style={styles.billDate} numberOfLines={1}>
               {displayDate}
@@ -371,9 +377,9 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
               activeOpacity={0.7}
               onPress={handleRefresh}
               style={styles.refreshBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Easier to tap without taking up layout space
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="refresh-outline" size={15} color="#000000" />
+              <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
@@ -402,12 +408,11 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
               <Ionicons
                 name={isPayable ? "arrow-forward" : "lock-closed"}
                 size={14}
-                color="#000"
+                color="#FFF"
               />
             </View>
           </View>
         </View>
-
       </TouchableOpacity>
     );
   };
@@ -427,12 +432,32 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: false }
         )}
-        renderItem={({ item }) => (
-          <View style={[styles.pageContainer, { width: PAGE_WIDTH }]}>
-            {renderBillCard(item.bills[0])}
-            {renderBillCard(item.bills[1])}
-          </View>
-        )}
+        renderItem={({ item }) => {
+          const hasSecondCard = !!item.bills[1];
+
+          return (
+            <View
+              style={[
+                styles.pageContainer,
+                {
+                  width: PAGE_WIDTH,
+                  // ✅ Only center if there is exactly 1 total bill in the app
+                  justifyContent: isOnlyOneTotal ? "center" : "flex-start",
+                  paddingLeft: isOnlyOneTotal ? 20 : 0,
+                },
+              ]}
+            >
+              {renderBillCard(item.bills[0], isOnlyOneTotal)}
+
+              {/* ✅ Render second card normally. If no second card AND there are more than 1 total bills (e.g. the 3rd bill), render an invisible empty box to push it to the left */}
+              {hasSecondCard ? (
+                renderBillCard(item.bills[1], false)
+              ) : (
+                !isOnlyOneTotal && <View style={{ flex: 1 }} />
+              )}
+            </View>
+          );
+        }}
       />
       {pages.length > 1 && (
         <View style={styles.dotsRow}>
@@ -481,22 +506,20 @@ const styles = StyleSheet.create({
   cardOuter: {
     borderRadius: 14,
     padding: 10,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
     borderWidth: 1.2,
-    borderColor: "rgba(0, 0, 0, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
     justifyContent: "space-between",
     minHeight: 70,
   },
-  topGroup: {
-    width: "100%",
-  },
+  topGroup: { width: "100%" },
   refreshBtn: {
     width: 27,
     height: 27,
     borderRadius: 17,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.06)",
+    backgroundColor: "rgba(255,255,255,0.12)",
     marginTop: -5,
     marginRight: -2,
   },
@@ -505,41 +528,39 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6, // Tighter spacing
+    marginBottom: 6,
   },
   billDate: {
-    color: "rgba(0, 0, 0, 0.7)",
+    color: "rgba(255, 255, 255, 0.86)",
     fontSize: 10,
     flex: 1,
     marginRight: 8,
   },
   label: {
-    color: "#ff6f00",
+    color: "rgba(255, 255, 255, 0.86)",
     fontSize: 9.5,
     letterSpacing: 0.8,
     textTransform: "uppercase",
     marginBottom: 0,
   },
   amount: {
-    color: "#000000",
+    color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "700",
     letterSpacing: -0.5,
   },
   refreshLoading: {
-    color: "#ff5100",
+    color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "700",
     letterSpacing: 3,
   },
-
   amountRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 2,
   },
-
   arrowInline: {
     marginLeft: 8,
     justifyContent: "center",
@@ -549,8 +570,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10, // Brought dots closer
-
+    marginTop: 10,
   },
   dot: { height: 5, borderRadius: 4, marginHorizontal: 3 },
 });

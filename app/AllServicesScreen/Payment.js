@@ -89,8 +89,10 @@ const Payment = () => {
     iconBg:        BRAND.COLORS.iconbg,
   };
 
-  const [data, setData]       = useState([]);
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [billTypeMap, setBillTypeMap] = useState({});
+  const [billTypesLoaded, setBillTypesLoaded] = useState(false);
 
   // 1. Initial Load Logic: Check Cache first
   useEffect(() => {
@@ -104,24 +106,59 @@ const Payment = () => {
       } catch (e) {
         console.log("Cache load error:", e);
       }
-      loadPayments(); // Fetch fresh data in background
+      loadPayments(false); // Fetch fresh data in background
     };
     init();
   }, []);
 
-  const loadPayments = async () => {
+  const loadPayments = async (forceRefresh = false) => {
+
+    if (forceRefresh) {
+      setBillTypesLoaded(false);
+    }
+
     try {
-      const res = await ismServices.getPayments();
-      if (res?.status === 'success') {
-        const payments = res.data || [];
+
+      const [paymentsRes, billTypesRes] = await Promise.all([
+        ismServices.getPayments(),
+        ismServices.getBillTypes(),
+      ]);
+
+      // Payments
+      if (paymentsRes?.status === 'success') {
+        const payments = paymentsRes.data || [];
+
         setData(payments);
-        // 2. Save to Cache
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(payments));
+
+        await AsyncStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify(payments)
+        );
       }
+
+      // Bill Types Mapping
+      if (billTypesRes?.status === 'success') {
+
+        const map = {};
+
+        (billTypesRes.data || []).forEach((item) => {
+          map[String(item.id)] = item.name;
+        });
+
+        setBillTypeMap(map);
+
+        console.log('Bill Type Map:', map);
+      }
+
+      setBillTypesLoaded(true);
+
     } catch (e) {
       console.log(e);
     } finally {
       setLoading(false);
+      if (!billTypesLoaded) {
+        setBillTypesLoaded(true);
+      }
     }
   };
 
@@ -188,7 +225,12 @@ const Payment = () => {
     const typeColor = isCredit ? THEME.success : THEME.danger;
     const typeLabel = isCredit ? t('CREDIT') : t('DEBIT');
     const transactionType = item.mode || item.type || t('Payment');
-    const billPlan = item.bill_plan_name || item.bill_plan || item.bill_type || '';
+    const billPlan =
+      item.bill_plan_name ||
+      item.bill_plan ||
+      billTypeMap[String(item.bill_type)] ||
+      item.bill_type ||
+      '';
 
     return (
       <TouchableOpacity
@@ -205,20 +247,33 @@ const Payment = () => {
             {transactionType}
           </Text>
 
-          <Text
-            style={[
-              styles.date,
-              {
-                color: theme.secondaryText,
-                marginTop: 2,
-                fontSize: 11,
-                fontWeight: '500',
-              },
-            ]}
-            numberOfLines={1}
-          >
-            {billPlan || t('Bill Plan Not Available')}
-          </Text>
+          {
+            !billTypesLoaded ? (
+              <SkeletonPulse
+                style={{
+                  width: 120,
+                  height: 10,
+                  borderRadius: 4,
+                  marginTop: 4,
+                }}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.date,
+                  {
+                    color: theme.secondaryText,
+                    marginTop: 2,
+                    fontSize: 11,
+                    fontWeight: '500',
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {billPlan || t('Bill Plan Not Available')}
+              </Text>
+            )
+          }
 
           <Text style={[styles.date, { color: theme.secondaryText, marginTop: 2 }]}>
             {formatDate(item.transaction_date_time)}

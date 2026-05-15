@@ -116,15 +116,19 @@ const formatDate = (raw) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   } catch (e) { return null; }
 };
-
-const makeTime = (hours, minutes = 0) => {
-  const d = new Date();
-  d.setHours(hours, minutes, 0, 0);
-  return d;
+// Add this helper function to convert 24h string to 12h AM/PM
+const convertTo12Hour = (timeStr) => {
+  if (!timeStr) return '';
+  let [hours, minutes] = timeStr.split(':');
+  hours = parseInt(hours, 10);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12; // Convert '0' to '12' for midnight
+  const formattedHours = hours < 10 ? `0${hours}` : hours;
+  return `${formattedHours}:${minutes} ${ampm}`;
 };
 
 // ─── Time Picker Modal ────────────────────────────────────────────────────────
-const TimePicker = ({ visible, onClose, fromTime, toTime, onFromChange, onToChange, nightMode }) => {
+const TimePicker = ({ visible, onClose, fromTime, toTime, onFromChange, onToChange, nightMode, allowedTime }) => {
   const { t } = useTranslation();
   const [picking, setPicking] = useState('from');
   const [tempFrom, setTempFrom] = useState(null);
@@ -134,8 +138,15 @@ const TimePicker = ({ visible, onClose, fromTime, toTime, onFromChange, onToChan
 
   useEffect(() => {
     if (visible) {
-      setTempFrom(fromTime || makeTime(9));
-      setTempTo(toTime || makeTime(10));
+      // RULE 3: Default "From" to exactly 1 hour from now, "To" to 3 hours from now
+      const defaultFrom = new Date();
+      defaultFrom.setHours(defaultFrom.getHours() + 1, 0, 0, 0);
+      
+      const defaultTo = new Date(defaultFrom);
+      defaultTo.setHours(defaultFrom.getHours() + 2, 0, 0, 0);
+
+      setTempFrom(fromTime || defaultFrom);
+      setTempTo(toTime || defaultTo);
       setPicking('from');
       setShowAndroidPicker(false);
       setTimeError('');
@@ -152,7 +163,17 @@ const TimePicker = ({ visible, onClose, fromTime, toTime, onFromChange, onToChan
     if (tempFrom && tempTo) {
       const fromMins = tempFrom.getHours() * 60 + tempFrom.getMinutes();
       const toMins = tempTo.getHours() * 60 + tempTo.getMinutes();
-      if (fromMins >= toMins) { setTimeError(t('End time must be after start time.')); return; }
+      
+      if (fromMins >= toMins) { 
+        setTimeError(t('End time must be after start time.')); 
+        return; 
+      }
+      
+      // Enforce 120 minute difference inside the picker
+      if (toMins - fromMins < 120) {
+        setTimeError(t('Minimum visit duration must be 2 hours.'));
+        return;
+      }
     }
     setTimeError('');
     if (tempFrom) onFromChange(tempFrom);
@@ -174,7 +195,8 @@ const TimePicker = ({ visible, onClose, fromTime, toTime, onFromChange, onToChan
     }
   };
 
-  const activeTime = picking === 'from' ? (tempFrom || makeTime(9)) : (tempTo || makeTime(10));
+  // Provide a safe fallback if activeTime is still null when rendering
+  const activeTime = picking === 'from' ? (tempFrom || new Date()) : (tempTo || new Date());
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -182,10 +204,28 @@ const TimePicker = ({ visible, onClose, fromTime, toTime, onFromChange, onToChan
         <TouchableOpacity style={tp.backdrop} activeOpacity={1} onPress={onClose} />
         <View style={[tp.sheet, { backgroundColor: th.bg }]}>
           <View style={[tp.handle, { backgroundColor: th.border }]} />
-          <Text style={[tp.title, { color: th.text }]}>{t('Select Time Range')}</Text>
+
+          <Text style={[tp.title, { color: th.text, marginBottom: allowedTime ? 4 : 18 }]}>
+            {t('Select Time Range')}
+          </Text>
+
+          {/* Show Allowed Time Here */}
+          {allowedTime && allowedTime.from && allowedTime.to && (
+            <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 16, fontWeight: '500' }}>
+              {t('Bookings allowed between')}{' '}
+              <Text style={{ color: PRIMARY, fontWeight: '700' }}>
+                {convertTo12Hour(allowedTime.from)}
+              </Text>{' '}
+              {t('to')}{' '}
+              <Text style={{ color: PRIMARY, fontWeight: '700' }}>
+                {convertTo12Hour(allowedTime.to)}
+              </Text>
+            </Text>
+          )}
+          
           {Platform.OS === 'android' && (
-            <Text style={{ fontSize: 13, color: th.sub, marginBottom: 14, marginTop: -4 }}>
-              {t('Tap FROM or TO to change time')}
+            <Text style={{ fontSize: 13, color: th.sub, marginBottom: 14, marginTop: allowedTime ? -8 : -4 }}>
+             Select start and end time
             </Text>
           )}
 
@@ -257,7 +297,7 @@ const tp = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36 },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  title: { fontSize: 16, fontWeight: '700', marginBottom: 18 },
+  title: { fontSize: 16, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   timeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1.5, padding: 12 },
   label: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5, color: 'black' },
@@ -269,12 +309,6 @@ const tp = StyleSheet.create({
 });
 
 // ─── Location Modal — Stack-based drill-down ──────────────────────────────────
-/**
- * FIX: constant_society_id is now explicitly tracked via `rootAreaId` state.
- * - When user selects a top-level area (level 0), rootAreaId = that area's API id (e.g. 4709)
- * - When user drills into sub-locations, rootAreaId stays the same (top-level id)
- * - This guarantees constant_society_id is ALWAYS the API-level area id, never a JSON sub-id
- */
 const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locations = [] }) => {
   const { t } = useTranslation();
 
@@ -288,12 +322,10 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
       border: '#ECEEF2', chip: '#F3F4F6', searchBg: '#F3F4F6', activeChip: PRIMARY,
     };
 
-  // Stack navigation state
-  // Each entry: { items: Node[], selectedNode: Node, label: string }
   const [navStack, setNavStack] = useState([]);
   const [currentItems, setCurrentItems] = useState([]);
-  const [currentSelected, setCurrentSelected] = useState(null); // node selected at this level
-  const [rootAreaId, setRootAreaId] = useState(null); // 🔑 always the top-level API id
+  const [currentSelected, setCurrentSelected] = useState(null);
+  const [rootAreaId, setRootAreaId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -309,7 +341,7 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
     }
   }, [visible, locations]);
 
-  const level = navStack.length; // 0 = root
+  const level = navStack.length;
 
   const levelTitles = [
     t('Select Location'),
@@ -319,7 +351,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
   ];
   const currentTitle = levelTitles[level] || t('Select Sub-area');
 
-  // Breadcrumb parts from nav stack
   const breadcrumb = navStack.map(entry => entry.selectedNode.name);
 
   const filteredItems = level === 0 && searchQuery.trim()
@@ -335,31 +366,22 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
     Animated.timing(slideAnim, { toValue: -width * 0.3, duration: 160, useNativeDriver: true }).start(callback);
   };
 
-  /**
-   * When a user selects a node:
-   * - At level 0: rootAreaId = node.id (the real API id like 4709, 8609, etc.)
-   * - At deeper levels: rootAreaId remains unchanged (still the top-level API id)
-   * - constant_society_id is ALWAYS the rootAreaId
-   */
   const handleSelect = (item) => {
-    // 🔑 KEY FIX: derive rootAreaId before setState (since setState is async)
     const newRootId = level === 0 ? item.id : rootAreaId;
     if (level === 0) setRootAreaId(item.id);
 
     setCurrentSelected(item);
 
-    // Always call onSelect so parent has latest selection with correct constant_society_id
     onSelect?.({
       id: item.id,
       name: item.name,
       breadcrumb: [...breadcrumb, item.name].join(' › '),
-      constant_society_id: newRootId, // 🔑 always top-level area id
+      constant_society_id: newRootId,
     });
 
     const hasChildren = Array.isArray(item.children) && item.children.length > 0;
 
     if (hasChildren) {
-      // Push current level onto stack, navigate into children
       setNavStack(prev => [...prev, {
         items: currentItems,
         selectedNode: item,
@@ -370,7 +392,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
       animateIn();
       setSearchQuery('');
     } else {
-      // Leaf node — selection done
       onClose();
     }
   };
@@ -388,7 +409,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
       setCurrentSelected(prev.selectedNode);
       slideAnim.setValue(0);
 
-      // Revert onSelect to the parent node's selection
       const parentLevel = newStack.length;
       const parentRootId = parentLevel === 0 ? prev.selectedNode.id : rootAreaId;
       onSelect?.({
@@ -397,11 +417,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
         breadcrumb: [...newStack.map(e => e.selectedNode.name), prev.selectedNode.name].join(' › '),
         constant_society_id: parentRootId,
       });
-
-      // If going back to root, clear rootAreaId
-      if (newStack.length === 0) {
-        // rootAreaId stays as prev.selectedNode.id (still selecting that area)
-      }
     });
   };
 
@@ -431,7 +446,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
         onPress={() => handleSelect(item)}
         activeOpacity={0.7}
       >
-        {/* Left icon */}
         <View style={[lm.itemIconWrap, { backgroundColor: isSelected ? `${PRIMARY}22` : th.chip }]}>
           <Ionicons
             name={hasChildren ? 'layers-outline' : 'location-outline'}
@@ -440,7 +454,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
           />
         </View>
 
-        {/* Text */}
         <View style={{ flex: 1 }}>
           <Text style={[lm.itemName, { color: isSelected ? PRIMARY : th.text }]} numberOfLines={2}>
             {item.name}
@@ -459,7 +472,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
           )}
         </View>
 
-        {/* Right */}
         {isSelected && !hasChildren ? (
           <View style={[lm.checkCircle, { backgroundColor: PRIMARY }]}>
             <Ionicons name="checkmark" size={12} color="#fff" />
@@ -483,14 +495,10 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
         <TouchableOpacity style={lm.backdrop} activeOpacity={1} onPress={onClose} />
 
         <View style={[lm.sheet, { backgroundColor: th.bg }]}>
-          {/* ── Static top section — never flexes ── */}
           <View>
-            {/* Handle */}
             <View style={[lm.handle, { backgroundColor: th.border }]} />
 
-            {/* Header */}
             <View style={lm.headerRow}>
-              {/* Back or close */}
               <TouchableOpacity
                 style={[lm.iconBtn, { backgroundColor: th.surface, borderColor: th.border }]}
                 onPress={level > 0 ? handleBack : onClose}
@@ -501,7 +509,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
 
               <View style={{ flex: 1, marginHorizontal: 12 }}>
                 <Text style={[lm.title, { color: th.text }]} numberOfLines={1}>{currentTitle}</Text>
-                {/* Depth indicator dots */}
                 {level > 0 && (
                   <View style={lm.depthDots}>
                     {[...Array(Math.max(4, level + 2))].map((_, i) => (
@@ -520,7 +527,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
                 )}
               </View>
 
-              {/* Clear button (only if something selected) */}
               {(rootAreaId || currentSelected) ? (
                 <TouchableOpacity
                   style={[lm.clearBtn, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}
@@ -533,7 +539,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
               )}
             </View>
 
-            {/* Breadcrumb trail */}
             {breadcrumb.length > 0 && (
               <ScrollView
                 horizontal
@@ -575,7 +580,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
               </ScrollView>
             )}
 
-            {/* Search (only at root level) */}
             {level === 0 && (
               <View style={[lm.searchBar, { backgroundColor: th.searchBg, borderColor: th.border }]}>
                 <Ionicons name="search-outline" size={16} color={th.sub} />
@@ -594,7 +598,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
               </View>
             )}
 
-            {/* Count badge */}
             {filteredItems.length > 0 && (
               <View style={lm.countRow}>
                 <Text style={[lm.countTxt, { color: th.sub }]}>
@@ -608,9 +611,7 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
               </View>
             )}
           </View>
-          {/* ── End static top section ── */}
 
-          {/* List */}
           <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
             <FlatList
               data={filteredItems}
@@ -633,7 +634,6 @@ const LocationModal = ({ visible, onClose, selected, onSelect, nightMode, locati
             />
           </Animated.View>
 
-          {/* Footer: current full selection */}
           {rootAreaId && currentSelected && (
             <View style={[lm.footer, { borderTopColor: th.border, backgroundColor: th.surface }]}>
               <View style={[lm.footerIconWrap, { backgroundColor: `${PRIMARY}18` }]}>
@@ -668,8 +668,6 @@ const lm = StyleSheet.create({
     overflow: 'hidden',
   },
   handle: { width: 44, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 16 },
-
-  // Header
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   iconBtn: {
     width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
@@ -682,8 +680,6 @@ const lm = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1,
   },
   clearTxt: { fontSize: 12, fontWeight: '600', color: '#EF4444' },
-
-  // Breadcrumb
   breadcrumbScroll: { marginBottom: 10, flexGrow: 0, flexShrink: 0, height: 36 },
   breadcrumbContent: {
     flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 8,
@@ -694,26 +690,18 @@ const lm = StyleSheet.create({
   },
   crumbRoot: {},
   crumbTxt: { fontSize: 11, fontWeight: '600' },
-
-  // Search
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderRadius: 14, borderWidth: 1,
     paddingHorizontal: 12, paddingVertical: 11, marginBottom: 8,
   },
   searchInput: { flex: 1, fontSize: 14, padding: 0 },
-
-  // Count
   countRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     marginBottom: 8, paddingHorizontal: 2,
   },
   countTxt: { fontSize: 11, fontWeight: '500' },
-
-  // List
   listContent: { paddingBottom: 16 },
-
-  // Item
   item: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderRadius: 14, borderWidth: 1,
@@ -735,12 +723,8 @@ const lm = StyleSheet.create({
   chevronWrap: {
     width: 26, height: 26, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
   },
-
-  // Empty
   empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyTxt: { fontSize: 13, fontWeight: '500' },
-
-  // Footer
   footer: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 12, paddingHorizontal: 14,
@@ -814,6 +798,33 @@ const ComplaintInputScreen = ({ navigation, route }) => {
 
   useEffect(() => { loadConfig(); }, []);
 
+  // RULE 1: Live real-time validation for Minimum 2 Hours & Allowed Time Range
+  useEffect(() => {
+    if (!isASAP && fromTime && toTime && config?.complaint_lock_time) {
+      const fromMins = fromTime.getHours() * 60 + fromTime.getMinutes();
+      const toMins = toTime.getHours() * 60 + toTime.getMinutes();
+
+      const [lockFromH, lockFromM] = config.complaint_lock_time.from.split(':').map(Number);
+      const [lockToH, lockToM] = config.complaint_lock_time.to.split(':').map(Number);
+
+      const allowedFromMins = (lockFromH * 60) + lockFromM;
+      const allowedToMins = (lockToH * 60) + lockToM;
+
+      if (fromMins >= toMins) {
+        setErrors(prev => ({ ...prev, time: t('End time must be after start time.') }));
+      } else if (toMins - fromMins < 120) {
+        setErrors(prev => ({ ...prev, time: t('Minimum visit duration must be 2 hours.') }));
+      } else if (fromMins < allowedFromMins || toMins > allowedToMins) {
+        setErrors(prev => ({
+          ...prev,
+            time: `${t('Time must be between')} ${convertTo12Hour(config.complaint_lock_time.from)} ${t('and')} ${convertTo12Hour(config.complaint_lock_time.to)}`
+        }));
+      } else {
+        setErrors(prev => ({ ...prev, time: undefined }));
+      }
+    }
+  }, [fromTime, toTime, isASAP, config, t]);
+
   const openLocation = async () => {
     if (locations.length === 0) {
       setIsLoadingLocations(true);
@@ -824,6 +835,23 @@ const ComplaintInputScreen = ({ navigation, route }) => {
   };
 
   const loadConfig = async () => {
+    try {
+      const res = await complaintService.getSocietyConfiguration();
+      const configData = res?.data || res;
+
+      if (configData && configData.complaint_lock_time) {
+        setConfig(configData);
+        AsyncStorage.setItem("SOCIETY_CONFIG", JSON.stringify({ data: configData }));
+      } else {
+        loadFallbackConfig();
+      }
+    } catch (error) {
+      console.log("❌ Failed to fetch live config, falling back to local storage:", error);
+      loadFallbackConfig();
+    }
+  };
+
+  const loadFallbackConfig = async () => {
     try {
       const data = await AsyncStorage.getItem("SOCIETY_CONFIG");
       if (data) { const parsed = JSON.parse(data); setConfig(parsed.data); }
@@ -862,7 +890,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
       const res = await otherServices.getCommonAreas();
 
       const formatted = res.map(item => {
-        // Items with sub-location data: parse and attach as children
         if (item.data) {
           try {
             const parsed = JSON.parse(item.data);
@@ -874,7 +901,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
             return { ...item, children: [] };
           }
         }
-        // Items without sub-locations: no children
         return { ...item, children: [] };
       });
 
@@ -884,9 +910,8 @@ const ComplaintInputScreen = ({ navigation, route }) => {
       setLocations([]);
     }
   };
-  const handlePriorityChange = (val) => {
 
-    // Block schedule mode if permission missing
+  const handlePriorityChange = (val) => {
     if (!val && !canScheduleComplaint) {
       return;
     }
@@ -909,8 +934,10 @@ const ComplaintInputScreen = ({ navigation, route }) => {
   const showModal = (type, title, subtitle) => setModalConfig({ visible: true, type, title, subtitle });
   const hideModal = () => setModalConfig(prev => ({ ...prev, visible: false }));
 
+  // RULE 2: Ensure Remarks logic accounts for config settings
+  const isRemarksMandatory = config?.add_comp_enable_remark === "1" || subCategory?.name?.toLowerCase() === 'other';
+
   const handleSubmit = async () => {
-    // Collect ALL errors at once so all red messages show together
     const newErrors = {};
 
     if (!selectedArea) {
@@ -919,12 +946,12 @@ const ComplaintInputScreen = ({ navigation, route }) => {
     if (selectedArea === 'common' && !location) {
       newErrors.location = t('Please select a specific location.');
     }
-  const isOtherSubCategory =
-    subCategory?.name?.toLowerCase() === 'other';
 
-  if (isOtherSubCategory && !remarks.trim()) {
-    newErrors.remarks = t('Please describe the issue.');
-  }
+    // Apply the configured remarks rule
+    if (isRemarksMandatory && !remarks.trim()) {
+      newErrors.remarks = t('Please describe the issue.');
+    }
+
     if (!isASAP && canScheduleComplaint) {
       if (!selectedDate) newErrors.date = t('Please select a date.');
       if (!fromTime || !toTime) {
@@ -932,7 +959,23 @@ const ComplaintInputScreen = ({ navigation, route }) => {
       } else {
         const fromMins = fromTime.getHours() * 60 + fromTime.getMinutes();
         const toMins = toTime.getHours() * 60 + toTime.getMinutes();
-        if (fromMins >= toMins) newErrors.time = t('End time must be after start time.');
+        
+        // Final Rule 1 verification on Submit
+        if (fromMins >= toMins) {
+          newErrors.time = t('End time must be after start time.');
+        } else if (toMins - fromMins < 120) {
+          newErrors.time = t('Minimum visit duration must be 2 hours.');
+        } else if (config?.complaint_lock_time) {
+          const [lockFromH, lockFromM] = config.complaint_lock_time.from.split(':').map(Number);
+          const [lockToH, lockToM] = config.complaint_lock_time.to.split(':').map(Number);
+
+          const allowedFromMins = (lockFromH * 60) + lockFromM;
+          const allowedToMins = (lockToH * 60) + lockToM;
+
+          if (fromMins < allowedFromMins || toMins > allowedToMins) {
+            newErrors.time = `${t('Time must be between')} ${convertTo12Hour(config.complaint_lock_time.from)} ${t('and')} ${convertTo12Hour(config.complaint_lock_time.to)}`;
+          }
+        }
       }
     }
 
@@ -947,7 +990,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
       const current = new Date().toTimeString().slice(0, 5);
       const { from, to } = config.complaint_lock_time;
       if (current < from || current > to) {
-        setErrors({ submit: `${t('Complaints allowed only between')} ${from} ${t('and')} ${to}` });
+        setErrors({ submit: `${t('Complaints allowed only between')} ${convertTo12Hour(from)} ${t('and')} ${convertTo12Hour(to)}` });
         return;
       }
     }
@@ -961,6 +1004,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
       (!isASAP && canScheduleComplaint && fromTime && toTime)
         ? `${fmtTime(fromTime)} to ${fmtTime(toTime)}`
         : null;
+    
     if (!isASAP && !probableDate) {
       setErrors({ date: t('Could not read the selected date.') });
       return;
@@ -1002,7 +1046,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
     }
   };
 
-  // Display label for the selected location in the picker button
   const locationDisplayName = location
     ? (location.breadcrumb || location.name)
     : null;
@@ -1016,7 +1059,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Issue Card */}
         <View style={[s.issueCard, { backgroundColor: `${PRIMARY}0D`, borderColor: `${PRIMARY}25` }]}>
           <View style={[s.issueIconWrap, { backgroundColor: `${PRIMARY}20` }]}>
             <MaterialIcons name="build" size={22} color={PRIMARY} />
@@ -1030,7 +1072,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* ── Priority ─────────────────────────────────────────────────────── */}
         <Section label={t('Priority')} t={th}>
           <View style={s.priorityRow}>
             <TouchableOpacity
@@ -1101,7 +1142,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
                       borderColor: errors.time ? '#EF4444' : fromTime ? PRIMARY : th.border,
                       backgroundColor: th.surface,
                     }]}
-                    onPress={() => { setShowTimePicker(true); setErrors(e => ({ ...e, time: undefined })); }}
+                    onPress={() => setShowTimePicker(true)}
                     activeOpacity={0.8}
                   >
                     <Text style={[s.timeBtnValue, { color: fromTime ? th.text : th.sub }]} numberOfLines={1}>
@@ -1120,7 +1161,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
           )}
         </Section>
 
-        {/* ── Area Type ────────────────────────────────────────────────────── */}
         <Section label={t('Area Type')} required error={errors.area} t={th}>
           <TouchableOpacity
             style={[s.areaBtn, {
@@ -1216,7 +1256,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
           </View>
         </Section>
 
-        {/* ── Photo Attachment ──────────────────────────────────────────────── */}
         <Section label={t('Photo Attachment (Optional)')} t={th}>
           {image ? (
             <View style={s.imagePreviewWrap}>
@@ -1237,10 +1276,9 @@ const ComplaintInputScreen = ({ navigation, route }) => {
           )}
         </Section>
 
-        {/* ── Remarks ──────────────────────────────────────────────────────── */}
         <Section
           label={t('Remarks')}
-          required={subCategory?.name?.toLowerCase() === 'other'}
+          required={isRemarksMandatory}
           error={errors.remarks}
           t={th}
         >
@@ -1263,7 +1301,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
           )}
         </Section>
 
-        {/* Submit-level error (e.g. complaints closed time) */}
         {!!errors.submit && (
           <View style={s.submitError}>
             <Ionicons name="time-outline" size={15} color="#EF4444" />
@@ -1271,7 +1308,6 @@ const ComplaintInputScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Submit */}
         <TouchableOpacity
           style={[s.submitBtn, { backgroundColor: PRIMARY, opacity: modalConfig.type === 'loading' && modalConfig.visible ? 0.7 : 1 }]}
           onPress={handleSubmit}
@@ -1291,6 +1327,7 @@ const ComplaintInputScreen = ({ navigation, route }) => {
         fromTime={fromTime} toTime={toTime}
         onFromChange={setFromTime} onToChange={setToTime}
         nightMode={nightMode}
+        allowedTime={config?.complaint_lock_time}
       />
       <LocationModal
         visible={showLocModal}
@@ -1301,90 +1338,67 @@ const ComplaintInputScreen = ({ navigation, route }) => {
         locations={locations}
       />
       <Modal
-  visible={showPhotoModal}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setShowPhotoModal(false)}
->
-  <View style={s.photoModalOverlay}>
-    <TouchableOpacity
-      style={s.photoModalBackdrop}
-      activeOpacity={1}
-      onPress={() => setShowPhotoModal(false)}
-    />
-
-    <View style={[s.photoModalContainer, { backgroundColor: th.surface }]}>
-
-      <View style={[s.photoHandle, { backgroundColor: th.border }]} />
-
-      <Text style={[s.photoModalTitle, { color: th.text }]}>
-        {t('Add Photo')}
-      </Text>
-
-      <Text style={[s.photoModalSubtitle, { color: th.sub }]}>
-        {t('Choose how you want to upload the image')}
-      </Text>
-
-      <TouchableOpacity
-        style={[s.photoOptionBtn, {
-          backgroundColor: th.input,
-          borderColor: th.border
-        }]}
-        onPress={() => takePicture('camera')}
+        visible={showPhotoModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPhotoModal(false)}
       >
-        <View style={s.photoOptionIcon}>
-          <Ionicons name="camera-outline" size={22} color={PRIMARY} />
+        <View style={s.photoModalOverlay}>
+          <TouchableOpacity
+            style={s.photoModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowPhotoModal(false)}
+          />
+
+          <View style={[s.photoModalContainer, { backgroundColor: th.surface }]}>
+            <View style={[s.photoHandle, { backgroundColor: th.border }]} />
+            <Text style={[s.photoModalTitle, { color: th.text }]}>
+              {t('Add Photo')}
+            </Text>
+            <Text style={[s.photoModalSubtitle, { color: th.sub }]}>
+              {t('Choose how you want to upload the image')}
+            </Text>
+
+            <TouchableOpacity
+              style={[s.photoOptionBtn, {
+                backgroundColor: th.input,
+                borderColor: th.border
+              }]}
+              onPress={() => takePicture('camera')}
+            >
+              <View style={s.photoOptionIcon}>
+                <Ionicons name="camera-outline" size={22} color={PRIMARY} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.photoOptionTitle, { color: th.text }]}>{t('Take Photo')}</Text>
+                <Text style={[s.photoOptionDesc, { color: th.sub }]}>{t('Capture using camera')}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={th.sub} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[s.photoOptionBtn, {
+                backgroundColor: th.input,
+                borderColor: th.border
+              }]}
+              onPress={() => takePicture('gallery')}
+            >
+              <View style={s.photoOptionIcon}>
+                <Ionicons name="images-outline" size={22} color={PRIMARY} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.photoOptionTitle, { color: th.text }]}>{t('Choose from Gallery')}</Text>
+                <Text style={[s.photoOptionDesc, { color: th.sub }]}>{t('Select existing image')}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={th.sub} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.photoCancelBtn} onPress={() => setShowPhotoModal(false)}>
+              <Text style={s.photoCancelTxt}>{t('Cancel')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <View style={{ flex: 1 }}>
-          <Text style={[s.photoOptionTitle, { color: th.text }]}>
-            {t('Take Photo')}
-          </Text>
-
-          <Text style={[s.photoOptionDesc, { color: th.sub }]}>
-            {t('Capture using camera')}
-          </Text>
-        </View>
-
-        <Ionicons name="chevron-forward" size={18} color={th.sub} />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[s.photoOptionBtn, {
-          backgroundColor: th.input,
-          borderColor: th.border
-        }]}
-        onPress={() => takePicture('gallery')}
-      >
-        <View style={s.photoOptionIcon}>
-          <Ionicons name="images-outline" size={22} color={PRIMARY} />
-        </View>
-
-        <View style={{ flex: 1 }}>
-          <Text style={[s.photoOptionTitle, { color: th.text }]}>
-            {t('Choose from Gallery')}
-          </Text>
-
-          <Text style={[s.photoOptionDesc, { color: th.sub }]}>
-            {t('Select existing image')}
-          </Text>
-        </View>
-
-        <Ionicons name="chevron-forward" size={18} color={th.sub} />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={s.photoCancelBtn}
-        onPress={() => setShowPhotoModal(false)}
-      >
-        <Text style={s.photoCancelTxt}>
-          {t('Cancel')}
-        </Text>
-      </TouchableOpacity>
-
-    </View>
-  </View>
-</Modal>
+      </Modal>
       <StatusModal
         visible={modalConfig.visible}
         type={modalConfig.type}
@@ -1482,83 +1496,71 @@ const s = StyleSheet.create({
   },
   submitTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
   photoModalOverlay: {
-  flex: 1,
-  justifyContent: 'flex-end',
-  backgroundColor: 'rgba(0,0,0,0.45)',
-},
-
-photoModalBackdrop: {
-  flex: 1,
-},
-
-photoModalContainer: {
-  borderTopLeftRadius: 28,
-  borderTopRightRadius: 28,
-  paddingHorizontal: 20,
-  paddingTop: 14,
-  paddingBottom: 28,
-},
-
-photoHandle: {
-  width: 46,
-  height: 5,
-  borderRadius: 4,
-  alignSelf: 'center',
-  marginBottom: 18,
-},
-
-photoModalTitle: {
-  fontSize: 20,
-  fontWeight: '700',
-  textAlign: 'center',
-},
-
-photoModalSubtitle: {
-  fontSize: 13,
-  textAlign: 'center',
-  marginTop: 6,
-  marginBottom: 24,
-},
-
-photoOptionBtn: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  borderWidth: 1,
-  borderRadius: 18,
-  padding: 16,
-  marginBottom: 14,
-},
-
-photoOptionIcon: {
-  width: 52,
-  height: 52,
-  borderRadius: 16,
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginRight: 14,
-  backgroundColor: '#EEF2FF',
-},
-
-photoOptionTitle: {
-  fontSize: 15,
-  fontWeight: '700',
-},
-
-photoOptionDesc: {
-  fontSize: 12,
-  marginTop: 4,
-},
-
-photoCancelBtn: {
-  alignItems: 'center',
-  paddingVertical: 14,
-  marginTop: 4,
-},
-
-photoCancelTxt: {
-  fontSize: 15,
-  fontWeight: '700',
-  color: '#EF4444',
-},
-  
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  photoModalBackdrop: {
+    flex: 1,
+  },
+  photoModalContainer: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 28,
+  },
+  photoHandle: {
+    width: 46,
+    height: 5,
+    borderRadius: 4,
+    alignSelf: 'center',
+    marginBottom: 18,
+  },
+  photoModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  photoModalSubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 24,
+  },
+  photoOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+  },
+  photoOptionIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    backgroundColor: '#EEF2FF',
+  },
+  photoOptionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  photoOptionDesc: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  photoCancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  photoCancelTxt: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
 });

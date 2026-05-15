@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Linking,
   Alert,
 } from 'react-native';
@@ -19,25 +18,29 @@ const CONTACTS = [
     id: '1',
     name: 'Emergency',
     phone: '112',
-    image: 'https://cdn-icons-png.flaticon.com/512/7373/7373323.png'
+    icon: 'warning',
+    color: '#EF4444',
   },
   {
     id: '2',
     name: 'Police',
     phone: '100',
-    image: 'https://img.icons8.com/color/96/police-badge.png'
+    icon: 'shield-checkmark',
+    color: '#2563EB',
   },
   {
     id: '3',
     name: 'Ambulance',
     phone: '108',
-    image: 'https://img.icons8.com/color/96/ambulance.png'
+    icon: 'medical',
+    color: '#10B981',
   },
   {
     id: '4',
     name: 'Fire',
     phone: '101',
-    image: 'https://img.icons8.com/color/96/fire-truck.png'
+    icon: 'flame',
+    color: '#F97316',
   },
 ];
 
@@ -83,7 +86,9 @@ export default function ImportantContacts() {
             onPress={() => handleCall(item.phone)}
             activeOpacity={0.7}
           >
-            <Image source={{ uri: item.image }} style={s.avatar} />
+            <View style={[s.iconContainer, { backgroundColor: `${item.color}20` }]}>
+              <Ionicons name={item.icon} size={22} color={item.color} />
+            </View>
             <Text style={[s.name, { color: colors.name }]} numberOfLines={1}>
               {t(item.name)}
             </Text>
@@ -129,10 +134,12 @@ const s = StyleSheet.create({
 
     borderWidth: 0.5,
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  iconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 6,
   },
   name: {

@@ -53,17 +53,19 @@ const MyComplexScreen = () => {
     const TAB_HEIGHT = 50; // Ensure this is defined
 
     if (diff > 0) {
+      tabTranslateY.stopAnimation();
       Animated.timing(tabTranslateY, {
         toValue: -TAB_HEIGHT,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     }
     else if (diff < 0) {
+      tabTranslateY.stopAnimation();
       Animated.timing(tabTranslateY, {
         toValue: 0,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     }
 
