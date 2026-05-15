@@ -17,8 +17,8 @@ const AppHeader = ({
   const navigation = useNavigation();
 
   const theme = {
-    background: nightMode ? '#121212' : '#FFFFFF',
-    text: nightMode ? '#FFFFFF' : '#111827fd',
+    background: nightMode ? '#121212' : '#F27B22',
+    text: '#FFFFFF',
     border: nightMode ? '#2C2C2C' : '#E5E7EB',
   };
 

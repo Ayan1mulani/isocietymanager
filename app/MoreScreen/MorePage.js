@@ -32,7 +32,6 @@ import DeviceInfo from 'react-native-device-info';
 import { useTranslation } from 'react-i18next';
 import Text from '../components/TranslatedText';
 import { clearAccountsCache } from '../AccountsScreen/AccountsPage';
-import AppHeader from '../components/AppHeader';
 
 const { VisitorModule } = NativeModules;
 const version = DeviceInfo.getVersion();
@@ -590,7 +589,6 @@ const ProfileScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <AppHeader title={"Profile"}/>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* ── Profile Header ───────────────────────────────────────────── */}
@@ -765,12 +763,12 @@ const ProfileScreen = () => {
         <View style={[styles.card, { backgroundColor: theme.cardBg }]}>
           <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t("Settings")}</Text>
 
-          <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')}>
+          {/* <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('Settings')}>
             <Ionicons name="settings-outline" size={20} color={theme.textMain} />
             <Text style={[styles.actionText, { color: theme.textMain }]} numberOfLines={1}>
               {t("App Settings")}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity style={styles.actionRow} onPress={() => setChangePassModal(true)}>
             <Ionicons name="lock-closed-outline" size={20} color={theme.textMain} />

@@ -1,7 +1,7 @@
 export default {
   APP_NAME: "Max Estates",
 
-  APP_VERSION_CODE: "33",
+  APP_VERSION_CODE: "34",
 
   ONE_SIGNAL: {
     appId: "af8afb9d-f1d7-4836-b48c-1ca678b1913e",

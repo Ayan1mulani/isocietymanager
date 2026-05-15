@@ -67,6 +67,8 @@ const AllServicesScreen = () => {
     { title: 'Bounced Cheque', icon: 'alert-circle-outline', route: 'BouncedCheques' },
     { title: 'Debit Credit Note', icon: 'time-outline', route: 'PaymentHistory' },
     { title: 'Events', icon: 'time-outline', route: 'event' },
+    { title: 'Account summary', icon: 'card-outline', route: 'Accounts' },
+
 
     // { title: 'Survey', icon: 'survey-outline', route: 'surveypage' },
 

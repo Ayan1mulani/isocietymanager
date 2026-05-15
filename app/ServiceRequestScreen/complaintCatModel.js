@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -27,6 +27,8 @@ const H_PADDING = 16;
 const GAP = 10;
 const CARD_WIDTH = (width - H_PADDING * 2 - GAP * 2) / 3;
 
+let CATEGORY_CACHE = null;
+
 const CategorySelectionScreen = () => {
   const { nightMode } = usePermissions();
   const navigation = useNavigation();
@@ -35,6 +37,7 @@ const CategorySelectionScreen = () => {
   const [search, setSearch] = useState('');
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const hasFetchedRef = useRef(false);
 
   const theme = nightMode
     ? {
@@ -55,7 +58,16 @@ const CategorySelectionScreen = () => {
       };
 
   useEffect(() => {
-    fetchCategories();
+    if (CATEGORY_CACHE && CATEGORY_CACHE.length > 0) {
+      setCategories(CATEGORY_CACHE);
+      setLoading(false);
+      return;
+    }
+
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchCategories();
+    }
   }, []);
 
   const fetchCategories = async () => {
@@ -67,9 +79,12 @@ const CategorySelectionScreen = () => {
         name: c.name,
         sub_catagory: c.sub_catagory || [],
       }));
+      CATEGORY_CACHE = list;
       setCategories(list);
     } catch (e) {
-      setCategories([]);
+      if (!CATEGORY_CACHE) {
+        setCategories([]);
+      }
     } finally {
       setLoading(false);
     }

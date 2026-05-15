@@ -13,16 +13,29 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { usePermissions } from '../../Utils/ConetextApi';
 import { hasPermission } from '../../Utils/PermissionHelper';
-import ComplaintListScreen from './ServiceRequestPage';
-import { complaintService } from '../../services/complaintService';
+import ComplaintListScreen from './ServiceRequestPage';import { complaintService } from '../../services/complaintService';
 import SlidingTabs from '../components/SlidingTabs';
 import BRAND from '../config';
 import Text from '../components/TranslatedText';
+import AppHeader from '../components/AppHeader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const TABS = ['Open', 'Closed', 'All'];
 const PER_PAGE = 15;
+// Persist tab data between screen remounts
+let SERVICE_REQUEST_CACHE = {
+  tabStates: {
+    Open: { data: [], page: 1, hasMore: true },
+    Closed: { data: [], page: 1, hasMore: true },
+    All: { data: [], page: 1, hasMore: true },
+  },
+  loadedTabs: {
+    Open: false,
+    Closed: false,
+    All: false,
+  },
+};
 
 const COLORS = {
   primary: BRAND.COLORS.primary,
@@ -31,7 +44,7 @@ const COLORS = {
 };
 
 const LazyTabPage = React.memo(({ tabIndex, activeIndex, backgroundColor, children }) => {
-  const hasBeenActive = useRef(tabIndex === 0);
+  const hasBeenActive = useRef(activeIndex === tabIndex);
   if (activeIndex === tabIndex) hasBeenActive.current = true;
 
   if (!hasBeenActive.current) {
@@ -49,14 +62,10 @@ const ServiceRequestTabs = () => {
   const [activeTabIndex, setActiveTabIndex] = useState(0);
 
   // ✅ Store data, page, and hasMore separately for EACH tab
-  const [tabStates, setTabStates] = useState({
-    Open: { data: [], page: 1, hasMore: true },
-    Closed: { data: [], page: 1, hasMore: true },
-    All: { data: [], page: 1, hasMore: true },
-  });
+  const [tabStates, setTabStates] = useState(SERVICE_REQUEST_CACHE.tabStates);
 
   // ✅ Ref to track if a tab has already been loaded initially
-  const loadedTabsRef = useRef({ Open: false, Closed: false, All: false });
+  const loadedTabsRef = useRef(SERVICE_REQUEST_CACHE.loadedTabs);
 
   const [loadingStates, setLoadingStates] = useState({
     Open: false,
@@ -126,7 +135,7 @@ const ServiceRequestTabs = () => {
           newData = [...currentTabData, ...newItems];
         }
 
-        return {
+        const updatedState = {
           ...prev,
           [tabName]: {
             data: newData,
@@ -134,10 +143,16 @@ const ServiceRequestTabs = () => {
             hasMore: pageData.length === PER_PAGE,
           }
         };
+
+        // Save cache
+        SERVICE_REQUEST_CACHE.tabStates = updatedState;
+
+        return updatedState;
       });
 
       // Mark this specific tab as loaded so we don't fetch it again purely from scrolling
       loadedTabsRef.current[tabName] = true;
+      SERVICE_REQUEST_CACHE.loadedTabs = loadedTabsRef.current;
 
     } catch (err) {
       console.error(err);
@@ -180,11 +195,13 @@ const ServiceRequestTabs = () => {
   }, [activeTabIndex, fetchServiceRequests]);
 
   useEffect(() => {
-    // Only load initial 'Open' tab if it hasn't been loaded yet
-    if (canViewComplaints && !loadedTabsRef.current['Open']) {
-      fetchServiceRequests('Open', 1, true);
-    }
-  }, [canViewComplaints, fetchServiceRequests]);
+    if (!canViewComplaints) return;
+
+    // Prevent reloading if already loaded once
+    if (loadedTabsRef.current['Open']) return;
+
+    fetchServiceRequests('Open', 1, true);
+  }, []);
 
   const handleTabPress = useCallback((index) => {
     if (index === activeTabIndex) return;
@@ -235,7 +252,7 @@ const ServiceRequestTabs = () => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}> 
       <SlidingTabs tabs={TABS} activeIndex={activeTabIndex} onTabPress={handleTabPress} scrollX={scrollX} />
 
       <Animated.ScrollView
@@ -245,8 +262,6 @@ const ServiceRequestTabs = () => {
         nestedScrollEnabled
         directionalLockEnabled
         disableIntervalMomentum
-        removeClippedSubviews={false}
-        contentContainerStyle={{ flexGrow: 1 }}
         bounces={false}
         overScrollMode="never"
         automaticallyAdjustContentInsets={false}

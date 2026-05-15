@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   sheetWrapper: {
     paddingTop: 8,
     paddingHorizontal: 5,
-    paddingBottom: 40,
+    paddingBottom: 100,
     marginTop: -30,
     borderTopRightRadius: 28,
     borderTopLeftRadius: 28,
