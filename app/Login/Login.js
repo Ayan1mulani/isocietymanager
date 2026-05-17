@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
   splashContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor:'#ffffff'
+    backgroundColor:  BRAND.PRIMARY_COLOR
   },
   splashLogo: {
     width: width * 0.65,

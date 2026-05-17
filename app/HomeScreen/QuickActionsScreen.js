@@ -20,7 +20,7 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const ACTIONS = [
   // Notice: If this is for creating a pass, you might want to change action: "R" to action: "C" later!
-  { id: "1", title: "Pass", icon: "create-outline", screen: "Visitors", module: "VMS", action: "R" },
+  { id: "1", title: "Pass", icon: "create-outline", screen: "Visitors", module: "VMS", action: "C" },
   { id: "2", title: "Amenities", icon: "bookmark-outline", screen: "AmenitiesListScreen", module: "FBK", action: "R" },
   { id: "3", title: "Raise Request", icon: "chatbox-ellipses-outline", screen: "CategorySelection", module: "COM", action: "C" },
   { id: "4", title: "Bookings", icon: "calendar-outline", screen: "MyBookings", module: "FBK", action: "R" },
