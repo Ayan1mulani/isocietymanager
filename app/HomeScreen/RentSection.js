@@ -27,16 +27,15 @@ const SPACING = 12;
 const SHIMMER_TRAVEL = SCREEN_WIDTH * 2;
 
 const getOutstandingCacheKey = (userId) => `@outstanding_cache_${userId}`;
-
 const HTML_THEME = {
-  background: "#1a2540f7",
-  card: "rgba(255, 255, 255, 0.1)",
-  cardBorder: "rgb(255, 255, 255)",
-  text: "#FFFFFF",
-  subText: "rgba(255, 255, 255, 0.6)",
-  accent: "#0ea98a",
-  shimBase: "rgba(255, 255, 255, 0.05)",
-  shimShine: "rgba(255, 255, 255, 0.15)",
+  background: "#F27B22",
+  card: "#ffffff",
+  cardBorder: "rgba(0, 0, 0, 0.1)", 
+  text: "#000000",
+  subText: "rgba(0, 0, 0, 0.6)",
+  accent: "#2563EB",
+  shimBase: "#E0E0E0", // Updated for white background
+  shimShine: "#F5F5F5", // Updated for white background
   inactiveDot: "rgba(255, 255, 255, 0.3)",
 };
 
@@ -312,7 +311,7 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
               style={styles.refreshBtn}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
+              <Ionicons name="refresh-outline" size={15} color="#000000" />
             </TouchableOpacity>
           </View>
 
@@ -332,7 +331,7 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
             )}
 
             <View style={styles.arrowInline}>
-              <Ionicons name={isPayable ? "arrow-forward" : "lock-closed"} size={15} color="#FFF" />
+              <Ionicons name={isPayable ? "arrow-forward" : "lock-closed"} size={15} color="#000000" />
             </View>
           </View>
         </View>
@@ -428,9 +427,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    backgroundColor: "#ffffff",
     borderWidth: 1.2,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    borderColor: "rgba(0, 0, 0, 0.1)", // Updated border for better visibility on white background
     justifyContent: "space-between",
     minHeight: 50,
   },
@@ -442,16 +441,16 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(0,0,0,0.05)", // Updated to show contrast inside the white card
     marginTop:0,
     marginRight: -2,
   },
   topRow: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
-  billDate: { color: "rgba(255, 255, 255, 0.86)", fontSize: 10, flex: 1, marginRight: 8 },
-  label: { color: "rgba(255, 255, 255, 0.86)", fontSize: 9.5, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 0 },
+  billDate: { color: "rgba(0, 0, 0, 0.6)", fontSize: 10, flex: 1, marginRight: 8 }, // Updated text to dark
+  label: { color: "#F27B22", fontSize: 9.5, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 0 }, // Updated to Orange
   singleCardLabel: { textAlign: 'center', fontSize: 10, marginTop: 4, marginBottom: 2, lineHeight: 12 },
-  amount: { color: "#FFFFFF", fontSize: 22, fontWeight: "700", letterSpacing: -0.5 },
-  refreshLoading: { color: "#FFFFFF", fontSize: 20, fontWeight: "700", letterSpacing: 3 },
+  amount: { color: "#000000", fontSize: 22, fontWeight: "700", letterSpacing: -0.5 }, // Updated text to Black
+  refreshLoading: { color: "#000000", fontSize: 20, fontWeight: "700", letterSpacing: 3 }, // Updated text to Black
   amountRow: {
     flexDirection: "row",
     alignItems: "center",
