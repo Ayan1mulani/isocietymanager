@@ -27,12 +27,12 @@ const SHIMMER_TRAVEL = PAGE_WIDTH * 2;
 const getOutstandingCacheKey = (userId) => `@outstanding_cache_${userId}`;
 
 const HTML_THEME = {
-  background: "#1a2540f7",
-  card: "rgba(255, 255, 255, 0.1)",
+  background: "#F27B22",
+  card: "#ffff",
   cardBorder: "rgb(255, 255, 255)",
-  text: "#FFFFFF",
-  subText: "rgba(255, 255, 255, 0.6)",
-  accent: "#0ea98a",
+  text: "#000000",
+  subText: "rgba(0, 0, 0, 0.6)",
+  accent: "#2563EB",
   shimBase: "rgba(255, 255, 255, 0.05)",
   shimShine: "rgba(255, 255, 255, 0.15)",
   inactiveDot: "rgba(255, 255, 255, 0.3)",
@@ -182,7 +182,7 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
   const [refreshingCardId, setRefreshingCardId] = useState(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  // ✅ New variable to strictly check if there is only 1 bill overall
+  // ✅ Strictly check if there is only 1 bill overall
   const isOnlyOneTotal = outstanding.length === 1;
 
   useEffect(() => {
@@ -292,8 +292,8 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
     pages.push({ id: `page_${i}`, bills: [outstanding[i], outstanding[i + 1] ?? null] });
   }
 
-  // ✅ Updated renderBillCard parameters
-  const renderBillCard = (billData, centerCard = false) => {
+  // ✅ Updated to cleanly swap between single centered item vs multiple left-aligned items
+  const renderBillCard = (billData, isSingleItem = false) => {
     if (!billData) return null;
 
     const exactCardWidth = PAGE_WIDTH * 0.48;
@@ -351,10 +351,19 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
         style={[
           styles.cardOuter,
           {
-            flex: centerCard ? 0 : 1, // Only drop flex if it's strictly centered
-            width: centerCard ? exactCardWidth : undefined,
-            maxWidth: centerCard ? exactCardWidth : undefined,
-            opacity: isPayable ? 1 : 0.6
+            flex: isSingleItem ? 1 : 0,
+            width: isSingleItem ? '100%' : exactCardWidth,
+            maxWidth: isSingleItem ? '100%' : exactCardWidth,
+            alignSelf: isSingleItem ? 'center' : 'auto',
+            // If single item, ensure card is fully white (as requested)
+            backgroundColor: isSingleItem ? "#FFFFFF" : HTML_THEME.card,
+            opacity: isPayable ? 1 : 0.85,
+            justifyContent: isSingleItem ? "center" : "space-between",
+            shadowColor: isSingleItem ? '#000' : 'transparent',
+            shadowOffset: isSingleItem ? { width: 0, height: 3 } : { width: 0, height: 0 },
+            shadowOpacity: isSingleItem ? 0.12 : 0,
+            shadowRadius: isSingleItem ? 8 : 0,
+            elevation: isSingleItem ? 0.7 : 0,
           }
         ]}
         onPress={() =>
@@ -367,58 +376,84 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
           })
         }
       >
-        <View style={styles.topGroup}>
-          <View style={styles.topRow}>
-            <Text style={styles.billDate} numberOfLines={1}>
-              {displayDate}
-            </Text>
-
+        {isSingleItem ? (
+          // ✅ CENTERED LAYOUT FOR SINGLE ITEM
+          <>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={handleRefresh}
-              style={styles.refreshBtn}
+              style={styles.refreshBtnAbsolute}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
+              <Ionicons name="refresh-outline" size={15} color="#000000" />
             </TouchableOpacity>
-          </View>
 
-          <Text style={styles.label} numberOfLines={1}>
-            {label}
-          </Text>
-          <View style={styles.amountRow}>
-            {isRefreshing ? (
-              <AnimatedDots />
-            ) : shouldShowBalance ? (
-              <Text
-                style={styles.amount}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.6}
+            <View style={styles.centeredDetailsGroup}>
+              <Text style={styles.billDateCentered} numberOfLines={1}>
+                {displayDate}
+              </Text>
+              <Text style={styles.labelCentered} numberOfLines={1}>
+                {label}
+              </Text>
+              <View style={styles.amountRowCentered}>
+                {isRefreshing ? (
+                  <AnimatedDots />
+                ) : shouldShowBalance ? (
+                  <Text style={styles.amountCentered} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                    ₹{rawAmount}
+                  </Text>
+                ) : (
+                  <Text style={styles.amountCentered} numberOfLines={1}>₹ 0</Text>
+                )}
+                <View style={styles.arrowInlineCentered}>
+                  <Ionicons name={isPayable ? "arrow-forward" : "lock-closed"} size={14} color="#000" />
+                </View>
+              </View>
+            </View>
+          </>
+        ) : (
+          // ✅ ORIGINAL LEFT-ALIGNED LAYOUT FOR MULTIPLE ITEMS
+          <View style={styles.topGroup}>
+            <View style={styles.topRow}>
+              <Text style={styles.billDate} numberOfLines={1}>
+                {displayDate}
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handleRefresh}
+                style={styles.refreshBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                ₹{rawAmount}
-              </Text>
-            ) : (
-              <Text style={styles.amount} numberOfLines={1}>
-                ₹ 0
-              </Text>
-            )}
+                <Ionicons name="refresh-outline" size={15} color="#000000" />
+              </TouchableOpacity>
+            </View>
 
-            <View style={styles.arrowInline}>
-              <Ionicons
-                name={isPayable ? "arrow-forward" : "lock-closed"}
-                size={14}
-                color="#FFF"
-              />
+            <Text style={styles.label} numberOfLines={1}>
+              {label}
+            </Text>
+            <View style={styles.amountRow}>
+              {isRefreshing ? (
+                <AnimatedDots />
+              ) : shouldShowBalance ? (
+                <Text style={styles.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  ₹{rawAmount}
+                </Text>
+              ) : (
+                <Text style={styles.amount} numberOfLines={1}>₹ 0</Text>
+              )}
+              <View style={styles.arrowInline}>
+                <Ionicons name={isPayable ? "arrow-forward" : "lock-closed"} size={14} color="#000" />
+              </View>
             </View>
           </View>
-        </View>
+        )}
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: HTML_THEME.background }]}>
+    // ✅ Safe Area background strictly becomes white only when it is a single item
+    <View style={[styles.safeArea, { backgroundColor: isOnlyOneTotal ? "#FFFFFF" : HTML_THEME.background }]}>
       <Animated.FlatList
         data={pages}
         keyExtractor={(item) => item.id}
@@ -441,15 +476,14 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
                 styles.pageContainer,
                 {
                   width: PAGE_WIDTH,
-                  // ✅ Only center if there is exactly 1 total bill in the app
                   justifyContent: isOnlyOneTotal ? "center" : "flex-start",
-                  paddingLeft: isOnlyOneTotal ? 20 : 0,
+                  paddingHorizontal: isOnlyOneTotal ? 16 : 0,
                 },
               ]}
             >
               {renderBillCard(item.bills[0], isOnlyOneTotal)}
 
-              {/* ✅ Render second card normally. If no second card AND there are more than 1 total bills (e.g. the 3rd bill), render an invisible empty box to push it to the left */}
+              {/* Render second card normally */}
               {hasSecondCard ? (
                 renderBillCard(item.bills[1], false)
               ) : (
@@ -506,12 +540,13 @@ const styles = StyleSheet.create({
   cardOuter: {
     borderRadius: 14,
     padding: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
     borderWidth: 1.2,
     borderColor: "rgba(255, 255, 255, 0.18)",
-    justifyContent: "space-between",
     minHeight: 70,
+    position: "relative",
   },
+
+  // ORIGINAL LAYOUT STYLES
   topGroup: { width: "100%" },
   refreshBtn: {
     width: 27,
@@ -519,7 +554,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(0,0,0,0.08)",
     marginTop: -5,
     marginRight: -2,
   },
@@ -530,47 +565,34 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  billDate: {
-    color: "rgba(255, 255, 255, 0.86)",
-    fontSize: 10,
-    flex: 1,
-    marginRight: 8,
-  },
-  label: {
-    color: "rgba(255, 255, 255, 0.86)",
-    fontSize: 9.5,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    marginBottom: 0,
-  },
-  amount: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-  },
-  refreshLoading: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "700",
-    letterSpacing: 3,
-  },
-  amountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 2,
-  },
-  arrowInline: {
-    marginLeft: 8,
+  billDate: { color: "rgba(0, 0, 0, 0.7)", fontSize: 10, flex: 1, marginRight: 8 },
+  label: { color: "#F27B22", fontSize: 9.5, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 0 },
+  amount: { color: "#000000", fontSize: 20, fontWeight: "700", letterSpacing: -0.5 },
+  amountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 2 },
+  arrowInline: { marginLeft: 8, justifyContent: "center", alignItems: "center" },
+
+  // CENTERED LAYOUT STYLES (Used when single item)
+  refreshBtnAbsolute: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 27,
+    height: 27,
+    borderRadius: 17,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.08)",
+    zIndex: 10,
   },
-  dotsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-  },
+  centeredDetailsGroup: { width: "100%", alignItems: "center", justifyContent: "center" },
+  billDateCentered: { color: "rgba(0, 0, 0, 0.7)", fontSize: 10, textAlign: "center", marginBottom: 4 },
+  labelCentered: { color: "#F27B22", fontSize: 9.5, letterSpacing: 0.8, textTransform: "uppercase", textAlign: "center", marginBottom: 2 },
+  amountRowCentered: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 2 },
+  amountCentered: { color: "#000000", fontSize: 20, fontWeight: "700", letterSpacing: -0.5, textAlign: "center" },
+  arrowInlineCentered: { marginLeft: 8, justifyContent: "center", alignItems: "center" },
+
+  // GLOBAL STYLES
+  refreshLoading: { color: "#000000", fontSize: 20, fontWeight: "700", letterSpacing: 3 },
+  dotsRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 10 },
   dot: { height: 5, borderRadius: 4, marginHorizontal: 3 },
 });
