@@ -85,8 +85,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
 
         // max estate
-        versionCode 34
-        versionName "1.4.1"
+        versionCode 36
+        versionName "1.4.3"
 
         // iscoietyManager
         // versionCode 464

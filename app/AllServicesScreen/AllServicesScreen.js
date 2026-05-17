@@ -53,6 +53,7 @@ const AllServicesScreen = () => {
 
   const services = [
     { title: "Notices", icon: "notifications-outline", route: "MyNoticesScreen" },
+    { title: 'Account summary', icon: 'card-outline', route: 'Accounts' },
     { title: "Book Amenities", icon: "bookmarks-outline", route: "AmenitiesListScreen" },
     { title: "My Complex", icon: "accessibility-outline", route: "Notices" },
     { title: "Settings", icon: "settings-outline", route: 'Settings' },
@@ -66,8 +67,7 @@ const AllServicesScreen = () => {
     { title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { title: 'Bounced Cheque', icon: 'alert-circle-outline', route: 'BouncedCheques' },
     { title: 'Debit Credit Note', icon: 'time-outline', route: 'PaymentHistory' },
-    { title: 'Events', icon: 'time-outline', route: 'event' },
-    { title: 'Account summary', icon: 'card-outline', route: 'Accounts' },
+    { title: 'Events', icon: 'ribbon-outline', route: 'event' },
 
 
     // { title: 'Survey', icon: 'survey-outline', route: 'surveypage' },
@@ -91,6 +91,7 @@ const AllServicesScreen = () => {
       if (!permissions) return false;
 
       if (item.title === "Add vehicle") return hasPermission(permissions, "VEH", "C");
+      if (item.title === "Account summary") return hasPermission(permissions, "BILL", "R");
       if (item.title === "My Vehicles") return hasPermission(permissions, "VEH", "R");
       if (item.title === "Bills") return hasPermission(permissions, "BILL", "R");
       if (item.title === "Staff") return hasPermission(permissions, "VMSSTF", "R");

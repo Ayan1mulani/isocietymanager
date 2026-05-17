@@ -12,7 +12,7 @@ import {
   ScrollView
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 1. Added AsyncStorage
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { usePermissions } from '../../Utils/ConetextApi';
 import { useNavigation } from '@react-navigation/native';
 import { otherServices } from '../../services/otherServices';
@@ -25,7 +25,6 @@ import { useTranslation } from 'react-i18next';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// 2. Added Cache Key for Panic Contacts
 const getContactsCacheKey = (userId) => `@panic_contacts_cache_${userId}`;
 
 const ServicesSection = () => {
@@ -58,28 +57,11 @@ const ServicesSection = () => {
   const canSendPanic = permissionsLoaded && hasPermission(permissions, 'PNC', 'C');
 
   const allServices = [
-    // { id: '1', title: 'Accounts', icon: 'card-outline', route: 'Accounts' },
     { id: '1', title: "Notices", icon: "clipboard-outline", route: "MyNoticesScreen" },
     { id: '3', title: "Amenities", icon: "bookmarks-outline", route: "AmenitiesListScreen" },
     { id: "4", title: "Have a Query?", icon: "alert-outline", route: "CategorySelection" },
     { id: '5', title: 'Request Status', icon: 'construct-outline', route: 'Service Requests' },
     { id: '6', title: 'Events', icon: 'calendar-outline', route: 'event' },
-
-
-
-    // { id: '3', title: "My Complex", icon: "accessibility-outline", route: "Notices" },
-    // { id: '4', title: 'SOS', icon: 'alert-circle', isPanic: true },
-    // { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
-    // { id: '6', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
-    // { id: '7', title: 'Family', icon: 'person-add-outline', route: 'FamilyMember' },
-
-
-
-
-    // { id: '9', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
-    // { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
-    // { id: '11', title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
-    // { id: '12', title: 'More', icon: 'ellipsis-horizontal-outline', route: 'AllServicesScreen' },
   ];
 
   const panicReasons = [
@@ -106,7 +88,6 @@ const ServicesSection = () => {
     }
   };
 
-  // 3. Updated fetchContacts to use Instant Cache Loading
   const fetchContacts = async () => {
     try {
       const userInfoRaw = await AsyncStorage.getItem("userInfo");
@@ -114,16 +95,13 @@ const ServicesSection = () => {
       const userId = userInfo?.id || userInfo?.user_id || "default";
       const CONTACTS_CACHE_KEY = getContactsCacheKey(userId);
 
-      // INSTANT LOAD: Check cache first
       const cachedData = await AsyncStorage.getItem(CONTACTS_CACHE_KEY);
       if (cachedData) {
         setContacts(JSON.parse(cachedData));
       } else {
-        // Only show loader if we have absolutely nothing to display
         setLoadingContacts(true);
       }
 
-      // BACKGROUND FETCH: Get fresh contacts from server
       const res = await otherServices.getPanicContacts();
       if (res?.status === 'success') {
         const phoneData = res.data?.phone_nos;
@@ -133,10 +111,7 @@ const ServicesSection = () => {
           freshContacts = Array.isArray(phoneData) ? phoneData : [phoneData];
         }
 
-        // Update state with fresh data
         setContacts(freshContacts);
-
-        // Update cache
         await AsyncStorage.setItem(CONTACTS_CACHE_KEY, JSON.stringify(freshContacts));
       } else if (!cachedData) {
         setContacts([]);
@@ -176,25 +151,82 @@ const ServicesSection = () => {
   };
 
   const visibleServices = allServices.filter((service) => {
-    if (!permissionsLoaded) return true;
+  if (!permissionsLoaded) return true;
 
-    if (service.title === 'Accounts') return hasPermission(permissions, 'BILL', 'R');
-    if (service.title === 'Visitors') return hasPermission(permissions, 'VMS', 'R');
-    if (service.title === 'Staff') return hasPermission(permissions, 'VMSSTF', 'R');
-    if (service.title === 'Bills') return hasPermission(permissions, 'BILL', 'R');
-    if (service.title === 'Add vehicle') return hasPermission(permissions, 'VEH', 'C');
-    if (service.title === 'Bookings') return hasPermission(permissions, 'FBK', 'R');
-    if (service.title === 'Payment') return hasPermission(permissions, 'PMT', 'R');
-    if (service.title === 'Family') return hasPermission(permissions, 'FMB', 'R');
-    if (service.title === 'My Complex') return hasPermission(permissions, 'NTC', 'R');
-    if (service.title === 'Setting') return hasPermission(permissions, 'STG', 'R');
-    if (service.title === 'Amenities') return hasPermission(permissions, 'FBK', 'R');
-    if (service.title === 'Energy') return hasPermission(permissions, 'MTR', 'R');
-    if (service.title === 'Complaints') return hasPermission(permissions, 'COM', 'R');
-    if (service.title === 'SOS') return canViewPanic;
+  if (service.title === 'Accounts') {
+    return hasPermission(permissions, 'BILL', 'R');
+  }
 
-    return true;
-  });
+  if (service.title === 'Notices') {
+    return hasPermission(permissions, 'NTC', 'R');
+  }
+
+  if (service.title === 'Amenities') {
+    return hasPermission(permissions, 'FBK', 'R');
+  }
+
+  if (service.title === 'Have a Query?') {
+    return hasPermission(permissions, 'COM', 'R');
+  }
+
+  if (service.title === 'Request Status') {
+    return hasPermission(permissions, 'COM', 'R');
+  }
+
+  if (service.title === 'Events') {
+    return hasPermission(permissions, 'EVNT', 'R');
+  }
+
+  if (service.title === 'Visitors') {
+    return hasPermission(permissions, 'VMS', 'R');
+  }
+
+  if (service.title === 'Staff') {
+    return hasPermission(permissions, 'VMSSTF', 'R');
+  }
+
+  if (service.title === 'Bills') {
+    return hasPermission(permissions, 'BILL', 'R');
+  }
+
+  if (service.title === 'Add vehicle') {
+    return hasPermission(permissions, 'VEH', 'C');
+  }
+
+  if (service.title === 'Bookings') {
+    return hasPermission(permissions, 'FBK', 'R');
+  }
+
+  if (service.title === 'Payment') {
+    return hasPermission(permissions, 'PMT', 'R');
+  }
+
+  if (service.title === 'Family') {
+    return hasPermission(permissions, 'FMB', 'R');
+  }
+
+  if (service.title === 'My Complex') {
+    return hasPermission(permissions, 'NTC', 'R');
+  }
+
+  if (service.title === 'Setting') {
+    return hasPermission(permissions, 'STG', 'R');
+  }
+
+  if (service.title === 'Energy') {
+    return hasPermission(permissions, 'MTR', 'R');
+  }
+
+  if (service.title === 'Complaints') {
+    return hasPermission(permissions, 'COM', 'R');
+  }
+
+  if (service.title === 'SOS') {
+    return canViewPanic;
+  }
+
+  return true;
+});
 
   return (
     <View key={userId} style={styles.container}>
@@ -222,7 +254,12 @@ const ServicesSection = () => {
                 color={service.isPanic ? '#EF4444' : theme.iconColorUnselected}
               />
             </View>
-            <Text style={[styles.serviceTitle, { color: theme.textColor }]}>
+            <Text 
+              style={[styles.serviceTitle, { color: theme.textColor }]}
+              numberOfLines={1} 
+              adjustsFontSizeToFit 
+              minimumFontScale={0.7}
+            >
               {service.title}
             </Text>
           </TouchableOpacity>
@@ -358,7 +395,7 @@ const styles = StyleSheet.create({
   serviceItem: { width: '25%', alignItems: 'center', marginBottom: 20 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   iconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  serviceTitle: { fontSize: 11, fontWeight: '500' },
+  serviceTitle: { fontSize: 11, fontWeight: '500', textAlign: 'center', width: '100%', paddingHorizontal: 2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.79)', justifyContent: 'center', alignItems: 'center' },
   modalContainer: { width: screenWidth - 40, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', paddingBottom: 16 },
   modalHeader: { backgroundColor: '#EF4444', padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

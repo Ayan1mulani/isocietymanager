@@ -30,7 +30,7 @@ const getOutstandingCacheKey = (userId) => `@outstanding_cache_${userId}`;
 const HTML_THEME = {
   background: "#F27B22",
   card: "#ffffff",
-  cardBorder: "rgba(0, 0, 0, 0.1)", 
+  cardBorder: "rgba(0, 0, 0, 0.1)",
   text: "#000000",
   subText: "rgba(0, 0, 0, 0.6)",
   accent: "#2563EB",
@@ -308,10 +308,17 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={handleRefresh}
-              style={styles.refreshBtn}
+              style={[
+                styles.refreshBtn,
+                centerCard && styles.singleRefreshBtn,
+              ]}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="refresh-outline" size={15} color="#000000" />
+              <Ionicons
+                name="refresh-outline"
+                size={centerCard ? 18 : 15}
+                color="#000000"
+              />
             </TouchableOpacity>
           </View>
 
@@ -350,7 +357,7 @@ const ResidentProfile = ({ refreshTrigger, onSetVisible }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 15 }}
         ItemSeparatorComponent={() => <View style={{ width: SPACING }} />}
-        alwaysBounceHorizontal={true} 
+        alwaysBounceHorizontal={true}
         overScrollMode="always"
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -442,7 +449,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.05)", // Updated to show contrast inside the white card
-    marginTop:0,
+    marginTop: 0,
     marginRight: -2,
   },
   topRow: { width: "100%", flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
@@ -459,11 +466,16 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginTop: 2,
   },
+  singleRefreshBtn: {
+  width: 28,
+  height: 28,
+  borderRadius: 18,
+},
   singleAmountRow: { justifyContent: 'center' },
   arrowInline: {
     position: 'absolute',
     right: 3,
-    bottom:0,
+    bottom: 0,
     alignSelf: 'center',
     width: 20,
     height: 20,

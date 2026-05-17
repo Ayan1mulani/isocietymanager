@@ -11,6 +11,7 @@ import {
   NativeModules,
   Share,        // ✅ Built-in React Native Share API
   Linking,      // ✅ For direct WhatsApp deep link
+  AppState,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -60,8 +61,18 @@ const DrawerContent = (props) => {
   useEffect(() => {
     const loadDrawerUser = async () => {
       try {
+        const localProfileData = await AsyncStorage.getItem('@user_profile_cache');
+        const parsedProfile = localProfileData ? JSON.parse(localProfileData) : null;
+
         const cachedImage = await AsyncStorage.getItem('@cached_profile_image');
         const cachedVersion = await AsyncStorage.getItem('@profile_image_version');
+
+        let finalVersion = cachedVersion || '1';
+
+        if (parsedProfile?.image_src || parsedProfile?.profile_image) {
+          finalVersion = Date.now().toString();
+          await AsyncStorage.setItem('@profile_image_version', finalVersion);
+        }
 
         const raw =
           (await AsyncStorage.getItem('userInfo')) ||
@@ -70,10 +81,19 @@ const DrawerContent = (props) => {
 
         const user = JSON.parse(raw);
 
+        const latestImage =
+          cachedImage ||
+          parsedProfile?.image_src ||
+          parsedProfile?.profile_image ||
+          user?.image_src ||
+          user?.profile_image ||
+          user?.image;
+
         setUserDetails({
           ...user,
-          image_src: cachedImage || user?.image_src,
-          image_version: cachedVersion || '1',
+          ...parsedProfile,
+          image_src: latestImage,
+          image_version: finalVersion,
         });
       } catch (_) {}
     };
@@ -85,8 +105,15 @@ const DrawerContent = (props) => {
       loadDrawerUser
     );
 
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        loadDrawerUser();
+      }
+    });
+
     return () => {
       profileSub.remove();
+      appStateSub.remove();
     };
   }, []);
 
