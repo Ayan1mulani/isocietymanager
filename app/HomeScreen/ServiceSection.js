@@ -65,7 +65,7 @@ const ServicesSection = () => {
     { id: '5', title: 'Visitors', icon: 'person-outline', route: 'Visitors' },
     { id: '6', title: 'Staff', icon: 'checkmark-circle-outline', route: 'StaffScreen' },
     { id: '7', title: 'Family', icon: 'person-add-outline', route: 'FamilyMember' },
-    { id: '8', title: 'Service Request', icon: 'construct-outline', route: 'Service Requests' },
+    { id: '8', title: 'Requests', icon: 'construct-outline', route: 'Service Requests' },
     { id: '9', title: 'Setting', icon: 'settings-outline', route: 'Settings' },
     { id: '10', title: 'Payment', icon: 'wallet-outline', route: 'Payment' },
     { id: '11', title: 'Energy', icon: 'speedometer-outline', route: 'Meter' },
@@ -180,7 +180,7 @@ const ServicesSection = () => {
     if (service.title === 'Setting') return hasPermission(permissions, 'STG', 'R');
     if (service.title === 'Amenities') return hasPermission(permissions, 'FBK', 'R');
     if (service.title === 'Energy') return hasPermission(permissions, 'MTR', 'R');
-    if (service.title === 'Service Request') return hasPermission(permissions, 'COM', 'R');
+    if (service.title === 'Requests') return hasPermission(permissions, 'COM', 'R');
     if (service.title === 'SOS') return canViewPanic;
 
     return true;
@@ -212,7 +212,11 @@ const ServicesSection = () => {
                 color={service.isPanic ? '#EF4444' : theme.iconColorUnselected}
               />
             </View>
-            <Text style={[styles.serviceTitle, { color: theme.textColor }]}>
+            <Text 
+              style={[styles.serviceTitle, { color: theme.textColor }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {service.title}
             </Text>
           </TouchableOpacity>
@@ -348,7 +352,7 @@ const styles = StyleSheet.create({
   serviceItem: { width: '25%', alignItems: 'center', marginBottom: 20 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   iconContainer: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  serviceTitle: { fontSize: 11, fontWeight: '500' },
+  serviceTitle: { fontSize: 11.5, fontWeight: '500', textAlign: 'center', width: '100%', paddingHorizontal: 2, lineHeight: 14 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.79)', justifyContent: 'center', alignItems: 'center' },
   modalContainer: { width: screenWidth - 40, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', paddingBottom: 16 },
   modalHeader: { backgroundColor: '#EF4444', padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

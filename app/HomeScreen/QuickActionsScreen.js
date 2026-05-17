@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   label: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: "600",
     color: COLORS.text,
     textAlign: "center",
